@@ -370,7 +370,7 @@ function layoutPage(page) {
   // 页标题：居中大字
   if (page.titleBlock) {
     const t = page.titleBlock;
-    t.fontSize = clampNum(t.fontSize || 48, 40, 58);
+    t.fontSize = clampNum(t.fontSize || 72, 60, 88);
     t.width = W - 200;
     computeLayout(t);
     textCtx.font = fontString(t);
@@ -398,7 +398,7 @@ function layoutPage(page) {
         x: r.x + 24,
         y: cursorY,
         width: r.w - 48,
-        fontSize: 30,
+        fontSize: 45,
         color: "#ffe066",
         emphasis: [],
       };
@@ -407,14 +407,14 @@ function layoutPage(page) {
       cursorY += layouts.get(hb.uid).lineH + 12;
     }
     for (const b of byRegion.get(r.id) || []) {
-      b.fontSize = clampNum(b.fontSize || 30, 24, 42);
+      b.fontSize = clampNum(b.fontSize || 45, 36, 63);
       b.x = r.x + 24;
       b.width = r.w - 48;
       for (let tries = 0; tries < 4; tries++) {
         computeLayout(b);
         const lay = layouts.get(b.uid);
-        if (cursorY + lay.lines.length * lay.lineH <= r.y + r.h - 6 || b.fontSize <= 22) break;
-        b.fontSize = Math.max(22, Math.round(b.fontSize * 0.88));
+        if (cursorY + lay.lines.length * lay.lineH <= r.y + r.h - 6 || b.fontSize <= 32) break;
+        b.fontSize = Math.max(32, Math.round(b.fontSize * 0.9));
       }
       b.y = cursorY;
       const lay = layouts.get(b.uid);
@@ -425,14 +425,14 @@ function layoutPage(page) {
   // 无区域归属的绝对块（AI 解答追加 / 旧协议）：仅钳制字号
   for (const b of page.blocks) {
     if (b.region) continue;
-    b.fontSize = clampNum(b.fontSize || 28, 24, 42);
+    b.fontSize = clampNum(b.fontSize || 42, 36, 63);
     if (!layouts.has(b.uid)) computeLayout(b);
   }
 
   // 总结句：置底换色
   if (page.summaryBlock) {
     const s = page.summaryBlock;
-    s.fontSize = clampNum(s.fontSize || 32, 28, 38);
+    s.fontSize = clampNum(s.fontSize || 48, 42, 56);
     s.x = 80;
     s.width = W - 160;
     computeLayout(s);
@@ -586,13 +586,17 @@ function animateIn(page, blockList, withDividers) {
     renderText();
     return;
   }
-  animState = {
+  runTimeline(
     entries,
-    dividerMap: new Map(entries.filter((e) => e.kind === "divider").map((e) => [e.d, e])),
-    dur: t,
-    startTs: 0,
-    tNow: 0,
-  };
+    new Map(entries.filter((e) => e.kind === "divider").map((e) => [e.d, e])),
+    t,
+    null,
+  );
+}
+
+// 时间线驱动：onDone 仅在自然播完时回调（被 stopAnim 打断时不回调）
+function runTimeline(entries, dividerMap, dur, onDone) {
+  animState = { entries, dividerMap, dur, startTs: 0, tNow: 0, onDone };
   const frame = (ts) => {
     if (!animState) return;
     if (!animState.startTs) animState.startTs = ts;
@@ -604,10 +608,141 @@ function animateIn(page, blockList, withDividers) {
       animRaf = 0;
       animState = null;
       renderText();
+      if (onDone) onDone();
     }
   };
   animRaf = requestAnimationFrame(frame);
 }
+
+// ---------- 配音讲解（讲写协同：讲什么写什么，讲完才写下一块） ----------
+
+let audioCtx = null;
+const narration = { playing: false, seq: 0, timers: [], audios: [] };
+
+function setNarrateBtn() {
+  const b = $("#btn-narrate");
+  if (b) {
+    b.textContent = narration.playing ? "⏹ 停止" : "🔊 讲解";
+    b.classList.toggle("primary", !narration.playing);
+  }
+}
+
+function stopNarration() {
+  narration.seq++; // 使旧闭包失效
+  narration.playing = false;
+  for (const t of narration.timers) clearTimeout(t);
+  narration.timers = [];
+  for (const a of narration.audios) {
+    try {
+      a.pause();
+      a.currentTime = 0;
+    } catch {
+      /* ignore */
+    }
+  }
+  narration.audios = [];
+  setNarrateBtn();
+}
+
+// 取一块的语音（缓存）：无讲稿/失败时返回按讲稿长度估时的静音降级
+async function fetchVoice(b) {
+  if (b._voice) return b._voice;
+  const say = (b.say || "").trim();
+  const fallback = { el: null, dur: Math.max(1.5, (say || b.text).length * 0.19) };
+  if (!say) {
+    b._voice = fallback;
+    return fallback;
+  }
+  try {
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: say }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    const ab = await (await fetch(data.audio)).arrayBuffer();
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let dur = 0;
+    try {
+      dur = await audioCtx.decodeAudioData(ab).then((x) => x.duration);
+    } catch {
+      /* 解码失败走估算 */
+    }
+    const el = new Audio(data.audio);
+    el.preload = "auto";
+    b._voice = { el, dur: dur || fallback.dur };
+  } catch {
+    b._voice = fallback;
+  }
+  return b._voice;
+}
+
+// blocks 默认整页；逐块：块内写字均布在语音时长内，语音停 → 下一块才开写
+async function playNarration(page, blockList) {
+  stopNarration();
+  stopAnim();
+  layoutPage(page);
+  const seq = narration.seq;
+  const blocks = (blockList || page._drawOrder).filter((b) => layouts.has(b.uid));
+  if (!blocks.length) return;
+  narration.playing = true;
+  setNarrateBtn();
+  const voices = await Promise.all(blocks.map(fetchVoice));
+  if (seq !== narration.seq) return; // 等待期间被停止
+
+  const entries = [];
+  const dividerMap = new Map();
+  let t = 350;
+  for (const d of page._dividers) {
+    if (blockList) break; // 追加讲解不重画分隔线
+    const e = { kind: "divider", d, t0: t, cost: DIVIDER_MS };
+    entries.push(e);
+    dividerMap.set(d, e);
+    t += DIVIDER_MS + 150;
+  }
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    const lay = layouts.get(b.uid);
+    const v = voices[i];
+    const start = t + 250; // 起笔前小留白（开口）
+    const writeDur = Math.max(900, v.dur * 1000 * 0.94); // 写字与语音同步收尾
+    let charCount = 0;
+    for (const line of lay.lines) charCount += line.length;
+    const per = writeDur / Math.max(1, charCount);
+    let gi = 0;
+    for (let li = 0; li < lay.lines.length; li++) {
+      for (let ci = 0; ci < lay.lines[li].length; ci++) {
+        entries.push({ kind: "char", b, li, ci, gi, t0: start + gi * per, cost: per });
+        gi++;
+      }
+    }
+    if (v.el) {
+      narration.audios.push(v.el);
+      narration.timers.push(
+        setTimeout(() => {
+          if (seq !== narration.seq) return;
+          v.el.currentTime = 0;
+          v.el.play().catch(() => {});
+        }, start),
+      );
+    }
+    t = start + writeDur + 650; // 讲完、写完，才轮到下一块
+  }
+  runTimeline(entries, dividerMap, t + 250, () => {
+    narration.playing = false;
+    setNarrateBtn();
+  });
+}
+
+$("#btn-narrate").addEventListener("click", () => {
+  if (narration.playing) {
+    stopNarration();
+    renderText(); // 定格完整板书
+  } else {
+    playNarration(pages[curPage]);
+  }
+});
 
 // ---------- 服务端板书 → 页面对象 ----------
 
@@ -635,14 +770,15 @@ function mkBlock(el, kind, defs) {
     color: /^#[0-9a-fA-F]{3,8}$/.test(el.color || "") ? el.color : defs.color,
     region: typeof el.region === "string" ? el.region : null,
     emphasis: coerceEmphasisList(el.emphasis),
+    say: typeof el.say === "string" ? el.say.trim().slice(0, 400) : null, // 口播讲稿（配音用，与板书分离）
   };
 }
 
 function normalizePage(pg) {
   const page = newPage();
   if (!pg || typeof pg !== "object") return page;
-  page.titleBlock = mkBlock(pg.title, "title", { x: 80, y: 28, width: W - 200, fontSize: 48, color: "#ffe066" });
-  page.summaryBlock = mkBlock(pg.summary, "summary", { x: 80, y: H - 120, width: W - 160, fontSize: 32, color: "#ffe066" });
+  page.titleBlock = mkBlock(pg.title, "title", { x: 80, y: 28, width: W - 200, fontSize: 72, color: "#ffe066" });
+  page.summaryBlock = mkBlock(pg.summary, "summary", { x: 80, y: H - 120, width: W - 160, fontSize: 48, color: "#ffe066" });
   if (Array.isArray(pg.regions)) {
     page.regions = pg.regions
       .filter((r) => r && typeof r === "object")
@@ -659,7 +795,7 @@ function normalizePage(pg) {
   if (Array.isArray(pg.blocks)) {
     const ids = new Set(page.regions.map((r) => r.id));
     page.blocks = pg.blocks
-      .map((b) => mkBlock(b, "block", { x: 80, y: 300, width: 640, fontSize: 30, color: "#f2f0e6" }))
+      .map((b) => mkBlock(b, "block", { x: 80, y: 300, width: 640, fontSize: 45, color: "#f2f0e6" }))
       .filter(Boolean)
       .map((b) => {
         if (b.region && !ids.has(b.region)) b.region = page.regions[0]?.id ?? null;
@@ -679,6 +815,7 @@ function syncPageNav() {
 
 function goToPage(i) {
   if (i < 0 || i >= pages.length || i === curPage) return;
+  stopNarration();
   stopAnim();
   renderText();
   curPage = i;
@@ -687,7 +824,7 @@ function goToPage(i) {
   const p = pages[i];
   if (p._drawOrder.length && !p.animated) {
     p.animated = true;
-    animateIn(p, p._drawOrder, true);
+    playNarration(p); // 每页首次观看 = 配音讲解 + 同步书写
   } else {
     renderText();
   }
@@ -705,7 +842,8 @@ boardEl.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   e.preventDefault();
   // 书写动画中：左键单击 = 跳过动画，直接完整显示，且不留笔迹
-  if (animState) {
+  if (animState || narration.playing) {
+    stopNarration();
     stopAnim();
     renderText();
     return;
@@ -815,6 +953,7 @@ function clearAll() {
   const s = strokesByPage[curPage];
   if (!s.length && !p._drawOrder.length) return;
   if (!confirm(`清空第 ${curPage + 1} 页黑板（手写 + AI板书）？`)) return;
+  stopNarration();
   stopAnim();
   pages[curPage] = newPage();
   strokesByPage[curPage] = [];
@@ -925,7 +1064,7 @@ async function generateBoard() {
     syncPageNav();
     redrawStrokes();
     pages[0].animated = true;
-    animateIn(pages[0], pages[0]._drawOrder, true);
+    playNarration(pages[0]); // 生成即开讲：边讲边写
     $("#drawer").classList.add("hidden");
     toast(pages.length > 1 ? `板书已生成，共 ${pages.length} 页（←/→ 翻页）` : "板书已生成", "ok");
   } catch (err) {
@@ -971,7 +1110,8 @@ async function answerBoard() {
     for (const b of blocks) computeLayout(b);
     p.blocks = p.blocks.concat(blocks);
     p._drawOrder = p._drawOrder.concat(blocks);
-    animateIn(p, blocks, false);
+    if (blocks.some((b) => b.say && b.say.trim())) playNarration(p, blocks); // AI 解答也开口讲
+    else animateIn(p, blocks, false);
     toast("AI 已作答", "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? "无法连接本地服务" : err.message, "err");
@@ -1024,7 +1164,16 @@ async function openSettings() {
     $("#cfg-visionModel").value = cfg.visionModel || "";
     $("#cfg-maxRPM").value = cfg.maxRPM || 10;
     $("#cfg-disableThinking").checked = cfg.disableThinking !== false;
-    $("#cfg-status").textContent = cfg.hasKey ? "已配置密钥" : "未配置密钥，AI 功能不可用";
+    $("#cfg-ttsBaseUrl").value = cfg.ttsBaseUrl || "";
+    $("#cfg-ttsApiKey").value = cfg.ttsApiKeyMasked || "";
+    $("#cfg-ttsModel").value = cfg.ttsModel || "";
+    $("#cfg-ttsVoice").value = cfg.ttsVoice || "";
+    $("#cfg-status").textContent =
+      cfg.hasKey && cfg.hasTtsKey
+        ? "已配置 LLM + TTS 密钥"
+        : cfg.hasKey
+          ? "LLM 已配置；未配置 TTS，讲解将无配音"
+          : "未配置密钥，AI 功能不可用";
   } catch {
     $("#cfg-status").textContent = "读取配置失败";
   }
@@ -1039,6 +1188,10 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     visionModel: $("#cfg-visionModel").value.trim(),
     maxRPM: Number($("#cfg-maxRPM").value) || 10,
     disableThinking: $("#cfg-disableThinking").checked,
+    ttsBaseUrl: $("#cfg-ttsBaseUrl").value.trim(),
+    ttsApiKey: $("#cfg-ttsApiKey").value.trim(),
+    ttsModel: $("#cfg-ttsModel").value.trim(),
+    ttsVoice: $("#cfg-ttsVoice").value.trim(),
   };
   try {
     const res = await fetch("/api/config", {

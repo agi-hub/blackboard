@@ -34,10 +34,10 @@
     </div>
 
     <div class="tb-group spacer-right">
+      <button id="btn-narrate" class="ai-btn primary" title="重播/停止 配音讲解（边讲边写）">🔊 讲解</button>
       <button id="btn-layout" class="ai-btn" title="粘贴文本，AI 精炼排版为板书">✎ 文本转板书</button>
-      <button id="btn-answer" class="ai-btn primary" title="截图整块黑板，AI 识别手写并作答">✦ AI 解答</button>
+      <button id="btn-answer" class="ai-btn" title="截图整块黑板，AI 识别手写并作答">✦ AI 解答</button>
     </div>
-
     <div class="tb-group" id="page-nav" title="黑板翻页（←/→）">
       <button id="btn-prev-page" class="tool-btn nav-btn" title="上一页 (←)">◀</button>
       <span id="page-indicator">1 / 1</span>
@@ -104,6 +104,17 @@
       </label>
       <label class="check-row">禁用深度思考（大幅提速，模型不支持时自动忽略）
         <input id="cfg-disableThinking" type="checkbox" />
+      </label>
+
+      <label>配音 TTS · 接口地址（SiliconFlow 兼容 /audio/speech）
+        <input id="cfg-ttsBaseUrl" type="text" autocomplete="off" />
+      </label>
+      <label>配音 TTS · API Key（留打码值表示不修改）
+        <input id="cfg-ttsApiKey" type="password" autocomplete="off" />
+      </label>
+      <label>配音 TTS · 模型 / 音色
+        <input id="cfg-ttsModel" type="text" autocomplete="off" />
+        <input id="cfg-ttsVoice" type="text" autocomplete="off" />
       </label>
       <div class="drawer-actions">
         <span id="cfg-status" class="cfg-status"></span>

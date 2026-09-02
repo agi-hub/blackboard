@@ -28,7 +28,7 @@ interface BoardElement {
   fontSize: number;
   color: string;
   emphasis?: Emphasis[];
-  region?: string; // 归属区域 id（有区域时前端在区域内自动排版，忽略 x/y）
+  say?: string; // 口播讲稿：讲什么（text 是写什么），二者分离
 }
 
 interface Region {
@@ -54,6 +54,11 @@ interface AppConfig {
   visionModel: string;
   maxRPM: number;
   disableThinking: boolean;
+  ttsBaseUrl: string;
+  ttsApiKey: string;
+  ttsModel: string;
+  ttsVoice: string;
+  ttsSpeed: number;
 }
 
 type ContentPart =
@@ -84,6 +89,11 @@ const DEFAULT_CONFIG: AppConfig = {
   visionModel: "glm-5.3-flash",
   maxRPM: 10,
   disableThinking: true,
+  ttsBaseUrl: "https://api.siliconflow.cn/v1",
+  ttsApiKey: "",
+  ttsModel: "FunAudioLLM/CosyVoice2-0.5B",
+  ttsVoice: "FunAudioLLM/CosyVoice2-0.5B:alex",
+  ttsSpeed: 1.0,
 };
 
 function loadConfig(): AppConfig {
@@ -100,6 +110,13 @@ function loadConfig(): AppConfig {
       cfg.maxRPM = Math.min(60, Math.floor(parsed.maxRPM));
     }
     if (typeof parsed.disableThinking === "boolean") cfg.disableThinking = parsed.disableThinking;
+    if (isStr(parsed.ttsBaseUrl) && parsed.ttsBaseUrl.trim()) cfg.ttsBaseUrl = parsed.ttsBaseUrl.trim();
+    if (isStr(parsed.ttsApiKey)) cfg.ttsApiKey = parsed.ttsApiKey.trim();
+    if (isStr(parsed.ttsModel) && parsed.ttsModel.trim()) cfg.ttsModel = parsed.ttsModel.trim();
+    if (isStr(parsed.ttsVoice) && parsed.ttsVoice.trim()) cfg.ttsVoice = parsed.ttsVoice.trim();
+    if (typeof parsed.ttsSpeed === "number" && Number.isFinite(parsed.ttsSpeed) && parsed.ttsSpeed >= 0.5 && parsed.ttsSpeed <= 2) {
+      cfg.ttsSpeed = parsed.ttsSpeed;
+    }
     return cfg;
   } catch (err) {
     console.error("config.json 解析失败，使用默认配置:", err instanceof Error ? err.message : err);
@@ -209,7 +226,7 @@ function coerceElement(v: unknown, id: string, W: number, H: number): BoardEleme
   // 同一换算在 4 个字段上复用，保持一致语义
   const num = (x: unknown, d: number): number => (typeof x === "number" && Number.isFinite(x) ? x : d);
   const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, x));
-  const fontSize = clamp(Math.round(num(v.fontSize, 20)), 14, 60);
+  const fontSize = clamp(Math.round(num(v.fontSize, 45)), 24, 90);
   const x = clamp(Math.round(num(v.x, 60)), 16, W - 80);
   const width = clamp(Math.round(num(v.width, 560)), 160, W - x - 24);
   const y = clamp(Math.round(num(v.y, 100)), 24, H - 48);
@@ -234,6 +251,7 @@ function coerceElement(v: unknown, id: string, W: number, H: number): BoardEleme
     color,
     ...(emphasis.length ? { emphasis: emphasis.slice(0, 8) } : {}),
     ...(isStr(v.region) && v.region.trim() ? { region: v.region.trim() } : {}),
+    ...(isStr(v.say) && v.say.trim() ? { say: v.say.trim().slice(0, 400) } : {}), // 口播讲稿（与板书 text 分离）
   };
 }
 
@@ -286,25 +304,30 @@ function normalizePages(json: unknown, W: number, H: number): BoardJSON[] {
 
 function layoutSystemPrompt(W: number, H: number): string {
   return [
-    "你是专业的黑板板书排版引擎。任务：把输入文本（冗长文章、笔记或 Markdown）精炼为「多页、分区、大字、重点分明」的黑板板书。",
+    "你是专业的黑板板书排版引擎兼授课教师。任务：把输入文本（冗长文章、笔记或 Markdown）精炼为「多页、分区、大字、重点分明」的黑板板书，同时为每块内容写口播讲稿。",
     "",
     "输出协议（严格只返回 JSON，无解释、无 markdown 代码块）：",
     '{"pages":[{',
-    '  "title": {"text":"页标题","fontSize":48},',
+    '  "title": {"text":"页标题","fontSize":72,"say":"这一页的开场口播，1~2 句，20~40 字"},',
     '  "regions": [',
-    '    {"id":"r1","x":60,"y":150,"width":700,"height":680,"header":"栏目标题"},',
-    '    {"id":"r2","x":840,"y":150,"width":700,"height":680,"header":"栏目标题"}',
+    '    {"id":"r1","x":60,"y":170,"width":700,"height":660,"header":"栏目标题"},',
+    '    {"id":"r2","x":840,"y":170,"width":700,"height":660,"header":"栏目标题"}',
     "  ],",
     '  "blocks": [',
-    '    {"region":"r1","text":"…","fontSize":30,"color":"#f2f0e6","emphasis":[{"text":"关键词","color":"#ffab6e"}]}',
+    '    {"region":"r1","text":"写在黑板上的精简板书","fontSize":45,"color":"#f2f0e6","say":"老师口播讲解这一块，自然口语，40~70 字，可展开细节、举例、强调","emphasis":[{"text":"关键词","color":"#ffab6e"}]}',
     "  ],",
-    '  "summary": {"text":"本页核心结论（一句话）","fontSize":32,"color":"#ffe066"}',
+    '  "summary": {"text":"本页核心结论（一句话）","fontSize":48,"color":"#ffe066","say":"总结口播，20~40 字，收束本页"}',
     "}]}",
+    "",
+    "讲稿规则（say 与 text 分离，讲什么≠写什么）：",
+    "- text = 板书：极简短语、关键词、数据，学生抄笔记用的。",
+    "- say = 口播：自然口语的讲解，像老师边写边讲；讲稿内容覆盖该块要点，可口语化扩展、举例、强调；不必与 text 一致。",
+    "- title/blocks/summary 每一项都必须带 say（30~70 字）；用户会听讲稿，写字与语音同步进行。",
     "",
     "排版规则：",
     "1. 先分区再写字（核心）：每页先把画布划分为 1~4 个矩形区域——常用左右两栏 / 上下两栏 / 2×2。区域之间留 40~70px 间隙（前端会在间隙画粉笔分隔线）。区域不重叠：x+width ≤ 1540，y+height ≤ 860，页面底部约 100px 留给总结条。",
     "2. 每个区域一个主题：header ≤ 10 字（黄色区头，自动带下划线）；区域内 2~4 块、每块 1~3 行。内容多就分更多页（1~4 页），每页一个主题，宁可翻页不要拥挤。",
-    "3. 字要大（黑板精髓，远看要清楚）：页标题 44~54；区头 30（前端固定）；正文 28~36；总结 30~36。",
+    "3. 字要大（黑板精髓，远看要清楚）：页标题 66~80；区头 45（前端固定）；正文 42~54；总结 45~54。每块 text 控制在 1~2 行（字大行少）。",
     "4. 颜色是主要重点手段（8 色粉笔，必须丰富用色，每页至少出现 4~5 种颜色）：",
     "   白 #f2f0e6 正文 ｜ 灰 #d8d8d8 次要说明",
     "   黄 #ffe066 重点/结论/区头 ｜ 橙 #ffab6e 警示/注意/风险",
@@ -313,7 +336,7 @@ function layoutSystemPrompt(W: number, H: number): string {
     "   整块换色 + 行内重点词换色搭配使用；summary 必须黄或粉。",
     "5. emphasis 彩色重点词：每页 4~8 个关键词直接指定彩色（比整块更跳脱的颜色）；关键词 ≤ 8 字且必须与所在块 text 原文完全一致。不使用圈选/下划线，纯靠颜色区分。",
     "6. 提纯：删客套话、铺垫、重复；保留论点、数据、结论。板书元素可用 ①②③、→、[图]。",
-    "7. blocks 只需 region + text + fontSize + color + emphasis，不需要 x/y（前端在区域内自动排版）。",
+    "7. blocks 只需 region + text + say + fontSize + color + emphasis，不需要 x/y（前端在区域内自动排版）。",
     `画布每页 ${W}x${H} 像素（左上原点）。text 内用 \\n 换行。`,
   ].join("\n");
 }
@@ -326,11 +349,12 @@ function visionPrompt(W: number, H: number, note: string): string {
     "1. 识别图上所有印刷文字、手写文字、圈选、问号、草图与标记；",
     "2. 理解用户的提问、疑惑、解题或补充需求；",
     "3. 在黑板的空白区域作答：精准、简洁、分步、要点化，符合板书风格（可用 ①②③ 与 →）；",
-    "4. 新内容必须放在空白处，避开图上已有内容所在区域，字号 24~32（大字），总量控制在 4~10 行；",
+    "4. 新内容必须放在空白处，避开图上已有内容所在区域，字号 36~48（大字），总量控制在 2~6 行；",
     "5. 颜色 8 色粉笔（丰富用色）：白 #f2f0e6 正文；黄 #ffe066 答案/重点；橙 #ffab6e 注意；粉 #ff9ec4 纠错/易错；蓝 #9fd8ff 公式/推导；绿 #b8f2b8 验证/正确；灰 #d8d8d8 次要；紫 #d8b8ff 注释。",
     '6. emphasis 彩色重点词（与 text 原文完全一致，≤8 字）：[{"text":"答案","color":"#ffe066"}]',
+    '7. 每块必须带 say：口播讲解（30~60 字，自然口语，讲推导过程/原因）；text 是写在黑板上的精简答案，讲稿可口语化展开。',
     "严格只返回板书 JSON（无解释、无 markdown 代码块）：",
-    '{"blocks":[{"id":"a1","text":"…","x":0,"y":0,"width":640,"fontSize":28,"color":"#f2f0e6","emphasis":[{"text":"…","color":"#ffe066"}]}]}',
+    '{"blocks":[{"id":"a1","text":"…","x":0,"y":0,"width":640,"fontSize":42,"color":"#f2f0e6","say":"口播讲解…","emphasis":[{"text":"…","color":"#ffe066"}]}]}',
     note ? `用户附加说明：${note}` : "",
   ]
     .filter(Boolean)
@@ -384,8 +408,13 @@ Bun.serve({
           visionModel: cfg.visionModel,
           maxRPM: cfg.maxRPM,
           disableThinking: cfg.disableThinking,
+          ttsBaseUrl: cfg.ttsBaseUrl,
+          ttsModel: cfg.ttsModel,
+          ttsVoice: cfg.ttsVoice,
+          ttsSpeed: cfg.ttsSpeed,
+          hasTtsKey: cfg.ttsApiKey.length > 0,
+          ttsApiKeyMasked: cfg.ttsApiKey ? `${cfg.ttsApiKey.slice(0, 10)}…${cfg.ttsApiKey.slice(-4)}` : "",
           hasKey: cfg.apiKey.length > 0,
-          apiKeyMasked: cfg.apiKey ? `${cfg.apiKey.slice(0, 8)}…${cfg.apiKey.slice(-4)}` : "",
         });
       }
 
@@ -404,6 +433,15 @@ Bun.serve({
           cfg.maxRPM = Math.min(60, Math.floor(body.maxRPM));
         }
         if (typeof body.disableThinking === "boolean") cfg.disableThinking = body.disableThinking;
+        if (isStr(body.ttsBaseUrl) && body.ttsBaseUrl.trim()) cfg.ttsBaseUrl = body.ttsBaseUrl.trim();
+        if (isStr(body.ttsApiKey) && body.ttsApiKey.trim() && !body.ttsApiKey.includes("…")) {
+          cfg.ttsApiKey = body.ttsApiKey.trim();
+        }
+        if (isStr(body.ttsModel) && body.ttsModel.trim()) cfg.ttsModel = body.ttsModel.trim();
+        if (isStr(body.ttsVoice) && body.ttsVoice.trim()) cfg.ttsVoice = body.ttsVoice.trim();
+        if (typeof body.ttsSpeed === "number" && Number.isFinite(body.ttsSpeed) && body.ttsSpeed >= 0.5 && body.ttsSpeed <= 2) {
+          cfg.ttsSpeed = body.ttsSpeed;
+        }
         writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
         try {
           chmodSync(CONFIG_PATH, 0o600); // 双保险：已有文件也收敛权限
@@ -478,6 +516,44 @@ Bun.serve({
           return jsonError("模型未返回有效作答 JSON，请重试", 502);
         }
         return Response.json({ ok: true, board, raw: content.length > 2000 ? content.slice(0, 2000) : content });
+      }
+
+      // ---- 讲稿配音（SiliconFlow 兼容 /audio/speech） ----
+      if (path === "/api/tts" && req.method === "POST") {
+        const body = await readJSONBody(req);
+        if (!body) return jsonError("请求体必须是 JSON 对象", 400);
+        if (!isStr(body.text) || !body.text.trim()) return jsonError("text 不能为空", 400);
+        const text = body.text.slice(0, 500);
+
+        const cfg = loadConfig();
+        if (!cfg.ttsApiKey) return jsonError("未配置 TTS API Key，请在「设置」中填写 SiliconFlow Key", 400);
+        if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
+
+        const ttsRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/audio/speech", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${cfg.ttsApiKey}`,
+          },
+          body: JSON.stringify({
+            model: cfg.ttsModel,
+            input: text,
+            voice: cfg.ttsVoice,
+            response_format: "mp3",
+            speed: cfg.ttsSpeed,
+          }),
+          signal: AbortSignal.timeout(60_000),
+        });
+        if (!ttsRes.ok) {
+          const errText = (await ttsRes.text()).slice(0, 300);
+          throw new Error(`TTS 服务返回 ${ttsRes.status}: ${errText}`);
+        }
+        const bytes = new Uint8Array(await ttsRes.arrayBuffer());
+        let bin = "";
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); // 32k 分块，避免 spread 参数上限
+        }
+        return Response.json({ ok: true, audio: `data:audio/mpeg;base64,${btoa(bin)}` });
       }
 
       // ---- 静态文件 ----
