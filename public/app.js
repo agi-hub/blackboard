@@ -562,8 +562,15 @@ function renderText(t = Infinity) {
     }
   }
   for (const b of page._drawOrder) {
-    const allowed = quota.size ? (quota.get(b.uid) ?? 0) : Infinity;
+    const allowed = quota.size ? (quota.get(b.uid) ?? Infinity) : Infinity; // 不在本次动画里的块始终完整显示
     drawBlock(textCtx, b, allowed, partials.get(b.uid));
+  }
+
+  // 讲解标记：讲到哪个词，就当场在板书上圈/划它（340ms 画完，保留）
+  for (const mk of page._sayMarks || []) {
+    const frac = animState && t !== Infinity ? Math.min(1, Math.max(0, (t - mk.tAppear) / 340)) : 1;
+    if (frac <= 0) continue;
+    drawSayMark(textCtx, mk, frac);
   }
 
 }
@@ -671,10 +678,10 @@ function stopNarration() {
   setNarrateBtn();
 }
 
-// 教师与音色：女老师 alex / 老教师 benjamin（点击右下角形象切换）
+// 教师与音色（基音实测：alex 122Hz 男声 / anna 236Hz 女声）
 const TEACHER_VOICES = {
-  female: "FunAudioLLM/CosyVoice2-0.5B:alex",
-  male: "FunAudioLLM/CosyVoice2-0.5B:benjamin",
+  female: "FunAudioLLM/CosyVoice2-0.5B:anna",
+  male: "FunAudioLLM/CosyVoice2-0.5B:alex",
 };
 let teacher = "female";
 
@@ -695,10 +702,30 @@ $("#teacher-male").addEventListener("pointerdown", (e) => {
   setTeacher("male");
 });
 
-// 取一块的语音（按当前教师音色缓存）：无讲稿/失败时返回静音降级
+// 讲稿标记解析：circle{词}/underline{词} → 纯文本 + 标记位置（转语音前剥离）
+function parseSay(say) {
+  const src = String(say || "");
+  const re = /(circle|underline)\{([^{}]*)\}/g;
+  let clean = "";
+  const marks = [];
+  let last = 0;
+  let m;
+  while ((m = re.exec(src))) {
+    clean += src.slice(last, m.index);
+    const start = clean.length;
+    clean += m[2];
+    if (m[2]) marks.push({ type: m[1], text: m[2], start, end: clean.length });
+    last = re.lastIndex;
+  }
+  clean += src.slice(last);
+  return { clean, marks };
+}
+
+// 取一块的语音（按当前教师音色缓存，讲稿剥离标记后送 TTS）：无讲稿/失败时返回静音降级
 async function fetchVoice(b) {
   if (b._voice && b._voice.voice === teacher) return b._voice;
-  const say = (b.say || "").trim();
+  const parsed = parseSay(b.say);
+  const say = parsed.clean.trim();
   const fallback = { voice: teacher, el: null, dur: Math.max(1.5, (say || b.text).length * 0.19) };
   if (!say) {
     b._voice = fallback;
@@ -729,6 +756,75 @@ async function fetchVoice(b) {
   return b._voice;
 }
 
+// 讲稿标记 → 板书定位 + 出现时刻（词起点占纯讲稿比例 × 语音时长）
+function pushSayMarks(page, b, windowStart, windowDur, mode) {
+  const parsed = parseSay(b.say);
+  const cleanLen = Math.max(1, parsed.clean.length);
+  for (const mk of parsed.marks) {
+    const span = findMarkSpan(b, mk.text);
+    if (!span) continue; // 板书上找不到该词 → 无法定位，跳过
+    page._sayMarks.push({ type: mk.type, text: mk.text, tAppear: windowStart + (mk.start / cleanLen) * windowDur, span });
+  }
+}
+
+// 在块的板书行内找词的像素跨度
+function findMarkSpan(b, text) {
+  const lay = layouts.get(b.uid);
+  if (!lay || !text) return null;
+  textCtx.font = fontString(b);
+  for (let li = 0; li < lay.lines.length; li++) {
+    const line = lay.lines[li];
+    const idx = line.indexOf(text);
+    if (idx < 0) continue;
+    const x0 = b.x + textCtx.measureText(line.slice(0, idx)).width;
+    const x1 = x0 + textCtx.measureText(text).width;
+    return { x0, x1, y: b.y + li * lay.lineH + b.fontSize * 0.9, fontSize: b.fontSize };
+  }
+  return null;
+}
+
+// 手绘粉笔圈（frac: 0~1 渐进画弧）
+function drawChalkCircle(ctx, cx, cy, rx, ry, chalkColor, rnd, frac = 1) {
+  ctx.strokeStyle = chalkColor;
+  ctx.lineCap = "round";
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.globalAlpha = 0.6 + rnd() * 0.28;
+    ctx.lineWidth = 2.4 + rnd() * 1.6;
+    const a0 = rnd() * Math.PI * 2;
+    ctx.beginPath();
+    ctx.ellipse(
+      cx + (rnd() - 0.5) * 3,
+      cy + (rnd() - 0.5) * 3,
+      Math.max(10, rx + (rnd() - 0.5) * 7),
+      Math.max(9, ry + (rnd() - 0.5) * 6),
+      (rnd() - 0.5) * 0.15,
+      a0,
+      a0 + Math.PI * 1.92 * frac,
+    );
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawSayMark(ctx, mk, frac) {
+  const rnd = mulberry32(hashStr(mk.text + "|" + mk.type));
+  if (mk.type === "circle") {
+    drawChalkCircle(
+      ctx,
+      (mk.span.x0 + mk.span.x1) / 2,
+      mk.span.y - mk.span.fontSize * 0.3,
+      (mk.span.x1 - mk.span.x0) / 2 + 7,
+      mk.span.fontSize * 0.55,
+      "#ff9ec4",
+      rnd,
+      frac,
+    );
+  } else {
+    const xEnd = mk.span.x0 + (mk.span.x1 - mk.span.x0) * frac; // 渐进划线
+    drawChalkUnderline(ctx, mk.span.x0, mk.span.y + mk.span.fontSize * 0.12, xEnd, "#ffe066", rnd);
+  }
+}
+
 // blocks 默认整页；逐块：块内写字均布在语音时长内，语音停 → 下一块才开写
 async function playNarration(page, blockList) {
   stopNarration();
@@ -740,6 +836,9 @@ async function playNarration(page, blockList) {
   narration.playing = true;
   setNarrateBtn();
   const voices = await Promise.all(blocks.map(fetchVoice));
+  // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
+  page._sayMarks = blockList ? page._sayMarks || [] : [];
+
   if (seq !== narration.seq) return; // 等待期间被停止
 
   const entries = [];
@@ -779,6 +878,7 @@ async function playNarration(page, blockList) {
           v.el.play().catch(() => {});
         }, speakAt),
       );
+      pushSayMarks(page, b, start + writeDur + 200, v.dur * 1000, "speak");
       t = speakAt + v.dur * 1000 + 450; // 讲完、缓冲，才轮到写下一块
     } else {
       // 无语音（未开配音/无讲稿）：不讲解；逐行快写，行尾按 5 字/秒 阅读速度停 1~3 秒
@@ -793,6 +893,7 @@ async function playNarration(page, blockList) {
         cursor += Math.max(400, line.length * per); // 该行写完
         cursor += Math.min(3000, Math.max(1000, (line.length / 5) * 1000)); // 阅读停顿
       }
+      pushSayMarks(page, b, start, cursor - start, "silent");
       t = cursor;
     }
   }
@@ -809,6 +910,12 @@ $("#btn-narrate").addEventListener("click", () => {
   } else {
     playNarration(pages[curPage]);
   }
+});
+
+$("#btn-replay").addEventListener("click", () => {
+  // 重播：从本页开头重新讲解（清标记重画）
+  stopNarration();
+  playNarration(pages[curPage]);
 });
 
 // ---------- 服务端板书 → 页面对象 ----------
@@ -1150,7 +1257,7 @@ async function handleAskClick(e) {
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     const note = mkBlock(
-      { text: data.text, x: pt.x + 34, y: pt.y + 30, width: 460, fontSize: 30, color: "#ffe066" },
+      { text: data.text, say: data.text, x: pt.x + 34, y: pt.y + 30, width: 460, fontSize: 30, color: "#ffe066" },
       "note",
       { x: pt.x + 34, y: pt.y + 30, width: 460, fontSize: 30, color: "#ffe066" },
     );
@@ -1161,7 +1268,7 @@ async function handleAskClick(e) {
     note.y = Math.min(note.y, H - lay.lines.length * lay.lineH - 60);
     page.blocks.push(note);
     page._drawOrder.push(note);
-    animateIn(page, [note], false);
+    playNarration(page, [note]); // 答案快写 + 教师开口讲解（其他板书保持不动）
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? "无法连接本地服务" : err.message, "err");
   } finally {
