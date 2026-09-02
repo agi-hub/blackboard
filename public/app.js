@@ -530,6 +530,10 @@ function renderText(t = Infinity) {
   logicalTransform(textCtx, textC);
   textCtx.textBaseline = "alphabetic";
 
+  // 状态区分：讲解「预取语音中」→ 保持空白等待开讲，不显示全量文字
+  // （提问模式/停止状态走 t=Infinity 全显，不受影响）
+  if (narration.pending && !animState) return;
+
   const page = pages[curPage];
   if (!page) return;
   layoutPage(page);
@@ -550,19 +554,22 @@ function renderText(t = Infinity) {
   }
 
   // 各块配额 = 已完整写出的字符数；正在写的字带渐现 alpha
+  // 语义区分：在本次动画列表中的块按配额（未开写 = 0，不显示）；
+  // 不在列表中的块（如提问便签追加讲解时的既有板书）始终完整显示。
   const quota = new Map();
   const partials = new Map();
   if (animState && t !== Infinity) {
     for (const e of animState.entries) {
       if (e.kind !== "char") continue;
+      if (!quota.has(e.b.uid)) quota.set(e.b.uid, 0); // 先占位：动画块未开写也是 0
       const done = t >= e.t0 + e.cost;
       const inFlight = !done && t >= e.t0;
-      if (done) quota.set(e.b.uid, (quota.get(e.b.uid) ?? 0) + 1);
+      if (done) quota.set(e.b.uid, quota.get(e.b.uid) + 1);
       else if (inFlight) partials.set(e.b.uid, { gi: e.gi, alpha: Math.max(0.1, (t - e.t0) / e.cost) });
     }
   }
   for (const b of page._drawOrder) {
-    const allowed = quota.size ? (quota.get(b.uid) ?? Infinity) : Infinity; // 不在本次动画里的块始终完整显示
+    const allowed = quota.size ? (quota.get(b.uid) ?? Infinity) : Infinity;
     drawBlock(textCtx, b, allowed, partials.get(b.uid));
   }
 
@@ -664,6 +671,7 @@ function setNarrateBtn() {
 function stopNarration() {
   narration.seq++; // 使旧闭包失效
   narration.playing = false;
+  narration.pending = false;
   for (const t of narration.timers) clearTimeout(t);
   narration.timers = [];
   for (const a of narration.audios) {
@@ -834,12 +842,14 @@ async function playNarration(page, blockList) {
   const blocks = (blockList || page._drawOrder).filter((b) => layouts.has(b.uid));
   if (!blocks.length) return;
   narration.playing = true;
+  narration.pending = !blockList; // 整页讲解预取语音时画面空白；追加讲解保持现有板书
   setNarrateBtn();
   const voices = await Promise.all(blocks.map(fetchVoice));
   // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
   page._sayMarks = blockList ? page._sayMarks || [] : [];
 
   if (seq !== narration.seq) return; // 等待期间被停止
+  narration.pending = false; // 预取完成，时间线即将启动
 
   const entries = [];
   const dividerMap = new Map();
