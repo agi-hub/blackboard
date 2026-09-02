@@ -1388,7 +1388,7 @@ function toast(msg, type = "") {
 async function generateBoard() {
   const text = $("#text-input").value.trim();
   if (!text) return toast("先粘贴一些文本", "err");
-  thinking(true, "AI 正在精炼排版…");
+  thinking(true, "老师正在备课…");
   try {
     const res = await fetch("/api/text2board", {
       method: "POST",
