@@ -16,8 +16,7 @@ const PORT = Number(process.env.PORT ?? 8918);
 
 interface Emphasis {
   text: string;
-  style: "circle" | "underline";
-  color: string;
+  color: string; // 重点词直接用彩色粉笔书写（行内换色，不圈选）
 }
 
 interface BoardElement {
@@ -221,7 +220,6 @@ function coerceElement(v: unknown, id: string, W: number, H: number): BoardEleme
       if (!isRecord(e) || !isStr(e.text) || !e.text.trim()) continue;
       emphasis.push({
         text: e.text.trim().slice(0, 20),
-        style: e.style === "circle" ? "circle" : "underline",
         color: isStr(e.color) && /^#[0-9a-fA-F]{3,8}$/.test(e.color) ? e.color : "#ffe066",
       });
     }
@@ -298,7 +296,7 @@ function layoutSystemPrompt(W: number, H: number): string {
     '    {"id":"r2","x":840,"y":150,"width":700,"height":680,"header":"栏目标题"}',
     "  ],",
     '  "blocks": [',
-    '    {"region":"r1","text":"…","fontSize":30,"color":"#f2f0e6","emphasis":[{"text":"关键词","style":"circle","color":"#ffe066"}]}',
+    '    {"region":"r1","text":"…","fontSize":30,"color":"#f2f0e6","emphasis":[{"text":"关键词","color":"#ffab6e"}]}',
     "  ],",
     '  "summary": {"text":"本页核心结论（一句话）","fontSize":32,"color":"#ffe066"}',
     "}]}",
@@ -307,8 +305,13 @@ function layoutSystemPrompt(W: number, H: number): string {
     "1. 先分区再写字（核心）：每页先把画布划分为 1~4 个矩形区域——常用左右两栏 / 上下两栏 / 2×2。区域之间留 40~70px 间隙（前端会在间隙画粉笔分隔线）。区域不重叠：x+width ≤ 1540，y+height ≤ 860，页面底部约 100px 留给总结条。",
     "2. 每个区域一个主题：header ≤ 10 字（黄色区头，自动带下划线）；区域内 2~4 块、每块 1~3 行。内容多就分更多页（1~4 页），每页一个主题，宁可翻页不要拥挤。",
     "3. 字要大（黑板精髓，远看要清楚）：页标题 44~54；区头 30（前端固定）；正文 28~36；总结 30~36。",
-    "4. 颜色语义（重点分明）：正文 #f2f0e6 白 / #d8d8d8 灰；核心结论句必须换色 #ffe066 黄 或 #ff9ec4 粉；数据/公式 #9fd8ff 蓝；好处/收益 #b8f2b8 绿；警示/易错 #ff9ec4 粉。summary 必须用黄或粉。",
-    "5. emphasis 重点标记：每页 3~6 个关键词 circle 圈选或 underline 下划线；关键词 ≤ 8 字且必须与所在块 text 原文完全一致；圈选用于最重要的词，下划线次之。",
+    "4. 颜色是主要重点手段（8 色粉笔，必须丰富用色，每页至少出现 4~5 种颜色）：",
+    "   白 #f2f0e6 正文 ｜ 灰 #d8d8d8 次要说明",
+    "   黄 #ffe066 重点/结论/区头 ｜ 橙 #ffab6e 警示/注意/风险",
+    "   粉 #ff9ec4 易错/记忆点 ｜ 蓝 #9fd8ff 数据/公式/数字",
+    "   绿 #b8f2b8 好处/收益/正向 ｜ 紫 #d8b8ff 例子/引申/注释",
+    "   整块换色 + 行内重点词换色搭配使用；summary 必须黄或粉。",
+    "5. emphasis 彩色重点词：每页 4~8 个关键词直接指定彩色（比整块更跳脱的颜色）；关键词 ≤ 8 字且必须与所在块 text 原文完全一致。不使用圈选/下划线，纯靠颜色区分。",
     "6. 提纯：删客套话、铺垫、重复；保留论点、数据、结论。板书元素可用 ①②③、→、[图]。",
     "7. blocks 只需 region + text + fontSize + color + emphasis，不需要 x/y（前端在区域内自动排版）。",
     `画布每页 ${W}x${H} 像素（左上原点）。text 内用 \\n 换行。`,
@@ -324,10 +327,10 @@ function visionPrompt(W: number, H: number, note: string): string {
     "2. 理解用户的提问、疑惑、解题或补充需求；",
     "3. 在黑板的空白区域作答：精准、简洁、分步、要点化，符合板书风格（可用 ①②③ 与 →）；",
     "4. 新内容必须放在空白处，避开图上已有内容所在区域，字号 24~32（大字），总量控制在 4~10 行；",
-    "5. 颜色粉笔色板：答案/重点 #ffe066（黄）；警示/纠错 #ff9ec4（粉）；公式/推导 #9fd8ff（蓝）；正文 #f2f0e6（白）。",
-    "6. 用 emphasis 标注答案关键词（与 text 原文完全一致，≤8 字）：[{\"text\":\"答案\",\"style\":\"circle\",\"color\":\"#ffe066\"}]",
+    "5. 颜色 8 色粉笔（丰富用色）：白 #f2f0e6 正文；黄 #ffe066 答案/重点；橙 #ffab6e 注意；粉 #ff9ec4 纠错/易错；蓝 #9fd8ff 公式/推导；绿 #b8f2b8 验证/正确；灰 #d8d8d8 次要；紫 #d8b8ff 注释。",
+    '6. emphasis 彩色重点词（与 text 原文完全一致，≤8 字）：[{"text":"答案","color":"#ffe066"}]',
     "严格只返回板书 JSON（无解释、无 markdown 代码块）：",
-    '{"blocks":[{"id":"a1","text":"…","x":0,"y":0,"width":640,"fontSize":28,"color":"#f2f0e6","emphasis":[{"text":"…","style":"circle","color":"#ffe066"}]}]}',
+    '{"blocks":[{"id":"a1","text":"…","x":0,"y":0,"width":640,"fontSize":28,"color":"#f2f0e6","emphasis":[{"text":"…","color":"#ffe066"}]}]}',
     note ? `用户附加说明：${note}` : "",
   ]
     .filter(Boolean)

@@ -270,8 +270,9 @@ function chalkSprite(ch, fontSize, chalkColor) {
   return c;
 }
 
-function chalkChar(ctx, ch, x, y, b, rnd, alphaScale = 1) {
-  const spr = chalkSprite(ch, b.fontSize, b.color);
+function chalkChar(ctx, ch, x, y, b, rnd, alphaScale = 1, colorOverride) {
+  const chalkColor = colorOverride || b.color;
+  const spr = chalkSprite(ch, b.fontSize, chalkColor);
   const jx = (rnd() - 0.5) * 1.6;
   const jy = (rnd() - 0.5) * 1.1;
   const pad = Math.ceil(b.fontSize * 0.3);
@@ -280,6 +281,11 @@ function chalkChar(ctx, ch, x, y, b, rnd, alphaScale = 1) {
   ctx.rotate((rnd() - 0.5) * 0.03);
   ctx.globalAlpha = (0.85 + rnd() * 0.15) * alphaScale;
   ctx.drawImage(spr, -pad, -pad - b.fontSize, spr.width / 2, spr.height / 2);
+  if (colorOverride) {
+    // 彩色重点词：偏移复描一遍 → 更粗更醒目
+    ctx.globalAlpha = 0.4 * alphaScale;
+    ctx.drawImage(spr, -pad + 1, -pad - b.fontSize + (rnd() - 0.5) * 0.8, spr.width / 2, spr.height / 2);
+  }
   ctx.restore();
   ctx.globalAlpha = 1;
 }
@@ -478,27 +484,6 @@ function drawChalkUnderline(ctx, x0, y, x1, chalkColor, rnd) {
   chalkSeg(ctx, x0, y, x1, y, chalkColor, 2.6, rnd);
 }
 
-function drawChalkCircle(ctx, cx, cy, rx, ry, chalkColor, rnd) {
-  ctx.strokeStyle = chalkColor;
-  ctx.lineCap = "round";
-  for (let pass = 0; pass < 2; pass++) {
-    ctx.globalAlpha = 0.55 + rnd() * 0.3;
-    ctx.lineWidth = 2 + rnd() * 1.6;
-    const a0 = rnd() * Math.PI * 2;
-    ctx.beginPath();
-    ctx.ellipse(
-      cx + (rnd() - 0.5) * 3,
-      cy + (rnd() - 0.5) * 3,
-      Math.max(10, rx + (rnd() - 0.5) * 7),
-      Math.max(9, ry + (rnd() - 0.5) * 6),
-      (rnd() - 0.5) * 0.15,
-      a0,
-      a0 + Math.PI * 1.92,
-    );
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-}
 
 // allowed: 已完整写出的字符数；partial: {gi, alpha} 正在渐现的字
 function drawBlock(ctx, b, allowed, partial) {
@@ -508,31 +493,28 @@ function drawBlock(ctx, b, allowed, partial) {
   let drawn = 0;
   for (let li = 0; li < lay.lines.length; li++) {
     const line = lay.lines[li];
+    // 该行重点词的字符级颜色覆盖（重点 = 行内换彩色粉笔）
+    const cover = new Array(line.length).fill(null);
+    for (const em of b.emphasis ?? []) {
+      const idx = line.indexOf(em.text);
+      if (idx >= 0) {
+        for (let k = idx; k < idx + em.text.length && k < line.length; k++) cover[k] = em.color;
+      }
+    }
     let x = b.x;
     const yBase = b.y + li * lay.lineH + b.fontSize * 0.9;
+    let ci = 0;
     for (const ch of line) {
       if (drawn >= allowed) {
         if (partial && partial.gi === drawn && partial.alpha > 0.02) {
-          chalkChar(ctx, ch, x, yBase, b, mulberry32(hashStr(b.uid) + drawn * 7919), partial.alpha);
+          chalkChar(ctx, ch, x, yBase, b, mulberry32(hashStr(b.uid) + drawn * 7919), partial.alpha, cover[ci]);
         }
         return;
       }
-      chalkChar(ctx, ch, x, yBase, b, mulberry32(hashStr(b.uid) + drawn * 7919));
+      chalkChar(ctx, ch, x, yBase, b, mulberry32(hashStr(b.uid) + drawn * 7919), 1, cover[ci]);
       x += ctx.measureText(ch).width;
       drawn++;
-    }
-    // 本行写完 → 画落在本行的重点标记（模拟老师写完即圈）
-    for (const em of b.emphasis ?? []) {
-      const idx = line.indexOf(em.text);
-      if (idx < 0) continue;
-      const x0 = b.x + ctx.measureText(line.slice(0, idx)).width;
-      const x1 = x0 + ctx.measureText(em.text).width;
-      const rnd = mulberry32(hashStr(b.uid + "|" + em.text + "|" + li));
-      if (em.style === "circle") {
-        drawChalkCircle(ctx, (x0 + x1) / 2, yBase - b.fontSize * 0.3, (x1 - x0) / 2 + 7, b.fontSize * 0.55, em.color, rnd);
-      } else {
-        drawChalkUnderline(ctx, x0, yBase + b.fontSize * 0.12, x1, em.color, rnd);
-      }
+      ci++;
     }
   }
   // 标题/总结/区头写完 → 粉笔下划线
@@ -662,7 +644,6 @@ function coerceEmphasisList(arr) {
     .slice(0, 8)
     .map((e) => ({
       text: e.text.trim().slice(0, 20),
-      style: e.style === "circle" ? "circle" : "underline",
       color: /^#[0-9a-fA-F]{3,8}$/.test(e.color || "") ? e.color : "#ffe066",
     }));
 }
