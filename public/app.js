@@ -42,10 +42,10 @@ const layouts = new Map(); // uid -> {lines, lineH}
 let animState = null; // {entries[], dur, startTs, tNow, done}
 let animRaf = 0;
 
-const CHAR_MS = 55; // 每字书写节奏（含渐现）
-const CHAR_MS_FAST = 30; // 长页自动加速
-const LINE_PAUSE = 160;
-const DIVIDER_MS = 240;
+const CHAR_MS = 100; // 每字约 10 字/秒 ≈ 人手写速度（约5字/秒）的两倍
+const CHAR_MS_FAST = 70; // 长页自动加速（约14字/秒）
+const LINE_PAUSE = 300;
+const DIVIDER_MS = 350;
 
 let uidSeq = 0;
 let seedSeq = (Date.now() & 0xffff) >>> 0;
@@ -546,22 +546,6 @@ function drawBlock(ctx, b, allowed, partial) {
   }
 }
 
-function drawChalkCursor(ctx, x, y) {
-  ctx.save();
-  ctx.translate(x + 4, y - 4);
-  ctx.rotate(-0.45);
-  ctx.globalAlpha = 0.85;
-  ctx.fillStyle = "#f2f0e6";
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(0, -4, 30, 8, 3);
-  else ctx.rect(0, -4, 30, 8);
-  ctx.fill();
-  ctx.fillStyle = "#d8d4c4";
-  ctx.fillRect(-3, -4, 4, 8);
-  ctx.restore();
-  ctx.globalAlpha = 1;
-}
-
 // ---------- 渲染（t = 动画时间线毫秒；Infinity = 全部完成） ----------
 
 function renderText(t = Infinity) {
@@ -606,18 +590,6 @@ function renderText(t = Infinity) {
     drawBlock(textCtx, b, allowed, partials.get(b.uid));
   }
 
-  // 粉笔头停在正在写的字上
-  if (animState && t !== Infinity && t < animState.dur) {
-    const next = animState.entries.find((e) => e.kind === "char" && e.t0 > t - 2);
-    if (next) {
-      const lay = layouts.get(next.b.uid);
-      const line = lay.lines[next.li];
-      textCtx.font = fontString(next.b);
-      const x = next.b.x + textCtx.measureText(line.slice(0, next.ci)).width;
-      const y = next.b.y + next.li * lay.lineH + next.b.fontSize * 0.9;
-      drawChalkCursor(textCtx, x, y);
-    }
-  }
 }
 
 // ---------- 时间线动画：分隔线 → 逐字渐现 ----------
@@ -776,9 +748,13 @@ let current = null;
 boardEl.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   e.preventDefault();
+  // 书写动画中：左键单击 = 跳过动画，直接完整显示，且不留笔迹
+  if (animState) {
+    stopAnim();
+    renderText();
+    return;
+  }
   boardEl.setPointerCapture(e.pointerId);
-  stopAnim();
-  renderText();
   const pt = toLogical(e);
   current = {
     tool,
