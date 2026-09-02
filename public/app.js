@@ -20,11 +20,11 @@ const strokeCtx = strokeC.getContext("2d");
 const textCtx = textC.getContext("2d");
 const eraserCursorEl = $("#eraser-cursor");
 
-const FONT_STACK = `"Xingkai SC","Kaiti SC","STKaiti","楷体","Chalkduster","Chalkboard SE",cursive`;
+const FONT_STACK = `"Kaiti SC","STKaiti","楷体","Xingkai SC",serif`;
 
 const THEMES = {
-  black: { top: "#242927", bottom: "#151918", noiseAlpha: 0.5, frame: "linear-gradient(135deg,#6b4a2c,#4a3118 55%,#6b4a2c)" },
-  green: { top: "#2d5040", bottom: "#1b3529", noiseAlpha: 0.45, frame: "linear-gradient(135deg,#7a5a35,#503619 55%,#7a5a35)" },
+  black: { base: "#20241f", frame: "linear-gradient(135deg,#6b4a2c,#4a3118 55%,#6b4a2c)" },
+  green: { base: "#2b4a3a", frame: "linear-gradient(135deg,#7a5a35,#503619 55%,#7a5a35)" },
 };
 
 let theme = "green"; // 默认护眼绿板
@@ -126,41 +126,15 @@ function makeNoiseTile() {
 function paintBoard(ctx, pw, ph, themeKey) {
   const t = THEMES[themeKey];
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const g = ctx.createLinearGradient(0, 0, 0, ph);
-  g.addColorStop(0, t.top);
-  g.addColorStop(1, t.bottom);
-  ctx.fillStyle = g;
+  // 纯色板面（无渐变 / 无反光高光 / 无暗角）
+  ctx.fillStyle = t.base;
   ctx.fillRect(0, 0, pw, ph);
-
+  // 极淡的磨砂颗粒（哑光质感，非反光）
   if (!noiseTile) noiseTile = makeNoiseTile();
-  ctx.globalAlpha = t.noiseAlpha;
+  ctx.globalAlpha = 0.18;
   ctx.fillStyle = ctx.createPattern(noiseTile, "repeat");
   ctx.fillRect(0, 0, pw, ph);
   ctx.globalAlpha = 1;
-
-  const rnd = mulberry32(9527);
-  for (let i = 0; i < 4; i++) {
-    const cx = pw * (0.15 + rnd() * 0.7);
-    const cy = ph * (0.15 + rnd() * 0.7);
-    const rx = pw * (0.08 + rnd() * 0.12);
-    const ry = ph * (0.03 + rnd() * 0.04);
-    const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
-    rg.addColorStop(0, "rgba(255,255,255,0.045)");
-    rg.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(rx / Math.max(rx, ry), ry / Math.max(rx, ry));
-    ctx.translate(-cx, -cy);
-    ctx.fillStyle = rg;
-    ctx.fillRect(cx - Math.max(rx, ry), cy - Math.max(rx, ry), Math.max(rx, ry) * 2, Math.max(rx, ry) * 2);
-    ctx.restore();
-  }
-
-  const vg = ctx.createRadialGradient(pw / 2, ph / 2, Math.min(pw, ph) * 0.35, pw / 2, ph / 2, Math.max(pw, ph) * 0.72);
-  vg.addColorStop(0, "rgba(0,0,0,0)");
-  vg.addColorStop(1, "rgba(0,0,0,0.4)");
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, pw, ph);
 }
 
 // ---------- 粉笔笔刷（手写层） ----------
