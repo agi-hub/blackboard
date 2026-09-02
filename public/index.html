@@ -34,7 +34,8 @@
     </div>
 
     <div class="tb-group spacer-right">
-      <button id="btn-narrate" class="ai-btn primary" title="重播/停止 配音讲解（边讲边写）">🔊 讲解</button>
+      <button id="btn-ask" class="ai-btn" title="进入提问模式：用鼠标指向黑板某行文字，AI 就地解释">🙋 我要问问题</button>
+      <button id="btn-narrate" class="ai-btn primary" title="重播/停止 配音讲解（快写完再讲）">🔊 讲解</button>
       <button id="btn-layout" class="ai-btn" title="粘贴文本，AI 精炼排版为板书">✎ 文本转板书</button>
       <button id="btn-answer" class="ai-btn" title="截图整块黑板，AI 识别手写并作答">✦ AI 解答</button>
     </div>
@@ -60,6 +61,44 @@
         <canvas id="stroke-canvas"></canvas>
         <canvas id="text-canvas"></canvas>
         <div id="eraser-cursor" hidden></div>
+        <!-- 两位授课教师（点击切换音色：男/女声） -->
+        <div id="teachers">
+          <button id="teacher-female" class="teacher active" title="女老师（alex 音色）点击切换">
+            <svg viewBox="0 0 64 84" width="52" height="68">
+              <ellipse cx="32" cy="79" rx="18" ry="4" fill="rgba(0,0,0,0.35)"/>
+              <path d="M18 82 L20 52 Q32 46 44 52 L46 82 Z" fill="#c94f6d"/>
+              <rect x="26" y="52" width="12" height="10" fill="#f2d8c9"/>
+              <path d="M20 26 Q18 6 32 6 Q46 6 44 26 Q46 40 41 44 Q36 50 32 50 Q28 50 23 44 Q18 40 20 26 Z" fill="#5a3a28"/>
+              <circle cx="32" cy="30" r="13" fill="#f7dcc9"/>
+              <path d="M19 28 Q20 12 32 12 Q44 12 45 28 Q42 18 32 17 Q22 18 19 28 Z" fill="#5a3a28"/>
+              <circle cx="27" cy="29" r="1.8" fill="#3a2a1e"/>
+              <circle cx="37" cy="29" r="1.8" fill="#3a2a1e"/>
+              <path d="M28 36 Q32 39 36 36" stroke="#c94f6d" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+              <circle cx="21" cy="33" r="2.4" fill="#f2b8b8" opacity="0.7"/>
+              <circle cx="43" cy="33" r="2.4" fill="#f2b8b8" opacity="0.7"/>
+              <path d="M22 46 L18 66 M42 46 L46 66" stroke="#f7dcc9" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+            <span class="t-name">李老师</span>
+          </button>
+          <button id="teacher-male" class="teacher" title="王老师（benjamin 音色）点击切换">
+            <svg viewBox="0 0 64 84" width="52" height="68">
+              <ellipse cx="32" cy="79" rx="18" ry="4" fill="rgba(0,0,0,0.35)"/>
+              <path d="M18 82 L20 54 Q32 48 44 54 L46 82 Z" fill="#3f5a6e"/>
+              <path d="M28 50 L36 50 L37 60 L27 60 Z" fill="#e8e4da"/>
+              <rect x="27" y="54" width="10" height="9" fill="#eac9a8"/>
+              <circle cx="32" cy="30" r="14" fill="#eccfa9"/>
+              <path d="M18 24 Q18 12 26 12 Q24 20 30 20 Q42 20 46 14 Q48 22 46 24 Q48 30 44 32 Q46 20 32 18 Q20 20 18 24 Z" fill="#d8d8d8"/>
+              <path d="M24 40 Q32 50 40 40 L40 48 Q32 54 24 48 Z" fill="#e8e4da"/>
+              <circle cx="27" cy="29" r="1.8" fill="#3a2a1e"/>
+              <circle cx="37" cy="29" r="1.8" fill="#3a2a1e"/>
+              <rect x="22" y="27" width="8" height="6" rx="2" fill="none" stroke="#6a5a4a" stroke-width="1.4"/>
+              <rect x="34" y="27" width="8" height="6" rx="2" fill="none" stroke="#6a5a4a" stroke-width="1.4"/>
+              <line x1="30" y1="30" x2="34" y2="30" stroke="#6a5a4a" stroke-width="1.4"/>
+              <path d="M24 45 Q32 42 40 45" stroke="#b09a80" stroke-width="2" fill="none"/>
+            </svg>
+            <span class="t-name">王老师</span>
+          </button>
+        </div>
         <!-- 粉笔槽 -->
         <div id="chalk-ledge"><span></span></div>
       </div>

@@ -166,6 +166,54 @@ button {
     0 14px 40px rgba(0, 0, 0, 0.6);
 }
 
+/* 提问模式：问号光标 */
+#board.ask-mode {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><text x='4' y='27' font-size='27' font-weight='bold' font-family='serif' fill='white' stroke='%23142818' stroke-width='1.4' paint-order='stroke'>?</text></svg>") 8 6,
+    help;
+}
+
+/* 两位授课教师（右下角，点击换音色） */
+#teachers {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 6;
+}
+.teacher {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  opacity: 0.55;
+  transform: scale(0.92);
+  transform-origin: bottom center;
+  transition: opacity 0.2s, transform 0.2s, filter 0.2s;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+}
+.teacher:hover { opacity: 0.85; }
+.teacher.active {
+  opacity: 1;
+  transform: scale(1);
+}
+.teacher.active .t-name { color: var(--accent); border-color: rgba(255, 224, 102, 0.6); }
+.teacher .t-name {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #e8e4da;
+  background: rgba(10, 16, 12, 0.55);
+  border: 1px solid rgba(232, 228, 218, 0.35);
+  border-radius: 8px;
+  padding: 1px 8px;
+}
+.teacher.speaking { animation: teacherTalk 0.55s ease-in-out infinite alternate; }
+@keyframes teacherTalk {
+  from { transform: scale(1) translateY(0); }
+  to { transform: scale(1.05) translateY(-4px); }
+}
+
 #board {
   position: relative;
   /* 尺寸由 app.js 按 1600:1000 等比计算（letterbox），保证字形不变形 */

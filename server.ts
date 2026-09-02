@@ -518,16 +518,58 @@ Bun.serve({
         return Response.json({ ok: true, board, raw: content.length > 2000 ? content.slice(0, 2000) : content });
       }
 
+      // ---- 指句提问：学生指着黑板某行文字，AI 给出就地解释 ----
+      if (path === "/api/ask" && req.method === "POST") {
+        const body = await readJSONBody(req);
+        if (!body) return jsonError("请求体必须是 JSON 对象", 400);
+        if (!isStr(body.line) || !body.line.trim()) return jsonError("line 不能为空", 400);
+        const line = body.line.slice(0, 300);
+        const context = isStr(body.context) ? body.context.slice(0, 2000) : "";
+        const px = typeof body.x === "number" ? Math.round(body.x) : 0;
+        const py = typeof body.y === "number" ? Math.round(body.y) : 0;
+        const W = typeof body.canvasW === "number" ? body.canvasW : 1600;
+        const H = typeof body.canvasH === "number" ? body.canvasH : 1000;
+
+        const cfg = loadConfig();
+        if (!cfg.apiKey) return jsonError("未配置 API Key，请先在「设置」中填写", 400);
+        if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
+
+        const content = await callLLM(
+          cfg,
+          cfg.textModel,
+          [
+            {
+              role: "system",
+              content: [
+                "你是黑板AI助教。学生用教鞭指着黑板上的一行字提问，你要就地给出解释。",
+                `整块黑板的板书内容（上下文）：\n${context || "（空）"}`,
+                `学生指的位置：(${px}, ${py})，画布 ${W}x${H}。`,
+                `学生指的这行字：「${line}」`,
+                "要求：结合上下文解释这行字在讲什么；口语化、直接回答；25~60 字；不要复述问题，不要客套。",
+                '严格只返回 JSON（无解释无代码块）：{"text":"解释内容"}',
+              ].join("\n"),
+            },
+            { role: "user", content: `这行是什么意思？「${line}」` },
+          ],
+          1024,
+        );
+        const parsed = extractJSON(content);
+        const text = isRecord(parsed) && isStr(parsed.text) && parsed.text.trim() ? parsed.text.trim().slice(0, 120) : "";
+        if (!text) return jsonError("模型未返回有效解释，请重试", 502);
+        return Response.json({ ok: true, text });
+      }
+
       // ---- 讲稿配音（SiliconFlow 兼容 /audio/speech） ----
       if (path === "/api/tts" && req.method === "POST") {
         const body = await readJSONBody(req);
         if (!body) return jsonError("请求体必须是 JSON 对象", 400);
         if (!isStr(body.text) || !body.text.trim()) return jsonError("text 不能为空", 400);
         const text = body.text.slice(0, 500);
-
         const cfg = loadConfig();
-        if (!cfg.ttsApiKey) return jsonError("未配置 TTS API Key，请在「设置」中填写 SiliconFlow Key", 400);
-        if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
+        // 音色可由前端覆盖（教师切换：男/女声）；格式非法则回退配置值
+        const voice = isStr(body.voice) && /^[\w.-]+\/[\w.-]+:[\w.-]+$/.test(body.voice.trim()) ? body.voice.trim() : cfg.ttsVoice;
+
+
 
         const ttsRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/audio/speech", {
           method: "POST",
@@ -538,7 +580,7 @@ Bun.serve({
           body: JSON.stringify({
             model: cfg.ttsModel,
             input: text,
-            voice: cfg.ttsVoice,
+            voice,
             response_format: "mp3",
             speed: cfg.ttsSpeed,
           }),

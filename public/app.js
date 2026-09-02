@@ -464,6 +464,26 @@ function drawBlock(ctx, b, allowed, partial) {
   const lay = layouts.get(b.uid);
   if (!lay) return;
   ctx.font = fontString(b);
+  // 便签（提问解释）：先贴一块与黑板底色一致的矩形框，字写在框内
+  if (b.kind === "note" && allowed > 0) {
+    let wMax = 0;
+    for (const l of lay.lines) wMax = Math.max(wMax, ctx.measureText(l).width);
+    const bx = b.x - 18;
+    const by = b.y - 8;
+    const bw = Math.min(b.width, wMax) + 36;
+    const bh = lay.lines.length * lay.lineH + 14;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, allowed / 2 + 0.35); // 前两个字内淡入贴框
+    ctx.fillStyle = THEMES[theme].base;
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = "#f2f0e6";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([12, 9]);
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
   let drawn = 0;
   for (let li = 0; li < lay.lines.length; li++) {
     const line = lay.lines[li];
@@ -614,6 +634,8 @@ function runTimeline(entries, dividerMap, dur, onDone) {
   animRaf = requestAnimationFrame(frame);
 }
 
+const NARRATE_WRITE_MS = 80; // 讲解模式：快写节奏（教师写字不出声，写完再讲）
+
 // ---------- 配音讲解（讲写协同：讲什么写什么，讲完才写下一块） ----------
 
 let audioCtx = null;
@@ -624,6 +646,11 @@ function setNarrateBtn() {
   if (b) {
     b.textContent = narration.playing ? "⏹ 停止" : "🔊 讲解";
     b.classList.toggle("primary", !narration.playing);
+  }
+  // 当前教师在讲解时浮动说话
+  for (const t of ["female", "male"]) {
+    const el = $(`#teacher-${t}`);
+    if (el) el.classList.toggle("speaking", narration.playing && teacher === t);
   }
 }
 
@@ -644,11 +671,35 @@ function stopNarration() {
   setNarrateBtn();
 }
 
-// 取一块的语音（缓存）：无讲稿/失败时返回按讲稿长度估时的静音降级
+// 教师与音色：女老师 alex / 老教师 benjamin（点击右下角形象切换）
+const TEACHER_VOICES = {
+  female: "FunAudioLLM/CosyVoice2-0.5B:alex",
+  male: "FunAudioLLM/CosyVoice2-0.5B:benjamin",
+};
+let teacher = "female";
+
+function setTeacher(t) {
+  if (!TEACHER_VOICES[t] || teacher === t) return;
+  teacher = t;
+  $("#teacher-female").classList.toggle("active", t === "female");
+  $("#teacher-male").classList.toggle("active", t === "male");
+  toast(t === "female" ? "已切换：李老师（女声）" : "已切换：王老师（男声）", "");
+}
+
+$("#teacher-female").addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  setTeacher("female");
+});
+$("#teacher-male").addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  setTeacher("male");
+});
+
+// 取一块的语音（按当前教师音色缓存）：无讲稿/失败时返回静音降级
 async function fetchVoice(b) {
-  if (b._voice) return b._voice;
+  if (b._voice && b._voice.voice === teacher) return b._voice;
   const say = (b.say || "").trim();
-  const fallback = { el: null, dur: Math.max(1.5, (say || b.text).length * 0.19) };
+  const fallback = { voice: teacher, el: null, dur: Math.max(1.5, (say || b.text).length * 0.19) };
   if (!say) {
     b._voice = fallback;
     return fallback;
@@ -657,7 +708,7 @@ async function fetchVoice(b) {
     const res = await fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: say }),
+      body: JSON.stringify({ text: say, voice: TEACHER_VOICES[teacher] }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
@@ -671,7 +722,7 @@ async function fetchVoice(b) {
     }
     const el = new Audio(data.audio);
     el.preload = "auto";
-    b._voice = { el, dur: dur || fallback.dur };
+    b._voice = { voice: teacher, el, dur: dur || fallback.dur };
   } catch {
     b._voice = fallback;
   }
@@ -705,29 +756,45 @@ async function playNarration(page, blockList) {
     const b = blocks[i];
     const lay = layouts.get(b.uid);
     const v = voices[i];
-    const start = t + 250; // 起笔前小留白（开口）
-    const writeDur = Math.max(900, v.dur * 1000 * 0.94); // 写字与语音同步收尾
-    let charCount = 0;
-    for (const line of lay.lines) charCount += line.length;
-    const per = writeDur / Math.max(1, charCount);
-    let gi = 0;
-    for (let li = 0; li < lay.lines.length; li++) {
-      for (let ci = 0; ci < lay.lines[li].length; ci++) {
-        entries.push({ kind: "char", b, li, ci, gi, t0: start + gi * per, cost: per });
-        gi++;
-      }
-    }
+    const start = t + 200; // 起笔前小留白
+    const per = NARRATE_WRITE_MS;
     if (v.el) {
+      // 有语音：教师习惯——写字不出声，快写完整块（80ms/字），写完再开口讲
+      let charCount = 0;
+      for (const line of lay.lines) charCount += line.length;
+      const writeDur = Math.max(500, charCount * per);
+      let gi = 0;
+      for (let li = 0; li < lay.lines.length; li++) {
+        for (let ci = 0; ci < lay.lines[li].length; ci++) {
+          entries.push({ kind: "char", b, li, ci, gi, t0: start + gi * per, cost: per });
+          gi++;
+        }
+      }
+      const speakAt = start + writeDur + 200;
       narration.audios.push(v.el);
       narration.timers.push(
         setTimeout(() => {
           if (seq !== narration.seq) return;
           v.el.currentTime = 0;
           v.el.play().catch(() => {});
-        }, start),
+        }, speakAt),
       );
+      t = speakAt + v.dur * 1000 + 450; // 讲完、缓冲，才轮到写下一块
+    } else {
+      // 无语音（未开配音/无讲稿）：不讲解；逐行快写，行尾按 5 字/秒 阅读速度停 1~3 秒
+      let cursor = start;
+      for (let li = 0; li < lay.lines.length; li++) {
+        const line = lay.lines[li];
+        let gi = 0;
+        for (let ci = 0; ci < line.length; ci++) {
+          entries.push({ kind: "char", b, li, ci, gi, t0: cursor + gi * per, cost: per });
+          gi++;
+        }
+        cursor += Math.max(400, line.length * per); // 该行写完
+        cursor += Math.min(3000, Math.max(1000, (line.length / 5) * 1000)); // 阅读停顿
+      }
+      t = cursor;
     }
-    t = start + writeDur + 650; // 讲完、写完，才轮到下一块
   }
   runTimeline(entries, dividerMap, t + 250, () => {
     narration.playing = false;
@@ -841,6 +908,11 @@ let lastTap = null; // 手动双击检测（preventDefault 会抑制原生 dblcl
 boardEl.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   e.preventDefault();
+  // 提问模式：点击 = 指着某行文字向 AI 提问，不落笔
+  if (askMode) {
+    handleAskClick(e);
+    return;
+  }
   // 书写动画中：左键单击 = 跳过动画，直接完整显示，且不留笔迹
   if (animState || narration.playing) {
     stopNarration();
@@ -1010,8 +1082,92 @@ window.addEventListener("keydown", (e) => {
     goToPage(curPage - 1);
   } else if (e.key === "ArrowRight") {
     goToPage(curPage + 1);
+  } else if (e.key === "Escape" && askMode) {
+    setAskMode(false);
   }
 });
+
+// ---------- 提问模式（指哪问哪：点击某行 → AI 就地便签解释） ----------
+
+let askMode = false;
+
+function setAskMode(on) {
+  askMode = on;
+  const b = $("#btn-ask");
+  b.textContent = on ? "↩ 还原听课模式" : "🙋 我要问问题";
+  b.classList.toggle("primary", on);
+  boardEl.classList.toggle("ask-mode", on);
+}
+
+$("#btn-ask").addEventListener("click", () => setAskMode(!askMode));
+
+// 找点击位置对应的板书行（横向命中的块优先，按行中心距离取最近）
+function findLineAt(page, pt) {
+  let best = null;
+  let bestD = Infinity;
+  for (const b of page._drawOrder) {
+    const lay = layouts.get(b.uid);
+    if (!lay) continue;
+    const withinX = pt.x >= b.x - 60 && pt.x <= b.x + b.width + 120;
+    for (let li = 0; li < lay.lines.length; li++) {
+      if (!lay.lines[li].trim()) continue;
+      const cy = b.y + li * lay.lineH + lay.lineH * 0.5;
+      let d = Math.abs(pt.y - cy);
+      if (!withinX) d += 800; // 不在本块横向范围内 → 强惩罚
+      if (d < bestD) {
+        bestD = d;
+        best = { b, li, line: lay.lines[li] };
+      }
+    }
+  }
+  return bestD < 400 ? best : null;
+}
+
+async function handleAskClick(e) {
+  if (narration.playing || animState) {
+    stopNarration();
+    stopAnim();
+    renderText(); // 提问前先定格当前板书
+  }
+  const pt = toLogical(e);
+  const page = pages[curPage];
+  layoutPage(page);
+  const hit = findLineAt(page, pt);
+  if (!hit) return toast("没指到板书内容，请点在某行文字附近", "err");
+
+  thinking(true, "AI 正在解答你指的问题…");
+  try {
+    const context = page._drawOrder
+      .map((b) => b.text)
+      .join("\n")
+      .slice(0, 2000);
+    const res = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ line: hit.line, context, x: Math.round(pt.x), y: Math.round(pt.y), canvasW: W, canvasH: H }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const note = mkBlock(
+      { text: data.text, x: pt.x + 34, y: pt.y + 30, width: 460, fontSize: 30, color: "#ffe066" },
+      "note",
+      { x: pt.x + 34, y: pt.y + 30, width: 460, fontSize: 30, color: "#ffe066" },
+    );
+    computeLayout(note);
+    const lay = layouts.get(note.uid);
+    // 便签不出画布：右/下越界时往回收
+    note.x = Math.min(note.x, W - note.width - 40);
+    note.y = Math.min(note.y, H - lay.lines.length * lay.lineH - 60);
+    page.blocks.push(note);
+    page._drawOrder.push(note);
+    animateIn(page, [note], false);
+  } catch (err) {
+    toast(err.message.includes("Failed to fetch") ? "无法连接本地服务" : err.message, "err");
+  } finally {
+    thinking(false);
+  }
+}
 
 // ---------- AI 交互 ----------
 
