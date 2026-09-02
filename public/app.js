@@ -699,6 +699,7 @@ $("#btn-next-page").addEventListener("click", () => goToPage(curPage + 1));
 // ---------- 指针输入 ----------
 
 let current = null;
+let lastTap = null; // 手动双击检测（preventDefault 会抑制原生 dblclick）
 
 boardEl.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -709,6 +710,19 @@ boardEl.addEventListener("pointerdown", (e) => {
     renderText();
     return;
   }
+  const now = performance.now();
+  // 双击黑板（500ms 内同位置两击）= 全屏：撤掉第一击的点，第二击不落笔
+  if (lastTap && now - lastTap.t < 500 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 15) {
+    lastTap = null;
+    const s = strokesByPage[curPage];
+    if (s.length && now - (s[s.length - 1]._t ?? 0) < 700) {
+      s.pop();
+      redrawStrokes();
+    }
+    toggleFullscreen();
+    return;
+  }
+  lastTap = { t: now, x: e.clientX, y: e.clientY };
   boardEl.setPointerCapture(e.pointerId);
   const pt = toLogical(e);
   current = {
@@ -717,10 +731,24 @@ boardEl.addEventListener("pointerdown", (e) => {
     size: brushSize,
     seed: (seedSeq = (seedSeq + 0x9e3779b9) >>> 0),
     pts: [pt, { ...pt, x: pt.x + 0.01, y: pt.y + 0.01 }],
+    _t: now,
   };
   strokesByPage[curPage].push(current);
   drawStrokeSegment(current, 1);
 });
+
+// ---------- 全屏（按钮 / 双击黑板） ----------
+
+async function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  } catch {
+    /* 浏览器拒绝时静默 */
+  }
+}
+
+$("#btn-fullscreen").addEventListener("click", toggleFullscreen);
 
 boardEl.addEventListener("pointermove", (e) => {
   if (tool === "eraser") moveEraserCursor(e);
