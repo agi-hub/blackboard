@@ -1007,10 +1007,22 @@ function mkBlock(el, kind, defs) {
   };
 }
 
+// SVG 黑板适配预处理：
+// 1) 折线/多边形/路径等未声明 fill 时 SVG 默认黑色填充 → 根节点默认 fill="none" 根治黑底
+// 2) <text> 未指定 fill 时补白粉笔色，避免被根默认值隐身
+function prepSvgForBoard(svg) {
+  let s = svg;
+  const head = s.match(/^<svg[^>]*>/)?.[0] ?? "";
+  if (!/\sfill=/.test(head)) s = s.replace(/<svg\b/, '<svg fill="none"');
+  s = s.replace(/<text(?![^>]*\sfill=)/g, '<text fill="#f2f0e6"');
+  s = s.replace(/<tspan(?![^>]*\sfill=)/g, '<tspan fill="#f2f0e6"');
+  return s;
+}
+
 // SVG → 图像（异步解析加载：viewBox 定宽高比，Blob URL 装入 <img>，上下文安全不执行脚本）
 async function loadFigure(b) {
   if (!b.svg || b._figure) return;
-  const vb = b.svg.match(/viewBox="([\d.\s,-]+)"/);
+  const vb = b.svg.match(/viewBox=["']([\d.\s,-]+)["']/); // 兼容单/双引号
   let aspect = 0.75;
   if (vb) {
     const p = vb[1].split(/[\s,]+/).map(Number);
@@ -1018,7 +1030,7 @@ async function loadFigure(b) {
   }
   b._figure = { aspect, img: null };
   try {
-    const url = URL.createObjectURL(new Blob([b.svg], { type: "image/svg+xml;charset=utf-8" }));
+    const url = URL.createObjectURL(new Blob([prepSvgForBoard(b.svg)], { type: "image/svg+xml;charset=utf-8" }));
     const img = new Image();
     img.src = url;
     await img.decode();

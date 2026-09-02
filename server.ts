@@ -273,7 +273,7 @@ function figurePrompt(boardSummary: string): string {
     "你是黑板画图助手。为下面的黑板板书内容配 1~2 张讲解图（流程图/结构图/示意图），帮助理解。",
     "严格只返回 JSON 数组（无解释、无 markdown 代码块）：",
     '[{"svg":"<svg viewBox=\'0 0 400 300\' xmlns=\'http://www.w3.org/2000/svg\'>…</svg>","text":"图题（≤10字）","say":"配合图的一句讲解（20~40字）"}]',
-    "SVG 硬性要求：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 3，fill='none'；用矩形框 + 箭头(path/line) + 少量 <text>（font-size 16~18、text-anchor='middle'、fill 用粉笔色）；viewBox='0 0 400 300'；元素 ≤ 30；严禁 script/事件属性/外链。",
+    "SVG 硬性要求：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 3，fill='none'；所有图形元素（rect/circle/ellipse/path/polyline/polygon/line）都必须显式带 fill='none'，折线图/趋势线绝不填充底色；用矩形框 + 箭头(path/line) + 少量 <text>（font-size 16~18、text-anchor='middle'、fill 用粉笔色）；viewBox='0 0 400 300'；元素 ≤ 30；严禁 script/事件属性/外链。",
     "板书内容：",
     boardSummary,
   ].join("\n");
