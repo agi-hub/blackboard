@@ -1,13 +1,13 @@
-// 「黑板」原型 — 粉笔画布引擎 + AI 交互（多页翻页版）
-// 逻辑坐标空间固定 1600x1000，三层画布：背景纹理 / 用户手写 / AI板书
-// 动画：逐字书写（每字 ~45ms，行间停顿），像老师一行一行写板书
+// 「黑板」原型 — 粉笔画布引擎 + AI 交互（分区排版版）
+// 架构：LLM 只输出分区语义（regions + 归属块），前端做确定性排版 → 根治坐标乱
+// 动画：时间线调度，分隔线先画 → 逐字渐现（每字透明度爬升）→ 重点圈/划
 
 "use strict";
 
 // ---------- 常量与状态 ----------
 
-const W = 1600; // 逻辑画布宽（LLM 坐标即此坐标系）
-const H = 1000; // 逻辑画布高
+const W = 1600;
+const H = 1000;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -20,34 +20,37 @@ const strokeCtx = strokeC.getContext("2d");
 const textCtx = textC.getContext("2d");
 const eraserCursorEl = $("#eraser-cursor");
 
+const FONT_STACK = `"Xingkai SC","Kaiti SC","STKaiti","楷体","Chalkduster","Chalkboard SE",cursive`;
+
 const THEMES = {
   black: { top: "#242927", bottom: "#151918", noiseAlpha: 0.5, frame: "linear-gradient(135deg,#6b4a2c,#4a3118 55%,#6b4a2c)" },
-  green: { top: "#2d4f3f", bottom: "#1c352a", noiseAlpha: 0.45, frame: "linear-gradient(135deg,#7a5a35,#503619 55%,#7a5a35)" },
+  green: { top: "#2d5040", bottom: "#1b3529", noiseAlpha: 0.45, frame: "linear-gradient(135deg,#7a5a35,#503619 55%,#7a5a35)" },
 };
 
-let theme = "black";
-let tool = "chalk"; // chalk | eraser
+let theme = "green"; // 默认护眼绿板
+let tool = "chalk";
 let color = "#f2f0e6";
-let brushSize = 5; // 逻辑像素
+let brushSize = 5;
 
-// 多页黑板：每页 = AI板书 blocks + 用户手写 strokes
-let pages = [{ blocks: [], animated: false }];
+// 多页黑板：每页 = 区域 + 板书 + 用户手写
+let pages = [newPage()];
 let strokesByPage = [[]];
 let curPage = 0;
 
-const layouts = new Map(); // uid -> {lines:[], lineH}
+const layouts = new Map(); // uid -> {lines, lineH}
 
-let animState = null; // {order, schedule, total, written, acc, lastT}
+let animState = null; // {entries[], dur, startTs, tNow, done}
 let animRaf = 0;
 
-const CHAR_MS_BASE = 45; // 每字书写耗时（ms）
-const CHAR_MS_FAST = 26; // 长文本自动加速
-const LINE_PAUSE = 150; // 换行停顿（ms）
+const CHAR_MS = 55; // 每字书写节奏（含渐现）
+const CHAR_MS_FAST = 30; // 长页自动加速
+const LINE_PAUSE = 160;
+const DIVIDER_MS = 240;
 
 let uidSeq = 0;
 let seedSeq = (Date.now() & 0xffff) >>> 0;
 
-// ---------- 工具：确定性随机（撤销重放与逐字动效不闪变） ----------
+// ---------- 工具：确定性随机 ----------
 
 function mulberry32(a) {
   return function () {
@@ -70,6 +73,10 @@ function hashStr(s) {
 
 function segRng(seed, i) {
   return mulberry32((seed ^ Math.imul(i + 1, 0x9e3779b9)) >>> 0);
+}
+
+function clampNum(x, lo, hi) {
+  return Math.min(hi, Math.max(lo, x));
 }
 
 // ---------- 画布尺寸与坐标 ----------
@@ -110,7 +117,7 @@ function makeNoiseTile() {
     img.data[i] = v;
     img.data[i + 1] = v;
     img.data[i + 2] = v;
-    img.data[i + 3] = Math.floor(rnd() * 26); // 低alpha噪点
+    img.data[i + 3] = Math.floor(rnd() * 26);
   }
   ctx.putImageData(img, 0, 0);
   return c;
@@ -125,14 +132,12 @@ function paintBoard(ctx, pw, ph, themeKey) {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, pw, ph);
 
-  // 磨砂噪点
   if (!noiseTile) noiseTile = makeNoiseTile();
   ctx.globalAlpha = t.noiseAlpha;
   ctx.fillStyle = ctx.createPattern(noiseTile, "repeat");
   ctx.fillRect(0, 0, pw, ph);
   ctx.globalAlpha = 1;
 
-  // 板擦留下的擦拭痕（确定性位置，切主题不跳动）
   const rnd = mulberry32(9527);
   for (let i = 0; i < 4; i++) {
     const cx = pw * (0.15 + rnd() * 0.7);
@@ -151,7 +156,6 @@ function paintBoard(ctx, pw, ph, themeKey) {
     ctx.restore();
   }
 
-  // 边缘暗角
   const vg = ctx.createRadialGradient(pw / 2, ph / 2, Math.min(pw, ph) * 0.35, pw / 2, ph / 2, Math.max(pw, ph) * 0.72);
   vg.addColorStop(0, "rgba(0,0,0,0)");
   vg.addColorStop(1, "rgba(0,0,0,0.4)");
@@ -159,7 +163,7 @@ function paintBoard(ctx, pw, ph, themeKey) {
   ctx.fillRect(0, 0, pw, ph);
 }
 
-// ---------- 粉笔笔刷 ----------
+// ---------- 粉笔笔刷（手写层） ----------
 
 function chalkSeg(ctx, x0, y0, x1, y1, chalkColor, size, rnd) {
   const dx = x1 - x0;
@@ -175,7 +179,6 @@ function chalkSeg(ctx, x0, y0, x1, y1, chalkColor, size, rnd) {
   for (let i = 0; i < steps; i++) {
     const t0 = i / steps;
     const t1 = (i + 1) / steps;
-    // 两道平行细线，随机偏移 + 随机透明度 → 飞白
     for (let p = 0; p < 2; p++) {
       const off = (rnd() - 0.5) * size * 0.8;
       ctx.globalAlpha = 0.07 + rnd() * 0.15;
@@ -185,7 +188,6 @@ function chalkSeg(ctx, x0, y0, x1, y1, chalkColor, size, rnd) {
       ctx.lineTo(x0 + dx * t1 + nx * off + (rnd() - 0.5) * 0.7, y0 + dy * t1 + ny * off + (rnd() - 0.5) * 0.7);
       ctx.stroke();
     }
-    // 掉粉颗粒
     if (rnd() < 0.3) {
       ctx.globalAlpha = 0.1 + rnd() * 0.12;
       const d = Math.max(0.5, size * 0.14);
@@ -211,7 +213,6 @@ function eraserSeg(ctx, x0, y0, x1, y1, size) {
 }
 
 function drawStrokeSegment(stroke, i) {
-  // 画 pts[i-1] → pts[i] 段；随机源由 (seed, i-1) 决定，live 与重放完全一致
   const a = stroke.pts[i - 1];
   const b = stroke.pts[i];
   const p = b.p ?? 0.5;
@@ -232,10 +233,61 @@ function redrawStrokes() {
   }
 }
 
-// ---------- AI 板书渲染（逐字粉笔动效 + 重点标记） ----------
+// ---------- 石膏磨砂字粒（sprite 缓存 + 颗粒孔洞） ----------
+
+const spriteCache = new Map();
+
+function chalkSprite(ch, fontSize, chalkColor) {
+  const key = `${ch}|${fontSize}|${chalkColor}`;
+  const hit = spriteCache.get(key);
+  if (hit) return hit;
+  const scale = 2; // 2x 内部分辨率，缩放后仍锐利
+  const pad = Math.ceil(fontSize * 0.3);
+  const cw = Math.ceil(fontSize * 1.7) + pad * 2;
+  const chh = Math.ceil(fontSize * 1.9) + pad * 2;
+  const c = document.createElement("canvas");
+  c.width = Math.ceil(cw * scale);
+  c.height = Math.ceil(chh * scale);
+  const g = c.getContext("2d");
+  g.scale(scale, scale);
+  g.font = `${fontSize}px ${FONT_STACK}`;
+  g.textBaseline = "alphabetic";
+  g.fillStyle = chalkColor;
+  g.fillText(ch, pad, pad + fontSize);
+  // 石膏磨砂：destination-out 打颗粒孔洞（确定性，动画不闪变）
+  g.globalCompositeOperation = "destination-out";
+  const rnd = mulberry32(hashStr(key));
+  const n = Math.round(fontSize * 1.15);
+  for (let i = 0; i < n; i++) {
+    g.globalAlpha = 0.22 + rnd() * 0.5;
+    const s = 0.5 + rnd() * 1.2;
+    g.fillRect(rnd() * cw, rnd() * chh, s, s);
+  }
+  g.globalCompositeOperation = "source-over";
+  g.globalAlpha = 1;
+  if (spriteCache.size > 3000) spriteCache.clear();
+  spriteCache.set(key, c);
+  return c;
+}
+
+function chalkChar(ctx, ch, x, y, b, rnd, alphaScale = 1) {
+  const spr = chalkSprite(ch, b.fontSize, b.color);
+  const jx = (rnd() - 0.5) * 1.6;
+  const jy = (rnd() - 0.5) * 1.1;
+  const pad = Math.ceil(b.fontSize * 0.3);
+  ctx.save();
+  ctx.translate(x + jx, y + jy);
+  ctx.rotate((rnd() - 0.5) * 0.03);
+  ctx.globalAlpha = (0.85 + rnd() * 0.15) * alphaScale;
+  ctx.drawImage(spr, -pad, -pad - b.fontSize, spr.width / 2, spr.height / 2);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+// ---------- 文本排版（区域流式 / 确定性） ----------
 
 function fontString(b) {
-  return `${b.fontSize}px "Xingkai SC","Kaiti SC","STKaiti","楷体","Chalkduster","Chalkboard SE",cursive`;
+  return `${b.fontSize}px ${FONT_STACK}`;
 }
 
 const CJK_RE = /[\u2e80-\u9fff\u3000-\u303f\uff00-\uffef]/;
@@ -285,30 +337,147 @@ function computeLayout(b) {
   b._chars = lines.reduce((n, l) => n + l.length, 0);
 }
 
-function chalkChar(ctx, ch, x, y, b, rnd) {
-  const jx = (rnd() - 0.5) * 1.6;
-  const jy = (rnd() - 0.5) * 1.1; // 竖向抖动减半：避免"一高一低"
-  ctx.save();
-  ctx.translate(x + jx, y + jy);
-  ctx.rotate((rnd() - 0.5) * 0.03);
-  ctx.fillStyle = b.color;
-  ctx.globalAlpha = 0.72 + rnd() * 0.28;
-  ctx.fillText(ch, 0, 0);
-  if (rnd() < 0.5) {
-    // 复描一遍 → 粉笔颗粒感
-    ctx.globalAlpha = 0.16 + rnd() * 0.15;
-    ctx.fillText(ch, (rnd() - 0.5) * 1.2, (rnd() - 0.5) * 1.2);
-  }
-  ctx.restore();
-  ctx.globalAlpha = 1;
+function newPage() {
+  return { titleBlock: null, summaryBlock: null, regions: [], blocks: [], headers: [], animated: false, _laid: false, _dividers: [], _drawOrder: [] };
 }
 
-// 粉笔下划线（标题/总结/重点词共用）
+// 页面级确定性排版：区域钳制 → 分隔线 → 标题居中 → 区内流式 → 总结置底
+function layoutPage(page) {
+  if (page._laid) return;
+  page._laid = true;
+  const regs = page.regions.map((r) => {
+    const x = clampNum(r.x, 40, W - 240);
+    const y = clampNum(r.y, 130, H - 220);
+    return {
+      id: r.id,
+      header: r.header,
+      x,
+      y,
+      w: clampNum(r.width, 200, W - 40 - x),
+      h: clampNum(r.height, 120, H - 40 - y),
+    };
+  });
+  page._regions = regs;
+
+  // 相邻区域之间的粉笔分隔线（左右相邻→竖线；上下相邻→横线）
+  page._dividers = [];
+  for (let i = 0; i < regs.length; i++) {
+    for (let j = i + 1; j < regs.length; j++) {
+      const A = regs[i];
+      const B = regs[j];
+      const ovX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+      const ovY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+      if (ovX > Math.min(A.w, B.w) * 0.5 && ovY <= 0) {
+        // 上下相邻：横线画在（下区域顶 + 上区域底）/2 —— 两区不重叠时这是间隙中点
+        const yTop = Math.max(A.y, B.y);
+        const yBot = Math.min(A.y + A.h, B.y + B.h);
+        if (yTop - yBot < 180) {
+          const y = (yTop + yBot) / 2;
+          page._dividers.push({ a: { x: Math.max(A.x, B.x) + 10, y }, b: { x: Math.min(A.x + A.w, B.x + B.w) - 10, y } });
+        }
+      } else if (ovY > Math.min(A.h, B.h) * 0.5 && ovX <= 0) {
+        // 左右相邻：竖线画在（右区域左 + 左区域右）/2
+        const xLeft = Math.max(A.x, B.x);
+        const xRight = Math.min(A.x + A.w, B.x + B.w);
+        if (xLeft - xRight < 180) {
+          const x = (xLeft + xRight) / 2;
+          page._dividers.push({ a: { x, y: Math.max(A.y, B.y) + 10 }, b: { x, y: Math.min(A.y + A.h, B.y + B.h) - 10 } });
+        }
+      }
+    }
+  }
+
+  // 页标题：居中大字
+  if (page.titleBlock) {
+    const t = page.titleBlock;
+    t.fontSize = clampNum(t.fontSize || 48, 40, 58);
+    t.width = W - 200;
+    computeLayout(t);
+    textCtx.font = fontString(t);
+    let tw = 0;
+    for (const l of layouts.get(t.uid).lines) tw = Math.max(tw, textCtx.measureText(l).width);
+    t.x = Math.max(40, (W - tw) / 2);
+    t.y = 28;
+  }
+
+  // 区头（黄字带下划线）+ 区内块自上而下流式；字号不够放时自动缩小
+  page.headers = [];
+  const byRegion = new Map();
+  for (const b of page.blocks) {
+    if (!b.region) continue;
+    if (!byRegion.has(b.region)) byRegion.set(b.region, []);
+    byRegion.get(b.region).push(b);
+  }
+  for (const r of regs) {
+    let cursorY = r.y + 14;
+    if (r.header) {
+      const hb = {
+        uid: `h${++uidSeq}`,
+        kind: "header",
+        text: r.header,
+        x: r.x + 24,
+        y: cursorY,
+        width: r.w - 48,
+        fontSize: 30,
+        color: "#ffe066",
+        emphasis: [],
+      };
+      computeLayout(hb);
+      page.headers.push(hb);
+      cursorY += layouts.get(hb.uid).lineH + 12;
+    }
+    for (const b of byRegion.get(r.id) || []) {
+      b.fontSize = clampNum(b.fontSize || 30, 24, 42);
+      b.x = r.x + 24;
+      b.width = r.w - 48;
+      for (let tries = 0; tries < 4; tries++) {
+        computeLayout(b);
+        const lay = layouts.get(b.uid);
+        if (cursorY + lay.lines.length * lay.lineH <= r.y + r.h - 6 || b.fontSize <= 22) break;
+        b.fontSize = Math.max(22, Math.round(b.fontSize * 0.88));
+      }
+      b.y = cursorY;
+      const lay = layouts.get(b.uid);
+      cursorY += lay.lines.length * lay.lineH + 16;
+    }
+  }
+
+  // 无区域归属的绝对块（AI 解答追加 / 旧协议）：仅钳制字号
+  for (const b of page.blocks) {
+    if (b.region) continue;
+    b.fontSize = clampNum(b.fontSize || 28, 24, 42);
+    if (!layouts.has(b.uid)) computeLayout(b);
+  }
+
+  // 总结句：置底换色
+  if (page.summaryBlock) {
+    const s = page.summaryBlock;
+    s.fontSize = clampNum(s.fontSize || 32, 28, 38);
+    s.x = 80;
+    s.width = W - 160;
+    computeLayout(s);
+    const lay = layouts.get(s.uid);
+    s.y = H - 64 - lay.lines.length * lay.lineH;
+  }
+
+  // 动画/绘制顺序：标题 → (逐区域：区头+内容) → 其余绝对块 → 总结
+  const order = [];
+  if (page.titleBlock) order.push(page.titleBlock);
+  for (const r of regs) {
+    for (const hb of page.headers) if (hb.text === r.header && hb.x === r.x + 24) order.push(hb);
+    for (const b of byRegion.get(r.id) || []) order.push(b);
+  }
+  for (const b of page.blocks) if (!b.region) order.push(b);
+  if (page.summaryBlock) order.push(page.summaryBlock);
+  page._drawOrder = order.filter((b) => b._chars > 0);
+}
+
+// ---------- 重点标记（圈选 / 下划线） ----------
+
 function drawChalkUnderline(ctx, x0, y, x1, chalkColor, rnd) {
   chalkSeg(ctx, x0, y, x1, y, chalkColor, 2.6, rnd);
 }
 
-// 手绘感圈选：两圈抖动椭圆，留缺口更像人画的
 function drawChalkCircle(ctx, cx, cy, rx, ry, chalkColor, rnd) {
   ctx.strokeStyle = chalkColor;
   ctx.lineCap = "round";
@@ -331,22 +500,28 @@ function drawChalkCircle(ctx, cx, cy, rx, ry, chalkColor, rnd) {
   ctx.globalAlpha = 1;
 }
 
-function drawBlock(ctx, b, allowed) {
+// allowed: 已完整写出的字符数；partial: {gi, alpha} 正在渐现的字
+function drawBlock(ctx, b, allowed, partial) {
   const lay = layouts.get(b.uid);
   if (!lay) return;
   ctx.font = fontString(b);
-  let drawn = 0; // 块内已写字符数（跨行按顺序）
+  let drawn = 0;
   for (let li = 0; li < lay.lines.length; li++) {
     const line = lay.lines[li];
     let x = b.x;
-    const yBase = b.y + li * lay.lineH + b.fontSize * 0.9; // 基线
+    const yBase = b.y + li * lay.lineH + b.fontSize * 0.9;
     for (const ch of line) {
-      if (drawn >= allowed) return; // 本行未写完 → 本行重点标记也先不出
+      if (drawn >= allowed) {
+        if (partial && partial.gi === drawn && partial.alpha > 0.02) {
+          chalkChar(ctx, ch, x, yBase, b, mulberry32(hashStr(b.uid) + drawn * 7919), partial.alpha);
+        }
+        return;
+      }
       chalkChar(ctx, ch, x, yBase, b, mulberry32(hashStr(b.uid) + drawn * 7919));
       x += ctx.measureText(ch).width;
       drawn++;
     }
-    // 本行写完 → 画落在本行的重点标记（圈选/下划线），模拟老师写完即圈
+    // 本行写完 → 画落在本行的重点标记（模拟老师写完即圈）
     for (const em of b.emphasis ?? []) {
       const idx = line.indexOf(em.text);
       if (idx < 0) continue;
@@ -360,8 +535,8 @@ function drawBlock(ctx, b, allowed) {
       }
     }
   }
-  // 标题 / 总结写完后补一条抖动粉笔下划线
-  if (allowed >= b._chars && (b.kind === "title" || b.kind === "summary") && lay.lines.length > 0) {
+  // 标题/总结/区头写完 → 粉笔下划线
+  if (allowed >= b._chars && (b.kind === "title" || b.kind === "summary" || b.kind === "header") && lay.lines.length > 0) {
     let wMax = 0;
     for (const l of lay.lines) wMax = Math.max(wMax, ctx.measureText(l).width);
     if (wMax > 30) {
@@ -371,7 +546,6 @@ function drawBlock(ctx, b, allowed) {
   }
 }
 
-// 书写中的粉笔头指示（动画期间显示在下一个字的位置）
 function drawChalkCursor(ctx, x, y) {
   ctx.save();
   ctx.translate(x + 4, y - 4);
@@ -382,36 +556,59 @@ function drawChalkCursor(ctx, x, y) {
   if (ctx.roundRect) ctx.roundRect(0, -4, 30, 8, 3);
   else ctx.rect(0, -4, 30, 8);
   ctx.fill();
-  // 笔尖
   ctx.fillStyle = "#d8d4c4";
   ctx.fillRect(-3, -4, 4, 8);
   ctx.restore();
   ctx.globalAlpha = 1;
 }
 
-function renderText(writtenBudget = Infinity) {
+// ---------- 渲染（t = 动画时间线毫秒；Infinity = 全部完成） ----------
+
+function renderText(t = Infinity) {
   textCtx.setTransform(1, 0, 0, 1, 0, 0);
   textCtx.clearRect(0, 0, textC.width, textC.height);
   logicalTransform(textCtx, textC);
   textCtx.textBaseline = "alphabetic";
 
-  const curBlocks = pages[curPage]?.blocks ?? [];
-  // 预计算动画中每个块的可写配额
+  const page = pages[curPage];
+  if (!page) return;
+  layoutPage(page);
+
+  // 分隔线（按时间线渐进画线）
+  for (const d of page._dividers) {
+    let frac = 1;
+    if (animState && t !== Infinity) {
+      const e = animState.dividerMap.get(d);
+      // 本次动画不含该线（如 AI 解答追加）→ 之前已画过，保持完整
+      if (e) {
+        frac = Math.max(0, Math.min(1, (t - e.t0) / e.cost));
+        if (frac <= 0) continue;
+      }
+    }
+    const rnd = mulberry32(hashStr(`${Math.round(d.a.x)},${Math.round(d.a.y)}`));
+    chalkSeg(textCtx, d.a.x, d.a.y, d.a.x + (d.b.x - d.a.x) * frac, d.a.y + (d.b.y - d.a.y) * frac, "#d8d5c8", 2.6, rnd);
+  }
+
+  // 各块配额 = 已完整写出的字符数；正在写的字带渐现 alpha
   const quota = new Map();
-  if (animState) {
-    let budget = writtenBudget;
-    for (const b of animState.order) {
-      quota.set(b.uid, Math.max(0, Math.min(b._chars, budget)));
-      budget -= b._chars;
+  const partials = new Map();
+  if (animState && t !== Infinity) {
+    for (const e of animState.entries) {
+      if (e.kind !== "char") continue;
+      const done = t >= e.t0 + e.cost;
+      const inFlight = !done && t >= e.t0;
+      if (done) quota.set(e.b.uid, (quota.get(e.b.uid) ?? 0) + 1);
+      else if (inFlight) partials.set(e.b.uid, { gi: e.gi, alpha: Math.max(0.1, (t - e.t0) / e.cost) });
     }
   }
-  for (const b of curBlocks) {
-    const allowed = quota.has(b.uid) ? quota.get(b.uid) : Infinity;
-    if (allowed > 0) drawBlock(textCtx, b, allowed);
+  for (const b of page._drawOrder) {
+    const allowed = quota.size ? (quota.get(b.uid) ?? 0) : Infinity;
+    drawBlock(textCtx, b, allowed, partials.get(b.uid));
   }
-  // 动画中 → 粉笔头停在下一个要写的字上
-  if (animState && animState.written < animState.total) {
-    const next = animState.schedule[animState.written];
+
+  // 粉笔头停在正在写的字上
+  if (animState && t !== Infinity && t < animState.dur) {
+    const next = animState.entries.find((e) => e.kind === "char" && e.t0 > t - 2);
     if (next) {
       const lay = layouts.get(next.b.uid);
       const line = lay.lines[next.li];
@@ -423,49 +620,57 @@ function renderText(writtenBudget = Infinity) {
   }
 }
 
+// ---------- 时间线动画：分隔线 → 逐字渐现 ----------
+
 function stopAnim() {
   if (animRaf) cancelAnimationFrame(animRaf);
   animRaf = 0;
   animState = null;
 }
 
-// 逐行书写动画：schedule 决定每个字的时间片，行首额外停顿
-function animateIn(newBlocks) {
+function animateIn(page, blockList, withDividers) {
   stopAnim();
-  if (!newBlocks.length) {
-    renderText();
-    return;
+  layoutPage(page);
+  const entries = [];
+  if (withDividers) {
+    for (const d of page._dividers) entries.push({ kind: "divider", d });
   }
-  const schedule = [];
-  for (const b of newBlocks) {
+  let charCount = 0;
+  for (const b of blockList) {
     const lay = layouts.get(b.uid);
     if (!lay) continue;
     for (let li = 0; li < lay.lines.length; li++) {
       for (let ci = 0; ci < lay.lines[li].length; ci++) {
-        schedule.push({ b, li, ci, lineStart: ci === 0 });
+        entries.push({ kind: "char", b, li, ci, gi: charCount, lineStart: ci === 0 });
+        charCount++;
       }
     }
+    charCount = 0; // gi 为块内序号
   }
-  const total = schedule.length;
-  const charMs = total > 220 ? CHAR_MS_FAST : CHAR_MS_BASE;
-  animState = { order: newBlocks, schedule, total, written: 0, acc: 0, lastT: 0, charMs };
-
+  const charMs = entries.filter((e) => e.kind === "char").length > 220 ? CHAR_MS_FAST : CHAR_MS;
+  let t = 0;
+  for (const e of entries) {
+    e.t0 = t;
+    e.cost = e.kind === "divider" ? DIVIDER_MS : charMs + (e.lineStart && t > 0 ? LINE_PAUSE : 0);
+    t += e.cost;
+  }
+  if (!entries.length) {
+    renderText();
+    return;
+  }
+  animState = {
+    entries,
+    dividerMap: new Map(entries.filter((e) => e.kind === "divider").map((e) => [e.d, e])),
+    dur: t,
+    startTs: 0,
+    tNow: 0,
+  };
   const frame = (ts) => {
     if (!animState) return;
-    if (!animState.lastT) animState.lastT = ts;
-    const dt = ts - animState.lastT;
-    animState.lastT = ts;
-    animState.acc += dt;
-    // 按时间预算推进字符（行首加停顿）
-    while (animState.written < animState.total) {
-      const next = animState.schedule[animState.written];
-      const cost = animState.charMs + (next.lineStart && animState.written > 0 ? LINE_PAUSE : 0);
-      if (animState.acc < cost) break;
-      animState.acc -= cost;
-      animState.written++;
-    }
-    renderText(animState.written);
-    if (animState.written < animState.total) {
+    if (!animState.startTs) animState.startTs = ts;
+    animState.tNow = ts - animState.startTs;
+    renderText(animState.tNow);
+    if (animState.tNow < animState.dur) {
       animRaf = requestAnimationFrame(frame);
     } else {
       animRaf = 0;
@@ -476,39 +681,65 @@ function animateIn(newBlocks) {
   animRaf = requestAnimationFrame(frame);
 }
 
-function normalizeIncoming(board, kindPrefix) {
-  const out = [];
-  const mk = (el, kind) => {
-    if (!el || !el.text) return;
-    const emphasis = Array.isArray(el.emphasis)
-      ? el.emphasis
-          .filter((e) => e && typeof e.text === "string" && e.text.trim())
-          .slice(0, 8)
-          .map((e) => ({
-            text: e.text.trim().slice(0, 20),
-            style: e.style === "circle" ? "circle" : "underline",
-            color: /^#[0-9a-fA-F]{3,8}$/.test(e.color || "") ? e.color : "#ffe066",
-          }))
-      : [];
-    const b = {
-      uid: `u${++uidSeq}`,
-      kind,
-      id: el.id || kind,
-      text: el.text,
-      x: el.x,
-      y: el.y,
-      width: el.width || 560,
-      fontSize: el.fontSize || 28,
-      color: el.color || "#f0f0f0",
-      emphasis,
-    };
-    computeLayout(b);
-    out.push(b);
+// ---------- 服务端板书 → 页面对象 ----------
+
+function coerceEmphasisList(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter((e) => e && typeof e.text === "string" && e.text.trim())
+    .slice(0, 8)
+    .map((e) => ({
+      text: e.text.trim().slice(0, 20),
+      style: e.style === "circle" ? "circle" : "underline",
+      color: /^#[0-9a-fA-F]{3,8}$/.test(e.color || "") ? e.color : "#ffe066",
+    }));
+}
+
+function mkBlock(el, kind, defs) {
+  if (!el || !el.text || !String(el.text).trim()) return null;
+  return {
+    uid: `u${++uidSeq}`,
+    kind,
+    text: String(el.text),
+    x: typeof el.x === "number" ? el.x : defs.x,
+    y: typeof el.y === "number" ? el.y : defs.y,
+    width: typeof el.width === "number" ? el.width : defs.width,
+    fontSize: typeof el.fontSize === "number" ? el.fontSize : defs.fontSize,
+    color: /^#[0-9a-fA-F]{3,8}$/.test(el.color || "") ? el.color : defs.color,
+    region: typeof el.region === "string" ? el.region : null,
+    emphasis: coerceEmphasisList(el.emphasis),
   };
-  mk(board.title, "title");
-  for (const blk of board.blocks || []) mk(blk, "block");
-  mk(board.summary, "summary");
-  return out.filter((b) => b._chars > 0);
+}
+
+function normalizePage(pg) {
+  const page = newPage();
+  if (!pg || typeof pg !== "object") return page;
+  page.titleBlock = mkBlock(pg.title, "title", { x: 80, y: 28, width: W - 200, fontSize: 48, color: "#ffe066" });
+  page.summaryBlock = mkBlock(pg.summary, "summary", { x: 80, y: H - 120, width: W - 160, fontSize: 32, color: "#ffe066" });
+  if (Array.isArray(pg.regions)) {
+    page.regions = pg.regions
+      .filter((r) => r && typeof r === "object")
+      .slice(0, 6)
+      .map((r, i) => ({
+        id: typeof r.id === "string" && r.id ? r.id : `r${i + 1}`,
+        x: typeof r.x === "number" ? r.x : 60,
+        y: typeof r.y === "number" ? r.y : 150,
+        width: typeof r.width === "number" ? r.width : 700,
+        height: typeof r.height === "number" ? r.height : 680,
+        header: typeof r.header === "string" ? r.header.slice(0, 24) : null,
+      }));
+  }
+  if (Array.isArray(pg.blocks)) {
+    const ids = new Set(page.regions.map((r) => r.id));
+    page.blocks = pg.blocks
+      .map((b) => mkBlock(b, "block", { x: 80, y: 300, width: 640, fontSize: 30, color: "#f2f0e6" }))
+      .filter(Boolean)
+      .map((b) => {
+        if (b.region && !ids.has(b.region)) b.region = page.regions[0]?.id ?? null;
+        return b;
+      });
+  }
+  return page;
 }
 
 // ---------- 翻页 ----------
@@ -522,14 +753,14 @@ function syncPageNav() {
 function goToPage(i) {
   if (i < 0 || i >= pages.length || i === curPage) return;
   stopAnim();
-  renderText(); // 旧页定格
+  renderText();
   curPage = i;
   syncPageNav();
   redrawStrokes();
   const p = pages[i];
-  if (p.blocks.length && !p.animated) {
-    p.animated = true; // 每页首次观看都有书写动效
-    animateIn(p.blocks);
+  if (p._drawOrder.length && !p.animated) {
+    p.animated = true;
+    animateIn(p, p._drawOrder, true);
   } else {
     renderText();
   }
@@ -540,13 +771,13 @@ $("#btn-next-page").addEventListener("click", () => goToPage(curPage + 1));
 
 // ---------- 指针输入 ----------
 
-let current = null; // 书写中的笔画
+let current = null;
 
 boardEl.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   e.preventDefault();
   boardEl.setPointerCapture(e.pointerId);
-  stopAnim(); // 用户落笔时结束动效，立即定格已写内容
+  stopAnim();
   renderText();
   const pt = toLogical(e);
   current = {
@@ -554,7 +785,7 @@ boardEl.addEventListener("pointerdown", (e) => {
     color,
     size: brushSize,
     seed: (seedSeq = (seedSeq + 0x9e3779b9) >>> 0),
-    pts: [pt, { ...pt, x: pt.x + 0.01, y: pt.y + 0.01 }], // 双点保证单点也能重放出"点"
+    pts: [pt, { ...pt, x: pt.x + 0.01, y: pt.y + 0.01 }],
   };
   strokesByPage[curPage].push(current);
   drawStrokeSegment(current, 1);
@@ -567,7 +798,7 @@ boardEl.addEventListener("pointermove", (e) => {
   for (const ev of events.length ? events : [e]) {
     const pt = toLogical(ev);
     const last = current.pts[current.pts.length - 1];
-    if (Math.hypot(pt.x - last.x, pt.y - last.y) < 0.8) continue; // 过滤抖动
+    if (Math.hypot(pt.x - last.x, pt.y - last.y) < 0.8) continue;
     current.pts.push(pt);
     drawStrokeSegment(current, current.pts.length - 1);
   }
@@ -623,11 +854,10 @@ function undo() {
 function clearAll() {
   const p = pages[curPage];
   const s = strokesByPage[curPage];
-  if (!s.length && !p.blocks.length) return;
+  if (!s.length && !p._drawOrder.length) return;
   if (!confirm(`清空第 ${curPage + 1} 页黑板（手写 + AI板书）？`)) return;
   stopAnim();
-  p.blocks = [];
-  p.animated = true;
+  pages[curPage] = newPage();
   strokesByPage[curPage] = [];
   redrawStrokes();
   renderText();
@@ -641,17 +871,22 @@ function syncToolbar() {
   if (tool !== "eraser") eraserCursorEl.hidden = true;
 }
 
+function applyTheme() {
+  $("#board-frame").style.background = THEMES[theme].frame;
+  document.documentElement.style.setProperty("--bg", theme === "green" ? "#101b13" : "#12100e");
+  paintBoard(bgCtx, bgC.width, bgC.height, theme);
+}
+
 $("#btn-theme").addEventListener("click", () => {
   theme = theme === "black" ? "green" : "black";
-  $("#board-frame").style.background = THEMES[theme].frame;
-  paintBoard(bgCtx, bgC.width, bgC.height, theme);
+  applyTheme();
   toast(theme === "black" ? "经典黑板" : "护眼绿板", "");
 });
 
 $("#btn-export").addEventListener("click", exportPNG);
 
 function exportPNG() {
-  const scale = 2; // 高清导出
+  const scale = 2;
   const out = document.createElement("canvas");
   out.width = W * scale;
   out.height = H * scale;
@@ -705,7 +940,6 @@ function toast(msg, type = "") {
   }, 2600);
 }
 
-// 文本转板书（多页替换式）
 async function generateBoard() {
   const text = $("#text-input").value.trim();
   if (!text) return toast("先粘贴一些文本", "err");
@@ -719,17 +953,20 @@ async function generateBoard() {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     const newPages = (data.pages || [])
-      .map((p) => ({ blocks: normalizeIncoming(p, "b"), animated: false }))
-      .filter((p) => p.blocks.length > 0);
-    if (!newPages.length) throw new Error("模型没有生成有效板书，请重试");
+      .map(normalizePage)
+      .filter((p) => p._drawOrder.length > 0 || p.titleBlock || p.blocks.length || p.summaryBlock);
+    // 计算最终 _drawOrder
+    for (const p of newPages) layoutPage(p);
+    const withContent = newPages.filter((p) => p._drawOrder.length > 0);
+    if (!withContent.length) throw new Error("模型没有生成有效板书，请重试");
     stopAnim();
-    pages = newPages;
-    strokesByPage = pages.map(() => []); // 新板书 = 换新黑板，手写清空
+    pages = withContent;
+    strokesByPage = pages.map(() => []);
     curPage = 0;
     syncPageNav();
     redrawStrokes();
     pages[0].animated = true;
-    animateIn(pages[0].blocks);
+    animateIn(pages[0], pages[0]._drawOrder, true);
     $("#drawer").classList.add("hidden");
     toast(pages.length > 1 ? `板书已生成，共 ${pages.length} 页（←/→ 翻页）` : "板书已生成", "ok");
   } catch (err) {
@@ -739,10 +976,9 @@ async function generateBoard() {
   }
 }
 
-// AI 解答（追加到当前页，整屏截图 → 多模态）
 async function answerBoard() {
   const p = pages[curPage];
-  if (!strokesByPage[curPage].length && !p.blocks.length) {
+  if (!strokesByPage[curPage].length && !p._drawOrder.length) {
     return toast("黑板是空的，先写点什么或先生成板书", "err");
   }
   thinking(true, "AI 正在识别黑板并思考…");
@@ -762,11 +998,21 @@ async function answerBoard() {
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    const board = data.board || data.pages?.[0];
-    const blocks = normalizeIncoming(board ?? {}, "a");
+    const board = data.board || (data.pages || [])[0] || {};
+    const appended = (board.blocks || [])
+      .map((b) => mkBlock(b, "block", { x: 100, y: 700, width: 640, fontSize: 28, color: "#ffe066" }))
+      .filter(Boolean);
+    const extra = [];
+    if (board.title) {
+      const tb = mkBlock(board.title, "block", { x: 100, y: 640, width: 640, fontSize: 30, color: "#ffe066" });
+      if (tb) extra.push(tb);
+    }
+    const blocks = extra.concat(appended);
     if (!blocks.length) throw new Error("模型没有返回作答内容，请重试");
+    for (const b of blocks) computeLayout(b);
     p.blocks = p.blocks.concat(blocks);
-    animateIn(blocks);
+    p._drawOrder = p._drawOrder.concat(blocks);
+    animateIn(p, blocks, false);
     toast("AI 已作答", "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? "无法连接本地服务" : err.message, "err");
@@ -854,17 +1100,16 @@ $("#btn-cfg-save").addEventListener("click", async () => {
 // ---------- 尺寸自适应（等比 letterbox） ----------
 
 function relayout() {
-  // 等比适配：画布严格保持 1600:1000，xy 缩放一致，字形/笔画不变形
   const fr = $("#board-frame").getBoundingClientRect();
-  const availW = Math.max(100, fr.width - 32); // 减去木框 padding 16*2
+  const availW = Math.max(100, fr.width - 32);
   const availH = Math.max(100, fr.height - 32);
   const s = Math.min(availW / W, availH / H);
   boardEl.style.width = `${Math.floor(W * s)}px`;
   boardEl.style.height = `${Math.floor(H * s)}px`;
   for (const c of [bgC, strokeC, textC]) fitCanvas(c);
-  paintBoard(bgCtx, bgC.width, bgC.height, theme);
+  applyTheme();
   redrawStrokes();
-  renderText(animState ? animState.written : Infinity);
+  renderText(animState ? animState.tNow : Infinity);
 }
 
 new ResizeObserver(relayout).observe($("#board-frame"));

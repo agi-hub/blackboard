@@ -29,10 +29,21 @@ interface BoardElement {
   fontSize: number;
   color: string;
   emphasis?: Emphasis[];
+  region?: string; // 归属区域 id（有区域时前端在区域内自动排版，忽略 x/y）
+}
+
+interface Region {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  header?: string;
 }
 
 interface BoardJSON {
   title: BoardElement | null;
+  regions: Region[];
   blocks: BoardElement[];
   summary: BoardElement | null;
 }
@@ -224,18 +235,44 @@ function coerceElement(v: unknown, id: string, W: number, H: number): BoardEleme
     fontSize,
     color,
     ...(emphasis.length ? { emphasis: emphasis.slice(0, 8) } : {}),
+    ...(isStr(v.region) && v.region.trim() ? { region: v.region.trim() } : {}),
   };
 }
 
+function coerceRegion(v: unknown, i: number, W: number, H: number): Region | null {
+  if (!isRecord(v)) return null;
+  const num = (x: unknown, d: number): number => (typeof x === "number" && Number.isFinite(x) ? x : d);
+  const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, x));
+  const x = clamp(Math.round(num(v.x, 60)), 40, W - 240);
+  const y = clamp(Math.round(num(v.y, 150)), 130, H - 220);
+  const width = clamp(Math.round(num(v.width, 700)), 200, W - 40 - x);
+  const height = clamp(Math.round(num(v.height, 680)), 120, H - 40 - y);
+  const header = isStr(v.header) && v.header.trim() ? v.header.trim().slice(0, 24) : undefined;
+  return { id: isStr(v.id) && v.id ? v.id : `r${i + 1}`, x, y, width, height, ...(header ? { header } : {}) };
+}
+
 function normalizeBoard(json: unknown, W: number, H: number): BoardJSON {
-  const board: BoardJSON = { title: null, blocks: [], summary: null };
+  const board: BoardJSON = { title: null, regions: [], blocks: [], summary: null };
   if (!isRecord(json)) return board;
   board.title = coerceElement(json.title, "title", W, H);
   board.summary = coerceElement(json.summary, "summary", W, H);
+  if (Array.isArray(json.regions)) {
+    board.regions = json.regions
+      .map((r, i) => coerceRegion(r, i, W, H))
+      .filter((r): r is Region => r !== null)
+      .slice(0, 6);
+  }
   if (Array.isArray(json.blocks)) {
     board.blocks = json.blocks
       .map((b, i) => coerceElement(b, `block${i + 1}`, W, H))
       .filter((b): b is BoardElement => b !== null);
+  }
+  // 块引用的区域不存在时挂在第一个区域（前端兜底）
+  if (board.regions.length > 0) {
+    const ids = new Set(board.regions.map((r) => r.id));
+    for (const b of board.blocks) {
+      if (b.region && !ids.has(b.region)) b.region = board.regions[0].id;
+    }
   }
   return board;
 }
@@ -247,26 +284,34 @@ function normalizePages(json: unknown, W: number, H: number): BoardJSON[] {
   }
   return [normalizeBoard(json, W, H)];
 }
-// ---------- Prompt（依据 MVP 方案 §2.2 / §2.3，多页 + 重点标记版） ----------
+// ---------- Prompt（方案 §2.2：先分区 → 区域内写字，前端确定性排版） ----------
 
 function layoutSystemPrompt(W: number, H: number): string {
   return [
-    "你是专业的黑板板书排版引擎。任务：把输入文本（冗长文章、笔记或 Markdown）精炼后，排版为「多页黑板板书」。",
-    "分页规则：",
-    "1. 内容多时拆分为多页（通常 1~4 页），每页只讲一个主题：顶部标题 + 2~3 个内容块 + 可选总结；宁可多翻页，也不许拥挤。内容少则单页。",
-    "2. 字号要大（核心要求）：标题 40~52；正文 26~32；补充说明 22~26；总结 26~32。每块 text 不超过 4 行。",
-    "3. 布局：每页均为顶部标题、正文左右分栏或上下排布、底部总结；块之间不重叠。",
-    "4. 颜色（粉笔色板，重点要突出）：",
-    "   - 普通正文 #f2f0e6（白）/ #d8d8d8（灰）",
-    "   - 重点句/结论块 #ffe066（黄）；警示/易错 #ff9ec4（粉）；数据/公式 #9fd8ff（蓝）；好处/收益 #b8f2b8（绿）",
-    "   - 标题 #ffe066；总结 #ffe066 或 #ff9ec4",
-    "5. 重点标记 emphasis：每页挑 2~5 个关键词，用圈选或下划线标注（关键词 ≤ 8 字，必须与所在块 text 中的原文完全一致）：",
-    '   [{"text":"关键词","style":"circle"|"underline","color":"#ffe066"}]',
-    `6. 画布每页 ${W}x${H} 像素坐标（左上原点）。左右边距 ≥ 80，底部预留 ≥ 80，x+width ≤ ${W - 60}，y+行数*fontSize*1.7 < ${H - 60}。`,
-    "7. 板书元素可用：①②③ 分点、→ 推导、[图] 占位、—— 强调。",
-    "严格只返回如下 JSON（无解释、无 markdown 代码块）：",
-    '{"pages":[{"title":{"text":"…","x":0,"y":0,"fontSize":46,"color":"#ffe066"},"blocks":[{"id":"b1","text":"…","x":0,"y":0,"width":640,"fontSize":28,"color":"#f2f0e6","emphasis":[{"text":"…","style":"circle","color":"#ff9ec4"}]}],"summary":{"text":"…","x":0,"y":0,"fontSize":28,"color":"#ffe066"}}]}',
-    "summary 可为 null；text 内用 \\n 表示换行。",
+    "你是专业的黑板板书排版引擎。任务：把输入文本（冗长文章、笔记或 Markdown）精炼为「多页、分区、大字、重点分明」的黑板板书。",
+    "",
+    "输出协议（严格只返回 JSON，无解释、无 markdown 代码块）：",
+    '{"pages":[{',
+    '  "title": {"text":"页标题","fontSize":48},',
+    '  "regions": [',
+    '    {"id":"r1","x":60,"y":150,"width":700,"height":680,"header":"栏目标题"},',
+    '    {"id":"r2","x":840,"y":150,"width":700,"height":680,"header":"栏目标题"}',
+    "  ],",
+    '  "blocks": [',
+    '    {"region":"r1","text":"…","fontSize":30,"color":"#f2f0e6","emphasis":[{"text":"关键词","style":"circle","color":"#ffe066"}]}',
+    "  ],",
+    '  "summary": {"text":"本页核心结论（一句话）","fontSize":32,"color":"#ffe066"}',
+    "}]}",
+    "",
+    "排版规则：",
+    "1. 先分区再写字（核心）：每页先把画布划分为 1~4 个矩形区域——常用左右两栏 / 上下两栏 / 2×2。区域之间留 40~70px 间隙（前端会在间隙画粉笔分隔线）。区域不重叠：x+width ≤ 1540，y+height ≤ 860，页面底部约 100px 留给总结条。",
+    "2. 每个区域一个主题：header ≤ 10 字（黄色区头，自动带下划线）；区域内 2~4 块、每块 1~3 行。内容多就分更多页（1~4 页），每页一个主题，宁可翻页不要拥挤。",
+    "3. 字要大（黑板精髓，远看要清楚）：页标题 44~54；区头 30（前端固定）；正文 28~36；总结 30~36。",
+    "4. 颜色语义（重点分明）：正文 #f2f0e6 白 / #d8d8d8 灰；核心结论句必须换色 #ffe066 黄 或 #ff9ec4 粉；数据/公式 #9fd8ff 蓝；好处/收益 #b8f2b8 绿；警示/易错 #ff9ec4 粉。summary 必须用黄或粉。",
+    "5. emphasis 重点标记：每页 3~6 个关键词 circle 圈选或 underline 下划线；关键词 ≤ 8 字且必须与所在块 text 原文完全一致；圈选用于最重要的词，下划线次之。",
+    "6. 提纯：删客套话、铺垫、重复；保留论点、数据、结论。板书元素可用 ①②③、→、[图]。",
+    "7. blocks 只需 region + text + fontSize + color + emphasis，不需要 x/y（前端在区域内自动排版）。",
+    `画布每页 ${W}x${H} 像素（左上原点）。text 内用 \\n 换行。`,
   ].join("\n");
 }
 
