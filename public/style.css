@@ -1,3 +1,120 @@
+/* 左侧磁吸粉笔槽（墙上木条轨道） */
+#chalk-rail {
+  flex-shrink: 0;
+  width: 84px;
+  align-self: stretch;
+  margin: 18px 4px 18px 0;
+  background: linear-gradient(135deg, #6b4a2c, #4a3118 55%, #5d3f24);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.06),
+    inset 0 0 20px rgba(0, 0, 0, 0.45),
+    0 10px 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 0 14px;
+}
+.rail-chalks,
+.rail-sizes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.rail-divider {
+  width: 54px;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 1px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* 槽内粉笔：横放粉笔条 + 顶部小磁铁 */
+#chalk-rail .chalk-dot {
+  position: relative;
+  width: 56px;
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0 34%, var(--c) 35% 100%);
+  box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.3), 0 3px 5px rgba(0, 0, 0, 0.45);
+  border: none;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+#chalk-rail .chalk-dot::after {
+  /* 磁铁贴片 */
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 7px;
+  border-radius: 3px;
+  background: linear-gradient(#d6dbe1, #878e98);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+#chalk-rail .chalk-dot:hover {
+  transform: translateY(-2px);
+}
+#chalk-rail .chalk-dot.active {
+  transform: translateY(-5px);
+  box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.3), 0 0 12px rgba(255, 224, 102, 0.45);
+}
+
+#chalk-rail .size-btn {
+  width: 44px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+#chalk-rail .size-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+#chalk-rail .size-btn.active {
+  border-color: rgba(255, 224, 102, 0.7);
+  background: rgba(255, 224, 102, 0.1);
+}
+#chalk-rail .size-btn .dot {
+  border-radius: 4px;
+  background: var(--chalk);
+  display: block;
+}
+#chalk-rail .size-btn .dot.s {
+  width: 26px;
+  height: 5px;
+}
+#chalk-rail .size-btn .dot.m {
+  width: 32px;
+  height: 8px;
+}
+#chalk-rail .size-btn .dot.l {
+  width: 38px;
+  height: 12px;
+}
+
+/* 板擦：木壳 + 毛毡底 */
+#chalk-rail .rail-eraser {
+  position: relative;
+  width: 58px;
+  height: 34px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #8a6a3f 0 58%, #ddd6c4 58% 100%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+#chalk-rail .rail-eraser:hover {
+  transform: translateY(-2px);
+}
+#chalk-rail .rail-eraser.active {
+  transform: translateY(-4px);
+  box-shadow: 0 0 12px rgba(255, 158, 196, 0.5), 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+
 /* 「黑板」原型 — 样式 */
 
 :root {
@@ -70,38 +187,6 @@ button {
   text-shadow: 0 0 10px rgba(242, 240, 230, 0.35);
 }
 
-/* 粉笔颜色 */
-.chalk-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: linear-gradient(160deg, #fff8 40%, var(--c) 41%);
-  box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.5);
-  border: 2px solid transparent;
-  transition: transform 0.12s, border-color 0.12s;
-}
-.chalk-dot:hover { transform: translateY(-2px); }
-.chalk-dot.active {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.25), 0 0 10px rgba(255, 224, 102, 0.35);
-}
-
-/* 粗细 */
-.size-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  border: 1px solid transparent;
-}
-.size-btn:hover { background: rgba(255, 255, 255, 0.08); }
-.size-btn.active { border-color: var(--accent); background: rgba(255, 224, 102, 0.1); }
-.size-btn .dot { border-radius: 50%; background: var(--chalk); display: block; }
-.size-btn .dot.s { width: 4px; height: 4px; }
-.size-btn .dot.m { width: 8px; height: 8px; }
-.size-btn .dot.l { width: 13px; height: 13px; }
 
 .tool-btn {
   padding: 5px 12px;

@@ -12,26 +12,13 @@
     <div class="tb-group brand">
       <span class="brand-mark">◼</span>
       <span class="brand-name">黑板</span>
-      <button class="chalk-dot" data-color="#f2f0e6" style="--c:#f2f0e6" aria-label="白色粉笔"></button>
-      <button class="chalk-dot" data-color="#ffe066" style="--c:#ffe066" aria-label="黄色粉笔"></button>
-      <button class="chalk-dot" data-color="#ffab6e" style="--c:#ffab6e" aria-label="橙色粉笔"></button>
-      <button class="chalk-dot" data-color="#ff9ec4" style="--c:#ff9ec4" aria-label="粉色粉笔"></button>
-      <button class="chalk-dot" data-color="#9fd8ff" style="--c:#9fd8ff" aria-label="蓝色粉笔"></button>
-      <button class="chalk-dot" data-color="#b8f2b8" style="--c:#b8f2b8" aria-label="绿色粉笔"></button>
-      <button class="chalk-dot" data-color="#d8b8ff" style="--c:#d8b8ff" aria-label="紫色粉笔"></button>
-    </div>
-
-    <div class="tb-group" id="size-tray" title="粉笔粗细">
-      <button class="size-btn" data-size="3"><i class="dot s"></i></button>
-      <button class="size-btn active" data-size="5"><i class="dot m"></i></button>
-      <button class="size-btn" data-size="9"><i class="dot l"></i></button>
     </div>
 
     <div class="tb-group">
-      <button id="btn-eraser" class="tool-btn" title="橡皮擦">⌫ 橡皮</button>
       <button id="btn-undo" class="tool-btn" title="撤销 (Ctrl/Cmd+Z)">↩ 撤销</button>
       <button id="btn-clear" class="tool-btn danger" title="清空黑板">✕ 清屏</button>
     </div>
+
 
     <div class="tb-group spacer-right">
       <select id="voice-select" title="讲解音色"></select>
@@ -56,6 +43,27 @@
   </header>
 
   <main id="stage">
+    <!-- 左侧粉笔槽（磁吸上墙：木条轨道 + 磁铁贴粉笔 + 板擦） -->
+    <aside id="chalk-rail" title="粉笔槽">
+      <div class="rail-chalks">
+        <button class="chalk-dot" data-color="#f2f0e6" style="--c:#f2f0e6" aria-label="白色粉笔"></button>
+        <button class="chalk-dot" data-color="#ffe066" style="--c:#ffe066" aria-label="黄色粉笔"></button>
+        <button class="chalk-dot" data-color="#ffab6e" style="--c:#ffab6e" aria-label="橙色粉笔"></button>
+        <button class="chalk-dot" data-color="#ff9ec4" style="--c:#ff9ec4" aria-label="粉色粉笔"></button>
+        <button class="chalk-dot" data-color="#9fd8ff" style="--c:#9fd8ff" aria-label="蓝色粉笔"></button>
+        <button class="chalk-dot" data-color="#b8f2b8" style="--c:#b8f2b8" aria-label="绿色粉笔"></button>
+        <button class="chalk-dot" data-color="#d8b8ff" style="--c:#d8b8ff" aria-label="紫色粉笔"></button>
+      </div>
+      <div class="rail-divider"></div>
+      <div class="rail-sizes" title="粉笔粗细">
+        <button class="size-btn" data-size="3"><i class="dot s"></i></button>
+        <button class="size-btn active" data-size="5"><i class="dot m"></i></button>
+        <button class="size-btn" data-size="9"><i class="dot l"></i></button>
+      </div>
+      <div class="rail-divider"></div>
+      <button id="btn-eraser" class="rail-eraser" title="橡皮擦（板擦）"><span class="felt"></span></button>
+    </aside>
+
     <!-- 黑板（木框 + 三层画布） -->
     <div id="board-frame">
       <div id="board">
