@@ -172,47 +172,19 @@ button {
     help;
 }
 
-/* 两位授课教师（右下角，点击换音色） */
-#teachers {
-  position: absolute;
-  right: 16px;
-  bottom: 12px;
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  z-index: 6;
+/* 讲解音色选择 */
+#voice-select {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border: 1px solid #555240;
+  border-radius: 10px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
 }
-.teacher {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  opacity: 0.55;
-  transform: scale(0.92);
-  transform-origin: bottom center;
-  transition: opacity 0.2s, transform 0.2s, filter 0.2s;
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
-}
-.teacher:hover { opacity: 0.85; }
-.teacher.active {
-  opacity: 1;
-  transform: scale(1);
-}
-.teacher.active .t-name { color: var(--accent); border-color: rgba(255, 224, 102, 0.6); }
-.teacher .t-name {
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: #e8e4da;
-  background: rgba(10, 16, 12, 0.55);
-  border: 1px solid rgba(232, 228, 218, 0.35);
-  border-radius: 8px;
-  padding: 1px 8px;
-}
-.teacher.speaking { animation: teacherTalk 0.55s ease-in-out infinite alternate; }
-@keyframes teacherTalk {
-  from { transform: scale(1) translateY(0); }
-  to { transform: scale(1.05) translateY(-4px); }
-}
+#voice-select:focus { border-color: var(--accent); }
 
 #board {
   position: relative;

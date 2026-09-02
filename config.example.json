@@ -8,6 +8,6 @@
   "ttsBaseUrl": "https://api.siliconflow.cn/v1",
   "ttsApiKey": "在这里填入 SiliconFlow API Key",
   "ttsModel": "FunAudioLLM/CosyVoice2-0.5B",
-  "ttsVoice": "FunAudioLLM/CosyVoice2-0.5B:alex",
-  "ttsSpeed": 1.2
+  "ttsVoice": "FunAudioLLM/CosyVoice2-0.5B:anna",
+  "ttsSpeed": 1.0
 }

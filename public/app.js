@@ -661,11 +661,6 @@ function setNarrateBtn() {
     b.textContent = narration.playing ? "⏹ 停止" : "🔊 讲解";
     b.classList.toggle("primary", !narration.playing);
   }
-  // 当前教师在讲解时浮动说话
-  for (const t of ["female", "male"]) {
-    const el = $(`#teacher-${t}`);
-    if (el) el.classList.toggle("speaking", narration.playing && teacher === t);
-  }
 }
 
 function stopNarration() {
@@ -686,28 +681,28 @@ function stopNarration() {
   setNarrateBtn();
 }
 
-// 教师与音色（基音实测：alex 122Hz 男声 / anna 236Hz 女声）
-const TEACHER_VOICES = {
-  female: "FunAudioLLM/CosyVoice2-0.5B:anna",
-  male: "FunAudioLLM/CosyVoice2-0.5B:alex",
-};
-let teacher = "female";
+// 讲解音色（SiliconFlow CosyVoice2 全部预置音色，性别为基音实测）
+const VOICE_LIST = [
+  { id: "FunAudioLLM/CosyVoice2-0.5B:anna", label: "女声 · anna" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:bella", label: "女声 · bella" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:claire", label: "女声 · claire" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:diana", label: "女声 · diana" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:alex", label: "男声 · alex" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:benjamin", label: "男声 · benjamin" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:charles", label: "男声 · charles" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:david", label: "男声 · david" },
+];
+let voiceId = VOICE_LIST[0].id;
 
-function setTeacher(t) {
-  if (!TEACHER_VOICES[t] || teacher === t) return;
-  teacher = t;
-  $("#teacher-female").classList.toggle("active", t === "female");
-  $("#teacher-male").classList.toggle("active", t === "male");
-  toast(t === "female" ? "已切换：李老师（女声）" : "已切换：王老师（男声）", "");
+for (const v of VOICE_LIST) {
+  const opt = document.createElement("option");
+  opt.value = v.id;
+  opt.textContent = v.label;
+  $("#voice-select").appendChild(opt);
 }
-
-$("#teacher-female").addEventListener("pointerdown", (e) => {
-  e.stopPropagation();
-  setTeacher("female");
-});
-$("#teacher-male").addEventListener("pointerdown", (e) => {
-  e.stopPropagation();
-  setTeacher("male");
+$("#voice-select").addEventListener("change", () => {
+  voiceId = $("#voice-select").value;
+  toast(`音色已切换：${VOICE_LIST.find((v) => v.id === voiceId)?.label ?? voiceId}`, "");
 });
 
 // 讲稿标记解析：circle{词}/underline{词} → 纯文本 + 标记位置（转语音前剥离）
@@ -731,10 +726,10 @@ function parseSay(say) {
 
 // 取一块的语音（按当前教师音色缓存，讲稿剥离标记后送 TTS）：无讲稿/失败时返回静音降级
 async function fetchVoice(b) {
-  if (b._voice && b._voice.voice === teacher) return b._voice;
+  if (b._voice && b._voice.voice === voiceId) return b._voice;
   const parsed = parseSay(b.say);
   const say = parsed.clean.trim();
-  const fallback = { voice: teacher, el: null, dur: Math.max(1.5, (say || b.text).length * 0.19) };
+  const fallback = { voice: voiceId, el: null, dur: Math.max(1.5, (say || b.text).length * 0.19) };
   if (!say) {
     b._voice = fallback;
     return fallback;
@@ -743,7 +738,7 @@ async function fetchVoice(b) {
     const res = await fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: say, voice: TEACHER_VOICES[teacher] }),
+      body: JSON.stringify({ text: say, voice: voiceId }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
@@ -757,7 +752,7 @@ async function fetchVoice(b) {
     }
     const el = new Audio(data.audio);
     el.preload = "auto";
-    b._voice = { voice: teacher, el, dur: dur || fallback.dur };
+    b._voice = { voice: voiceId, el, dur: dur || fallback.dur };
   } catch {
     b._voice = fallback;
   }
