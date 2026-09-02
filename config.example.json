@@ -9,5 +9,5 @@
   "ttsApiKey": "在这里填入 SiliconFlow API Key",
   "ttsModel": "FunAudioLLM/CosyVoice2-0.5B",
   "ttsVoice": "FunAudioLLM/CosyVoice2-0.5B:alex",
-  "ttsSpeed": 1.0
+  "ttsSpeed": 1.2
 }
