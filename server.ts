@@ -14,6 +14,12 @@ const PORT = Number(process.env.PORT ?? 8918);
 
 // ---------- 类型 ----------
 
+interface Emphasis {
+  text: string;
+  style: "circle" | "underline";
+  color: string;
+}
+
 interface BoardElement {
   id: string;
   text: string;
@@ -22,6 +28,7 @@ interface BoardElement {
   width: number;
   fontSize: number;
   color: string;
+  emphasis?: Emphasis[];
 }
 
 interface BoardJSON {
@@ -192,12 +199,32 @@ function coerceElement(v: unknown, id: string, W: number, H: number): BoardEleme
   // 同一换算在 4 个字段上复用，保持一致语义
   const num = (x: unknown, d: number): number => (typeof x === "number" && Number.isFinite(x) ? x : d);
   const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, x));
-  const fontSize = clamp(Math.round(num(v.fontSize, 20)), 12, 56);
+  const fontSize = clamp(Math.round(num(v.fontSize, 20)), 14, 60);
   const x = clamp(Math.round(num(v.x, 60)), 16, W - 80);
-  const width = clamp(Math.round(num(v.width, 420)), 120, W - x - 24);
+  const width = clamp(Math.round(num(v.width, 560)), 160, W - x - 24);
   const y = clamp(Math.round(num(v.y, 100)), 24, H - 48);
   const color = isStr(v.color) && /^#[0-9a-fA-F]{3,8}$/.test(v.color) ? v.color : "#f0f0f0";
-  return { id: isStr(v.id) && v.id ? v.id : id, text: v.text.trim(), x, y, width, fontSize, color };
+  const emphasis: Emphasis[] = [];
+  if (Array.isArray(v.emphasis)) {
+    for (const e of v.emphasis) {
+      if (!isRecord(e) || !isStr(e.text) || !e.text.trim()) continue;
+      emphasis.push({
+        text: e.text.trim().slice(0, 20),
+        style: e.style === "circle" ? "circle" : "underline",
+        color: isStr(e.color) && /^#[0-9a-fA-F]{3,8}$/.test(e.color) ? e.color : "#ffe066",
+      });
+    }
+  }
+  return {
+    id: isStr(v.id) && v.id ? v.id : id,
+    text: v.text.trim(),
+    x,
+    y,
+    width,
+    fontSize,
+    color,
+    ...(emphasis.length ? { emphasis: emphasis.slice(0, 8) } : {}),
+  };
 }
 
 function normalizeBoard(json: unknown, W: number, H: number): BoardJSON {
@@ -213,21 +240,32 @@ function normalizeBoard(json: unknown, W: number, H: number): BoardJSON {
   return board;
 }
 
-// ---------- Prompt（依据 MVP 方案 §2.2 / §2.3） ----------
+// 兼容单板与多页两种返回：{pages:[...]} → 多页；旧扁平结构 → 单页
+function normalizePages(json: unknown, W: number, H: number): BoardJSON[] {
+  if (isRecord(json) && Array.isArray(json.pages)) {
+    return json.pages.map((p) => normalizeBoard(p, W, H));
+  }
+  return [normalizeBoard(json, W, H)];
+}
+// ---------- Prompt（依据 MVP 方案 §2.2 / §2.3，多页 + 重点标记版） ----------
 
 function layoutSystemPrompt(W: number, H: number): string {
   return [
-    "你是专业的黑板板书排版引擎。任务：把输入文本（可能是冗长的文章、笔记或 Markdown）精炼并排版为一屏黑板板书。",
-    "规则：",
-    "1. 提纯内容：删除客套话、铺垫、重复；保留核心论点、关键数据、结论。",
-    "2. 布局遵循经典板书结构：顶部标题、正文左右分栏（内容少可单栏）、底部总结。",
-    "3. 字号按信息权重：标题 34~44，一级论点 20~24，补充/案例 16~18，总结 18~22。",
-    "4. 颜色规范：标题 #ffe066；核心论点 #ffffff；补充内容 #d8d8d8；总结/金句 #ffe066 或 #ff9ec4。",
-    `5. 画布为 ${W}x${H} 像素坐标（左上角为原点）。左右边距 ≥ 60，分栏间距 ≥ 40，底部预留 ≥ 60，x+width ≤ ${W - 40}。`,
-    `6. 每块 text 控制在 4~8 行内（行高按 fontSize*1.7 估算），确保 y + 行数*行高 < ${H - 50}，块之间不重叠。`,
+    "你是专业的黑板板书排版引擎。任务：把输入文本（冗长文章、笔记或 Markdown）精炼后，排版为「多页黑板板书」。",
+    "分页规则：",
+    "1. 内容多时拆分为多页（通常 1~4 页），每页只讲一个主题：顶部标题 + 2~3 个内容块 + 可选总结；宁可多翻页，也不许拥挤。内容少则单页。",
+    "2. 字号要大（核心要求）：标题 40~52；正文 26~32；补充说明 22~26；总结 26~32。每块 text 不超过 4 行。",
+    "3. 布局：每页均为顶部标题、正文左右分栏或上下排布、底部总结；块之间不重叠。",
+    "4. 颜色（粉笔色板，重点要突出）：",
+    "   - 普通正文 #f2f0e6（白）/ #d8d8d8（灰）",
+    "   - 重点句/结论块 #ffe066（黄）；警示/易错 #ff9ec4（粉）；数据/公式 #9fd8ff（蓝）；好处/收益 #b8f2b8（绿）",
+    "   - 标题 #ffe066；总结 #ffe066 或 #ff9ec4",
+    "5. 重点标记 emphasis：每页挑 2~5 个关键词，用圈选或下划线标注（关键词 ≤ 8 字，必须与所在块 text 中的原文完全一致）：",
+    '   [{"text":"关键词","style":"circle"|"underline","color":"#ffe066"}]',
+    `6. 画布每页 ${W}x${H} 像素坐标（左上原点）。左右边距 ≥ 80，底部预留 ≥ 80，x+width ≤ ${W - 60}，y+行数*fontSize*1.7 < ${H - 60}。`,
     "7. 板书元素可用：①②③ 分点、→ 推导、[图] 占位、—— 强调。",
     "严格只返回如下 JSON（无解释、无 markdown 代码块）：",
-    '{"title":{"text":"…","x":0,"y":0,"fontSize":40,"color":"#ffe066"},"blocks":[{"id":"b1","text":"…","x":0,"y":0,"width":420,"fontSize":20,"color":"#ffffff"}],"summary":{"text":"…","x":0,"y":0,"fontSize":20,"color":"#ffe066"}}',
+    '{"pages":[{"title":{"text":"…","x":0,"y":0,"fontSize":46,"color":"#ffe066"},"blocks":[{"id":"b1","text":"…","x":0,"y":0,"width":640,"fontSize":28,"color":"#f2f0e6","emphasis":[{"text":"…","style":"circle","color":"#ff9ec4"}]}],"summary":{"text":"…","x":0,"y":0,"fontSize":28,"color":"#ffe066"}}]}',
     "summary 可为 null；text 内用 \\n 表示换行。",
   ].join("\n");
 }
@@ -240,10 +278,11 @@ function visionPrompt(W: number, H: number, note: string): string {
     "1. 识别图上所有印刷文字、手写文字、圈选、问号、草图与标记；",
     "2. 理解用户的提问、疑惑、解题或补充需求；",
     "3. 在黑板的空白区域作答：精准、简洁、分步、要点化，符合板书风格（可用 ①②③ 与 →）；",
-    "4. 新内容必须放在空白处，避开图上已有内容所在区域，字号 16~24，总量控制在 6~14 行；",
-    "5. 颜色用 #ffe066（重点/答案）或 #ffffff（正文）。",
+    "4. 新内容必须放在空白处，避开图上已有内容所在区域，字号 24~32（大字），总量控制在 4~10 行；",
+    "5. 颜色粉笔色板：答案/重点 #ffe066（黄）；警示/纠错 #ff9ec4（粉）；公式/推导 #9fd8ff（蓝）；正文 #f2f0e6（白）。",
+    "6. 用 emphasis 标注答案关键词（与 text 原文完全一致，≤8 字）：[{\"text\":\"答案\",\"style\":\"circle\",\"color\":\"#ffe066\"}]",
     "严格只返回板书 JSON（无解释、无 markdown 代码块）：",
-    '{"blocks":[{"id":"a1","text":"…","x":0,"y":0,"width":420,"fontSize":20,"color":"#ffe066"}]}',
+    '{"blocks":[{"id":"a1","text":"…","x":0,"y":0,"width":640,"fontSize":28,"color":"#f2f0e6","emphasis":[{"text":"…","style":"circle","color":"#ffe066"}]}]}',
     note ? `用户附加说明：${note}` : "",
   ]
     .filter(Boolean)
@@ -346,13 +385,15 @@ Bun.serve({
             { role: "system", content: layoutSystemPrompt(W, H) },
             { role: "user", content: body.text },
           ],
-          4096,
+          8192,
         );
-        const board = normalizeBoard(extractJSON(content), W, H);
-        if (!board.title && board.blocks.length === 0 && !board.summary) {
+        const pages = normalizePages(extractJSON(content), W, H).filter(
+          (p) => p.title !== null || p.blocks.length > 0 || p.summary !== null,
+        );
+        if (pages.length === 0) {
           return jsonError("模型未返回有效板书 JSON，请重试", 502);
         }
-        return Response.json({ ok: true, board, raw: content.length > 2000 ? content.slice(0, 2000) : content });
+        return Response.json({ ok: true, pages, raw: content.length > 2000 ? content.slice(0, 2000) : content });
       }
 
       // ---- 整屏截图 → 多模态识图作答 ----
