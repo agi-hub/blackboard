@@ -29,6 +29,7 @@ interface BoardElement {
   color: string;
   emphasis?: Emphasis[];
   say?: string; // 口播讲稿：讲什么（text 是写什么），二者分离
+  svg?: string; // 行内 SVG 图示（粉笔线框风，前端解析绘制）
 }
 
 interface Region {
@@ -252,7 +253,30 @@ function coerceElement(v: unknown, id: string, W: number, H: number): BoardEleme
     ...(emphasis.length ? { emphasis: emphasis.slice(0, 8) } : {}),
     ...(isStr(v.region) && v.region.trim() ? { region: v.region.trim() } : {}),
     ...(isStr(v.say) && v.say.trim() ? { say: v.say.trim().slice(0, 400) } : {}), // 口播讲稿（与板书 text 分离）
+    ...(sanitizeSvg(v.svg) ? { svg: sanitizeSvg(v.svg) as string } : {}),
   };
+}
+
+// SVG 安全闸：必须是 <svg>…</svg>、限长、禁脚本/事件/外链（重复调用方自行短路）
+function sanitizeSvg(raw: unknown): string | null {
+  const s = isStr(raw) ? raw.trim() : "";
+  if (!s.startsWith("<svg") || !s.includes("</svg>") || s.length > 8000) return null;
+  // 剥离合法的 xmlns 命名空间声明后再查外链（w3.org 命名空间是 SVG 必需的，不是外链）
+  const noNs = s.replace(/xmlns(:\w+)?="http:\/\/www\.w3\.org\/[^"]*"/g, "").replace(/xmlns(:\w+)?='http:\/\/www\.w3\.org\/[^']*'/g, "");
+  if (/<script|on\w+\s*=|javascript:|https?:\/\//i.test(noNs)) return null;
+  return s;
+}
+
+// 两段式补图：主生成未产出 svg 时，专门再调一次画图
+function figurePrompt(boardSummary: string): string {
+  return [
+    "你是黑板画图助手。为下面的黑板板书内容配 1~2 张讲解图（流程图/结构图/示意图），帮助理解。",
+    "严格只返回 JSON 数组（无解释、无 markdown 代码块）：",
+    '[{"svg":"<svg viewBox=\'0 0 400 300\' xmlns=\'http://www.w3.org/2000/svg\'>…</svg>","text":"图题（≤10字）","say":"配合图的一句讲解（20~40字）"}]',
+    "SVG 硬性要求：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 3，fill='none'；用矩形框 + 箭头(path/line) + 少量 <text>（font-size 16~18、text-anchor='middle'、fill 用粉笔色）；viewBox='0 0 400 300'；元素 ≤ 30；严禁 script/事件属性/外链。",
+    "板书内容：",
+    boardSummary,
+  ].join("\n");
 }
 
 function coerceRegion(v: unknown, i: number, W: number, H: number): Region | null {
@@ -325,6 +349,8 @@ function layoutSystemPrompt(W: number, H: number): string {
     "- 讲稿嵌「板书动作标记」配合讲解：circle{词} = 讲到该词时在黑板上圈出它；underline{词} = 划下划线。标记在转语音时会被剥离，不会读出。",
     "- 标记完备性（硬性要求）：讲稿里每个要点/关键词讲到时都必须带标记——讲三个重点就画三个标记，一个都不能漏；每块讲稿 2~5 个标记。",
     "- 同等强度原则：同一重要级别的信息用同一种标记（最重要的关键词都用 circle，次级要点都用 underline），不许级别相同却标记不同或有的标有的不标。词必须与该块板书 text 原文完全一致。",
+    "- 图示（硬性要求）：凡页面内容涉及 流程 / 结构 / 对比 / 关系 / 几何，必须至少 1 个块带 svg 字段（行内 SVG 代码字符串）；用户文本里出现「画图/图/示意/流程」等字样时更必须画，不许用文字替代图。SVG 规格：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 2~3，fill='none' 或半透明，不画背景矩形；viewBox='0 0 400 300'；元素 ≤ 40；少量 <text>（font-size 16~20、fill 用粉笔色）；严禁 script/事件/外链。图块 text 可为简短图题，say 配一句讲解。",
+    "- svg 字段示例（参考写法）：\"<svg viewBox='0 0 400 300' xmlns='http://www.w3.org/2000/svg'><rect x='20' y='20' width='150' height='70' fill='none' stroke='#f2f0e6' stroke-width='3'/><text x='45' y='60' fill='#ffe066' font-size='18'>Query</text><path d='M170 55 L250 55' stroke='#9fd8ff' stroke-width='2'/></svg>\"",
     "- 示例：\"say\":\"先记住 circle{Query} 和 circle{Key} 这两个输入，然后 underline{打分} 得到权重。\"",
     "",
     "排版规则：",
@@ -356,6 +382,7 @@ function visionPrompt(W: number, H: number, note: string): string {
     "5. 颜色 8 色粉笔（丰富用色）：白 #f2f0e6 正文；黄 #ffe066 答案/重点；橙 #ffab6e 注意；粉 #ff9ec4 纠错/易错；蓝 #9fd8ff 公式/推导；绿 #b8f2b8 验证/正确；灰 #d8d8d8 次要；紫 #d8b8ff 注释。",
     '6. emphasis 彩色重点词（与 text 原文完全一致，≤8 字）：[{"text":"答案","color":"#ffe066"}]',
     '8. say 里可嵌板书动作标记：circle{词}/underline{词}（词必须是本块 text 原文，讲到时圈/划它；转语音会剥离标记）。例："say":"先算 circle{乘积}，再 underline{求和}。"',
+    '9. 解答需要画图（几何/流程/结构）时，块加 svg 字段（行内 SVG：粉笔线框风、stroke 用 #f2f0e6/#ffe066/#9fd8ff、fill="none"、viewBox="0 0 400 300"、≤40 元素、禁 script/外链）。',
     "严格只返回板书 JSON（无解释、无 markdown 代码块）：",
     '{"blocks":[{"id":"a1","text":"…","x":0,"y":0,"width":640,"fontSize":42,"color":"#f2f0e6","say":"口播讲解…","emphasis":[{"text":"…","color":"#ffe066"}]}]}',
     note ? `用户附加说明：${note}` : "",
@@ -481,6 +508,42 @@ Bun.serve({
         );
         if (pages.length === 0) {
           return jsonError("模型未返回有效板书 JSON，请重试", 502);
+        }
+
+        // 两段式补图：内容有图示语义但主生成没画 → 专门再调一次画图
+        const hasSvg = pages.some((p) => p.blocks.some((b) => b.svg !== undefined));
+        const boardSummary = pages
+          .map((p) => [p.title?.text ?? "", ...p.regions.map((r) => r.header ?? ""), ...p.blocks.map((b) => b.text)].filter(Boolean).join("\n"))
+          .join("\n")
+          .slice(0, 1200);
+        const wantsFigure = boardSummary.length > 10; // 内容足够就有配图价值，默认尝试
+        if (!hasSvg && wantsFigure) {
+          try {
+            const figContent = await callLLM(cfg, cfg.textModel, [{ role: "user", content: figurePrompt(boardSummary) }], 4096);
+            const figRaw = extractJSON(figContent);
+            const figList = Array.isArray(figRaw) ? figRaw : [figRaw];
+            const target = pages.find((p) => p.regions.length > 0 && p.blocks.length > 0) ?? pages[0];
+            let n = 0;
+            for (const f of figList) {
+              if (!isRecord(f)) continue;
+              const svg = sanitizeSvg(f.svg);
+              if (!svg || n >= 2) continue;
+              target.blocks.push({
+                id: `figure${++n}`,
+                text: isStr(f.text) && f.text.trim() ? f.text.trim().slice(0, 24) : "图",
+                x: 60,
+                y: 300,
+                width: 640,
+                fontSize: 36,
+                color: "#f2f0e6",
+                ...(target.regions[0] ? { region: target.regions[0].id } : {}),
+                ...(isStr(f.say) && f.say.trim() ? { say: f.say.trim().slice(0, 400) } : {}),
+                svg,
+              });
+            }
+          } catch {
+            /* 补图失败不影响板书返回 */
+          }
         }
         return Response.json({ ok: true, pages, raw: content.length > 2000 ? content.slice(0, 2000) : content });
       }

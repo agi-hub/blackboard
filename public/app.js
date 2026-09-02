@@ -312,9 +312,16 @@ function wrapText(ctx, text, maxWidth) {
 
 function computeLayout(b) {
   textCtx.font = fontString(b);
-  const lines = wrapText(textCtx, b.text, b.width);
+  const lines = b.text ? wrapText(textCtx, b.text, b.width) : [];
   layouts.set(b.uid, { lines, lineH: b.fontSize * 1.7 });
   b._chars = lines.reduce((n, l) => n + l.length, 0);
+}
+
+// 块占用的总高度（图 + 说明文字）
+function blockHeight(b) {
+  const lay = layouts.get(b.uid);
+  const figH = b.svg && b._figure ? b.width * b._figure.aspect + (lay && lay.lines.length ? 10 : 0) : 0;
+  return figH + (lay ? lay.lines.length * lay.lineH : 0);
 }
 
 function newPage() {
@@ -413,12 +420,12 @@ function layoutPage(page) {
       for (let tries = 0; tries < 4; tries++) {
         computeLayout(b);
         const lay = layouts.get(b.uid);
-        if (cursorY + lay.lines.length * lay.lineH <= r.y + r.h - 6 || b.fontSize <= 32) break;
+        if (cursorY + blockHeight(b) <= r.y + r.h - 6 || b.fontSize <= 32) break;
         b.fontSize = Math.max(32, Math.round(b.fontSize * 0.9));
       }
       b.y = cursorY;
       const lay = layouts.get(b.uid);
-      cursorY += lay.lines.length * lay.lineH + 16;
+      cursorY += blockHeight(b) + 16;
     }
   }
 
@@ -484,6 +491,26 @@ function drawBlock(ctx, b, allowed, partial) {
     ctx.setLineDash([]);
     ctx.restore();
   }
+  // 图示：按浮现进度画 SVG 图像（失败画 [图] 占位），说明文字排在图下方
+  let yOff = 0;
+  if (b.svg) {
+    const fig = b._figure;
+    const figH = fig ? b.width * fig.aspect : b.width * 0.75;
+    if (fig && fig.img && allowed >= 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.95 * (figAlphaMap.get(b.uid) ?? 1);
+      ctx.drawImage(fig.img, b.x, b.y, b.width, figH);
+      ctx.restore();
+    } else if (allowed >= 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.5 * (figAlphaMap.get(b.uid) ?? 1);
+      ctx.fillStyle = b.color;
+      ctx.font = fontString(b);
+      ctx.fillText("[图]", b.x + b.width / 2 - b.fontSize, b.y + figH / 2);
+      ctx.restore();
+    }
+    yOff = figH + (lay.lines.length ? 10 : 0);
+  }
   let drawn = 0;
   for (let li = 0; li < lay.lines.length; li++) {
     const line = lay.lines[li];
@@ -496,7 +523,7 @@ function drawBlock(ctx, b, allowed, partial) {
       }
     }
     let x = b.x;
-    const yBase = b.y + li * lay.lineH + b.fontSize * 0.9;
+    const yBase = b.y + yOff + li * lay.lineH + b.fontSize * 0.9;
     let ci = 0;
     for (const ch of line) {
       if (drawn >= allowed) {
@@ -523,6 +550,8 @@ function drawBlock(ctx, b, allowed, partial) {
 }
 
 // ---------- 渲染（t = 动画时间线毫秒；Infinity = 全部完成） ----------
+
+let figAlphaMap = new Map(); // uid → 图示浮现进度（0~1），renderText 每帧重建
 
 function renderText(t = Infinity) {
   textCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -553,13 +582,18 @@ function renderText(t = Infinity) {
     chalkSeg(textCtx, d.a.x, d.a.y, d.a.x + (d.b.x - d.a.x) * frac, d.a.y + (d.b.y - d.a.y) * frac, "#d8d5c8", 2.6, rnd);
   }
 
-  // 各块配额 = 已完整写出的字符数；正在写的字带渐现 alpha
+  // 各块配额 = 已完整写出的字符数；正在写的字带渐现 alpha；图块单独按 figure 条目浮现
   // 语义区分：在本次动画列表中的块按配额（未开写 = 0，不显示）；
   // 不在列表中的块（如提问便签追加讲解时的既有板书）始终完整显示。
   const quota = new Map();
   const partials = new Map();
+  figAlphaMap = new Map();
   if (animState && t !== Infinity) {
     for (const e of animState.entries) {
+      if (e.kind === "figure") {
+        figAlphaMap.set(e.b.uid, Math.max(0, Math.min(1, (t - e.t0) / e.cost)));
+        continue;
+      }
       if (e.kind !== "char") continue;
       if (!quota.has(e.b.uid)) quota.set(e.b.uid, 0); // 先占位：动画块未开写也是 0
       const done = t >= e.t0 + e.cost;
@@ -601,6 +635,7 @@ function animateIn(page, blockList, withDividers) {
   for (const b of blockList) {
     const lay = layouts.get(b.uid);
     if (!lay) continue;
+    if (b.svg) entries.push({ kind: "figure", b }); // 图示浮现（700ms 淡入）
     for (let li = 0; li < lay.lines.length; li++) {
       for (let ci = 0; ci < lay.lines[li].length; ci++) {
         entries.push({ kind: "char", b, li, ci, gi: charCount, lineStart: ci === 0 });
@@ -613,7 +648,7 @@ function animateIn(page, blockList, withDividers) {
   let t = 0;
   for (const e of entries) {
     e.t0 = t;
-    e.cost = e.kind === "divider" ? DIVIDER_MS : charMs + (e.lineStart && t > 0 ? LINE_PAUSE : 0);
+    e.cost = e.kind === "divider" ? DIVIDER_MS : e.kind === "figure" ? 700 : charMs + (e.lineStart && t > 0 ? LINE_PAUSE : 0);
     t += e.cost;
   }
   if (!entries.length) {
@@ -839,7 +874,7 @@ async function playNarration(page, blockList) {
   narration.playing = true;
   narration.pending = !blockList; // 整页讲解预取语音时画面空白；追加讲解保持现有板书
   setNarrateBtn();
-  const voices = await Promise.all(blocks.map(fetchVoice));
+  const voices = await Promise.all([loadFigures(page), ...blocks.map(fetchVoice)]);
   // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
   page._sayMarks = blockList ? page._sayMarks || [] : [];
 
@@ -866,11 +901,13 @@ async function playNarration(page, blockList) {
       // 有语音：教师习惯——写字不出声，快写完整块（80ms/字），写完再开口讲
       let charCount = 0;
       for (const line of lay.lines) charCount += line.length;
-      const writeDur = Math.max(500, charCount * per);
+      const figDur = b.svg ? 700 : 0; // 图示先浮现 700ms
+      const writeDur = Math.max(500, charCount * per) + figDur;
+      if (b.svg) entries.push({ kind: "figure", b, t0: start, cost: 700 });
       let gi = 0;
       for (let li = 0; li < lay.lines.length; li++) {
         for (let ci = 0; ci < lay.lines[li].length; ci++) {
-          entries.push({ kind: "char", b, li, ci, gi, t0: start + gi * per, cost: per });
+          entries.push({ kind: "char", b, li, ci, gi, t0: start + figDur + gi * per, cost: per });
           gi++;
         }
       }
@@ -888,6 +925,10 @@ async function playNarration(page, blockList) {
     } else {
       // 无语音（未开配音/无讲稿）：不讲解；逐行快写，行尾按 5 字/秒 阅读速度停 1~3 秒
       let cursor = start;
+      if (b.svg) {
+        entries.push({ kind: "figure", b, t0: cursor, cost: 700 });
+        cursor += 700;
+      }
       for (let li = 0; li < lay.lines.length; li++) {
         const line = lay.lines[li];
         let gi = 0;
@@ -895,8 +936,6 @@ async function playNarration(page, blockList) {
           entries.push({ kind: "char", b, li, ci, gi, t0: cursor + gi * per, cost: per });
           gi++;
         }
-        cursor += Math.max(400, line.length * per); // 该行写完
-        cursor += Math.min(3000, Math.max(1000, (line.length / 5) * 1000)); // 阅读停顿
       }
       pushSayMarks(page, b, start, cursor - start, "silent");
       t = cursor;
@@ -936,12 +975,26 @@ function coerceEmphasisList(arr) {
     }));
 }
 
+function sanitizeSvg(s) {
+  if (typeof s !== "string") return null;
+  const t = s.trim();
+  if (!t.startsWith("<svg") || !t.includes("</svg>") || t.length > 8000) return null;
+  // 剥离 xmlns 命名空间声明后再查外链（w3.org 是 SVG 合法声明，不是外链）
+  const noNs = t.replace(/xmlns(:\w+)?="http:\/\/www\.w3\.org\/[^"]*"/g, "").replace(/xmlns(:\w+)?='http:\/\/www\.w3\.org\/[^']*'/g, "");
+  if (/<script|on\w+\s*=|javascript:|https?:\/\//i.test(noNs)) return null;
+  // 缺命名空间则补上（Blob 渲染需要）
+  return /xmlns=/.test(t) ? t : t.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+}
+
 function mkBlock(el, kind, defs) {
-  if (!el || !el.text || !String(el.text).trim()) return null;
+  if (!el) return null;
+  const svg = sanitizeSvg(el.svg);
+  // 纯图块允许无 text（图 + 可选 caption）
+  if ((!el.text || !String(el.text).trim()) && !svg) return null;
   return {
     uid: `u${++uidSeq}`,
     kind,
-    text: String(el.text),
+    text: el.text ? String(el.text) : "",
     x: typeof el.x === "number" ? el.x : defs.x,
     y: typeof el.y === "number" ? el.y : defs.y,
     width: typeof el.width === "number" ? el.width : defs.width,
@@ -950,7 +1003,33 @@ function mkBlock(el, kind, defs) {
     region: typeof el.region === "string" ? el.region : null,
     emphasis: coerceEmphasisList(el.emphasis),
     say: typeof el.say === "string" ? el.say.trim().slice(0, 400) : null, // 口播讲稿（配音用，与板书分离）
+    svg,
   };
+}
+
+// SVG → 图像（异步解析加载：viewBox 定宽高比，Blob URL 装入 <img>，上下文安全不执行脚本）
+async function loadFigure(b) {
+  if (!b.svg || b._figure) return;
+  const vb = b.svg.match(/viewBox="([\d.\s,-]+)"/);
+  let aspect = 0.75;
+  if (vb) {
+    const p = vb[1].split(/[\s,]+/).map(Number);
+    if (p.length === 4 && p[2] > 0 && p[3] > 0) aspect = p[3] / p[2];
+  }
+  b._figure = { aspect, img: null };
+  try {
+    const url = URL.createObjectURL(new Blob([b.svg], { type: "image/svg+xml;charset=utf-8" }));
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    b._figure.img = img;
+  } catch {
+    b._figure.img = null; // 失败 → 画「[图]」占位
+  }
+}
+
+function loadFigures(page) {
+  return Promise.all((page._drawOrder || []).filter((b) => b.svg).map(loadFigure));
 }
 
 function normalizePage(pg) {
@@ -1322,6 +1401,7 @@ async function generateBoard() {
       .map(normalizePage)
       .filter((p) => p._drawOrder.length > 0 || p.titleBlock || p.blocks.length || p.summaryBlock);
     // 计算最终 _drawOrder
+    await Promise.all(newPages.map(loadFigures)); // SVG 图示先解析成图像，排版需要宽高比
     for (const p of newPages) layoutPage(p);
     const withContent = newPages.filter((p) => p._drawOrder.length > 0);
     if (!withContent.length) throw new Error("模型没有生成有效板书，请重试");
