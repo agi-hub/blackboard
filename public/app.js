@@ -334,7 +334,9 @@ function wrapText(ctx, text, maxWidth) {
 
 function computeLayout(b) {
   textCtx.font = fontString(b);
-  const lines = b.text ? wrapText(textCtx, b.text, b.width) : [];
+  // 显示层剥离 math{公式} 标记（保留公式内容）；TTS 转读在 fetchVoice 单独处理
+  const display = b.text ? b.text.replace(/math\{([^{}]*)\}/g, "$1") : "";
+  const lines = display ? wrapText(textCtx, display, b.width) : [];
   layouts.set(b.uid, { lines, lineH: b.fontSize * 1.7 });
   b._chars = lines.reduce((n, l) => n + l.length, 0);
 }
@@ -912,30 +914,41 @@ function buildSettingSelects() {
   }
 }
 
-// 讲稿标记解析：circle{词}/underline{词} → 纯文本 + 标记位置（转语音前剥离）
+// 讲稿标记解析：circle{词}/underline{词} → 板书动作标记；math{...} → 公式段（TTS 直读不转"杠"）
 function parseSay(say) {
   const src = String(say || "");
-  const re = /(circle|underline)\{([^{}]*)\}/g;
+  const re = /(circle|underline|math)\{([^{}]*)\}/g;
   let clean = "";
   const marks = [];
+  const segs = []; // {text, isMath} — TTS 转读用
   let last = 0;
   let m;
   while ((m = re.exec(src))) {
+    if (m.index > last) segs.push({ text: src.slice(last, m.index), isMath: false });
     clean += src.slice(last, m.index);
     const start = clean.length;
     clean += m[2];
-    if (m[2]) marks.push({ type: m[1], text: m[2], start, end: clean.length });
+    segs.push({ text: m[2], isMath: m[1] === "math" });
+    if (m[2] && m[1] !== "math") marks.push({ type: m[1], text: m[2], start, end: clean.length });
     last = re.lastIndex;
   }
-  clean += src.slice(last);
-  return { clean, marks };
+  if (last < src.length) segs.push({ text: src.slice(last), isMath: false });
+  clean += src.slice(Math.min(last, src.length));
+  return { clean, marks, segs };
+}
+
+// TTS 朗读文本：公式段(math{})原样直读，普通文本把 - 读作"杠"
+function ttsSpeech(parsed) {
+  return (parsed.segs || [{ text: parsed.clean, isMath: false }])
+    .map((s) => (s.isMath ? s.text : s.text.replace(/-/g, "杠")))
+    .join("");
 }
 
 // 取一块的语音（按当前教师音色缓存，讲稿剥离标记后送 TTS）：无讲稿/失败时返回静音降级
 async function fetchVoice(b) {
   if (b._voice && b._voice.voice === voiceId) return b._voice;
   const parsed = parseSay(b.say);
-  const say = parsed.clean.trim();
+  const say = ttsSpeech(parsed).trim(); // 公式段直读，普通文本 - 读作"杠"
   const fallback = { voice: voiceId, el: null, dur: Math.max(1.5, (say || b.text).length * 0.19) };
   if (!say) {
     b._voice = fallback;
@@ -1186,7 +1199,7 @@ function mkBlock(el, kind, defs) {
   return {
     uid: `u${++uidSeq}`,
     kind,
-    text: el.text ? String(el.text) : "",
+    text: el.text ? String(el.text).replace(/^\s*[【\[（(]\s*图\s*[】\]）)]\s*/u, "") : "", // 图注不带"【图】"前缀（板书习惯）
     x: typeof el.x === "number" ? el.x : defs.x,
     y: typeof el.y === "number" ? el.y : defs.y,
     width: typeof el.width === "number" ? el.width : defs.width,
