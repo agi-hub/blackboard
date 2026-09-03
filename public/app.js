@@ -413,18 +413,32 @@ function layoutPage(page) {
       page.headers.push(hb);
       cursorY += layouts.get(hb.uid).lineH + 12;
     }
-    for (const b of byRegion.get(r.id) || []) {
+    // 图先排（大件优先，从区顶开始放最稳），文字填余下空间
+    const list = byRegion.get(r.id) || [];
+    const ordered = [...list.filter((b) => b.svg), ...list.filter((b) => !b.svg)];
+    for (const b of ordered) {
       b.fontSize = clampNum(b.fontSize || 45, 36, 63);
       b.x = r.x + 24;
-      b.width = r.w - 48;
-      for (let tries = 0; tries < 4; tries++) {
-        computeLayout(b);
-        const lay = layouts.get(b.uid);
-        if (cursorY + blockHeight(b) <= r.y + r.h - 6 || b.fontSize <= 32) break;
-        b.fontSize = Math.max(32, Math.round(b.fontSize * 0.9));
+      const avail = r.y + r.h - 6 - cursorY;
+      if (b.svg) {
+        // 图宽自适应剩余高度：从满宽逐档收窄，直到 图高+图题 放得下（最窄 200）
+        const aspect = b._figure ? b._figure.aspect : 0.75;
+        for (let w = r.w - 48; w >= 180; w -= 50) {
+          b.width = w;
+          computeLayout(b);
+          const lay = layouts.get(b.uid);
+          const figH = w * aspect + (lay.lines.length ? 10 : 0);
+          if (figH + lay.lines.length * lay.lineH <= avail) break; // 图题按实际行数计全高
+        }
+      } else {
+        b.width = r.w - 48;
+        for (let tries = 0; tries < 4; tries++) {
+          computeLayout(b);
+          if (cursorY + blockHeight(b) <= r.y + r.h - 6 || b.fontSize <= 32) break;
+          b.fontSize = Math.max(32, Math.round(b.fontSize * 0.9));
+        }
       }
       b.y = cursorY;
-      const lay = layouts.get(b.uid);
       cursorY += blockHeight(b) + 16;
     }
   }
@@ -452,11 +466,11 @@ function layoutPage(page) {
   if (page.titleBlock) order.push(page.titleBlock);
   for (const r of regs) {
     for (const hb of page.headers) if (hb.text === r.header && hb.x === r.x + 24) order.push(hb);
-    for (const b of byRegion.get(r.id) || []) order.push(b);
+    for (const b of byRegion.get(r.id) || []) order.push(b); // 视觉顺序已由排版决定（图在前），动画按 _drawOrder 里的实际排列
   }
   for (const b of page.blocks) if (!b.region) order.push(b);
   if (page.summaryBlock) order.push(page.summaryBlock);
-  page._drawOrder = order.filter((b) => b._chars > 0);
+  page._drawOrder = order.filter((b) => b._chars > 0 || b.svg); // 纯图块（无字）也参与绘制与动画
 }
 
 // ---------- 重点标记（圈选 / 下划线） ----------
@@ -1478,7 +1492,22 @@ async function answerBoard() {
     }
     const blocks = extra.concat(appended);
     if (!blocks.length) throw new Error("模型没有返回作答内容，请重试");
-    for (const b of blocks) computeLayout(b);
+    await Promise.all(blocks.filter((b) => b.svg).map(loadFigure));
+    for (const b of blocks) {
+      computeLayout(b);
+      if (b.svg) {
+        // 图块不出画布：先按总高钳 y，仍放不下再收窄图宽
+        const aspect = b._figure ? b._figure.aspect : 0.75;
+        if (b.y + blockHeight(b) > H - 30) {
+          b.y = Math.max(60, H - 30 - blockHeight(b));
+          if (b.y + blockHeight(b) > H - 30) {
+            b.width = Math.max(220, Math.floor((H - 90 - b.y) / aspect));
+            computeLayout(b);
+          }
+        }
+        b.x = Math.min(b.x, W - b.width - 40);
+      }
+    }
     p.blocks = p.blocks.concat(blocks);
     p._drawOrder = p._drawOrder.concat(blocks);
     if (blocks.some((b) => b.say && b.say.trim())) playNarration(p, blocks); // AI 解答也开口讲
