@@ -698,25 +698,70 @@ function animateIn(page, blockList, withDividers) {
   );
 }
 
-// 时间线驱动：onDone 仅在自然播完时回调（被 stopAnim 打断时不回调）
-function runTimeline(entries, dividerMap, dur, onDone) {
+// 时间线驱动：onDone 仅在自然播完时回调（被 stopAnim 打断时不回调）；onFrame 每帧驱动讲义区
+function runTimeline(entries, dividerMap, dur, onDone, onFrame) {
   animState = { entries, dividerMap, dur, startTs: 0, tNow: 0, onDone };
   const frame = (ts) => {
     if (!animState) return;
     if (!animState.startTs) animState.startTs = ts;
     animState.tNow = ts - animState.startTs;
     renderText(animState.tNow);
+    if (onFrame) onFrame(animState.tNow);
     if (animState.tNow < animState.dur) {
       animRaf = requestAnimationFrame(frame);
     } else {
       animRaf = 0;
       animState = null;
       renderText();
+      if (onFrame) onFrame(Infinity);
       if (onDone) onDone();
     }
   };
   animRaf = requestAnimationFrame(frame);
 }
+
+// ---------- 讲义区：老师口述实时记录（念一句，多一句） ----------
+
+const lectureBody = $("#lecture-body");
+let lectureQueue = []; // { text, at, color }
+let lecturePtr = 0;
+
+function lectureReset(show) {
+  lectureQueue = [];
+  lecturePtr = 0;
+  lectureBody.innerHTML = "";
+  if (show) $("#lecture-panel").classList.remove("hidden");
+}
+
+// 时间线每帧调用：把到点的话句追加进讲义区
+function lectureTick(t) {
+  while (lecturePtr < lectureQueue.length && lectureQueue[lecturePtr].at <= t) {
+    const it = lectureQueue[lecturePtr++];
+    const p = document.createElement("p");
+    p.textContent = it.text;
+    if (it.color) p.style.color = it.color;
+    lectureBody.appendChild(p);
+    lectureBody.scrollTop = lectureBody.scrollHeight; // 自动滚到最新
+  }
+}
+
+// 把一段讲稿按句切分，按字符位置比例映射到语音时间窗
+function pushLectureSay(b, windowStart, windowDur) {
+  const parsed = parseSay(b.say);
+  const clean = parsed.clean.trim();
+  if (!clean) return;
+  const cleanLen = Math.max(1, clean.length);
+  const sentences = clean.match(/[^。！？!?；;\n]+[。！？!?；;]?/g) || [clean];
+  let pos = 0;
+  for (const s of sentences) {
+    const start = pos;
+    pos += s.length;
+    const text = s.trim();
+    if (text) lectureQueue.push({ text, at: windowStart + (start / cleanLen) * windowDur, color: b.color });
+  }
+}
+
+$("#btn-lecture-close").addEventListener("click", () => $("#lecture-panel").classList.add("hidden"));
 
 const NARRATE_WRITE_MS = 80; // 讲解模式：快写节奏（教师写字不出声，写完再讲）
 
@@ -748,6 +793,7 @@ function stopNarration() {
     }
   }
   narration.audios = [];
+  lectureTick(Infinity); // 跳过讲解时讲义立即补全
   setNarrateBtn();
 }
 
@@ -916,6 +962,7 @@ async function playNarration(page, blockList) {
 
   if (seq !== narration.seq) return; // 等待期间被停止
   narration.pending = false; // 预取完成，时间线即将启动
+  lectureReset(true); // 讲义区清空并显示，随讲解逐句追加
 
   const entries = [];
   const dividerMap = new Map();
@@ -957,6 +1004,7 @@ async function playNarration(page, blockList) {
         }, speakAt),
       );
       pushSayMarks(page, b, start + writeDur + 200, v.dur * 1000, "speak");
+      pushLectureSay(b, speakAt, v.dur * 1000); // 念到哪句，讲义多哪句
       t = speakAt + v.dur * 1000 + 450; // 讲完、缓冲，才轮到写下一块
     } else {
       // 无语音（未开配音/无讲稿）：不讲解；逐行快写，行尾按 5 字/秒 阅读速度停 1~3 秒
@@ -974,13 +1022,20 @@ async function playNarration(page, blockList) {
         }
       }
       pushSayMarks(page, b, start, cursor - start, "silent");
+      pushLectureSay(b, start, cursor - start); // 无语音时按阅读窗口逐句出
       t = cursor;
     }
   }
-  runTimeline(entries, dividerMap, t + 250, () => {
-    narration.playing = false;
-    setNarrateBtn();
-  });
+  runTimeline(
+    entries,
+    dividerMap,
+    t + 250,
+    () => {
+      narration.playing = false;
+      setNarrateBtn();
+    },
+    lectureTick,
+  );
 }
 
 $("#btn-narrate").addEventListener("click", () => {
@@ -1600,6 +1655,7 @@ async function apPlay(blocks, title) {
   stopApAnim(false);
   const seq = apSeq;
   const voices = await Promise.all(blocks.map(fetchVoice));
+  lectureReset(true); // 解答口述也进讲义区（清空上一轮）
   const laid = apLayoutBlocks(blocks, title);
   const voiceMap = new Map(blocks.map((b, i) => [b, voices[i]]));
   const entries = [];
@@ -1655,6 +1711,7 @@ async function apPlay(blocks, title) {
         }
       }
     }
+    pushLectureSay(b, speakAt, v.dur * 1000); // 解答口述逐句进讲义
     t = speakAt + v.dur * 1000 + 350;
   }
   apAnim = { blocks: laid, entries, marks, dur: t + 200, startTs: 0, tNow: 0, audios, timers };
@@ -1663,11 +1720,13 @@ async function apPlay(blocks, title) {
     if (!apAnim.startTs) apAnim.startTs = ts;
     apAnim.tNow = ts - apAnim.startTs;
     apRender(apAnim.tNow);
+    lectureTick(apAnim.tNow);
     if (apAnim.tNow < apAnim.dur) apRaf = requestAnimationFrame(frame);
     else {
       apRaf = 0;
       apAnim.entries = [];
       apRender(Infinity);
+      lectureTick(Infinity);
     }
   };
   apRaf = requestAnimationFrame(frame);

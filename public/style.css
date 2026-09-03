@@ -525,3 +525,40 @@ button {
   height: 100%;
   border-radius: 5px;
 }
+
+/* 右侧讲义区：口述实时记录 */
+#lecture-panel {
+  width: 300px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+#lecture-panel.hidden { display: none; }
+#lecture-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: #14110e;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#lecture-body p {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #d8d8d8;
+  animation: noteIn 0.4s ease;
+}
+@keyframes noteIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}

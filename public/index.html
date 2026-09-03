@@ -90,6 +90,16 @@
       <p class="drawer-tip">解答写在这块小黑板上，不影响左侧板书；点击可跳过书写。</p>
       <div id="ap-board"><canvas id="ap-canvas"></canvas></div>
     </aside>
+
+    <!-- 右侧讲义区：老师口述实时记录（念一句，多一句） -->
+    <aside id="lecture-panel" class="hidden">
+      <div class="drawer-head">
+        <h2>讲义</h2>
+        <button id="btn-lecture-close" class="tool-btn" title="收起讲义">✕</button>
+      </div>
+      <p class="drawer-tip">老师口述内容实时记录，念一句多一句；颜色跟随对应板书块。</p>
+      <div id="lecture-body"></div>
+    </aside>
   </main>
 
   <!-- 设置弹窗 -->
