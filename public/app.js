@@ -342,7 +342,9 @@ function computeLayout(b) {
 // 块占用的总高度（图 + 说明文字）
 function blockHeight(b) {
   const lay = layouts.get(b.uid);
-  const figH = b.svg && b._figure ? b.width * b._figure.aspect + (lay && lay.lines.length ? 10 : 0) : 0;
+  // 图未加载完成也按默认 0.75 宽高比占位，绝不按 0 高排版（否则文字压图）
+  const aspect = b._figure ? b._figure.aspect : 0.75;
+  const figH = b.svg ? b.width * aspect + (lay && lay.lines.length ? 10 : 0) : 0;
   return figH + (lay ? lay.lines.length * lay.lineH : 0);
 }
 
@@ -368,33 +370,7 @@ function layoutPage(page) {
   });
   page._regions = regs;
 
-  // 相邻区域之间的粉笔分隔线（左右相邻→竖线；上下相邻→横线）
-  page._dividers = [];
-  for (let i = 0; i < regs.length; i++) {
-    for (let j = i + 1; j < regs.length; j++) {
-      const A = regs[i];
-      const B = regs[j];
-      const ovX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
-      const ovY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
-      if (ovX > Math.min(A.w, B.w) * 0.5 && ovY <= 0) {
-        // 上下相邻：横线画在（下区域顶 + 上区域底）/2 —— 两区不重叠时这是间隙中点
-        const yTop = Math.max(A.y, B.y);
-        const yBot = Math.min(A.y + A.h, B.y + B.h);
-        if (yTop - yBot < 180) {
-          const y = (yTop + yBot) / 2;
-          page._dividers.push({ a: { x: Math.max(A.x, B.x) + 10, y }, b: { x: Math.min(A.x + A.w, B.x + B.w) - 10, y } });
-        }
-      } else if (ovY > Math.min(A.h, B.h) * 0.5 && ovX <= 0) {
-        // 左右相邻：竖线画在（右区域左 + 左区域右）/2
-        const xLeft = Math.max(A.x, B.x);
-        const xRight = Math.min(A.x + A.w, B.x + B.w);
-        if (xLeft - xRight < 180) {
-          const x = (xLeft + xRight) / 2;
-          page._dividers.push({ a: { x, y: Math.max(A.y, B.y) + 10 }, b: { x, y: Math.min(A.y + A.h, B.y + B.h) - 10 } });
-        }
-      }
-    }
-  }
+  // 分隔线在区域堆叠后基于最终几何计算（见下方）
 
   // 页标题：居中大字
   if (page.titleBlock) {
@@ -409,59 +385,134 @@ function layoutPage(page) {
     t.y = 28;
   }
 
-  // 区头（黄字带下划线）+ 区内块自上而下流式；字号不够放时自动缩小
-  page.headers = [];
+  // 区内排版（可重复尝试）：返回每个区域的布局结果与内容底
+  // 图先排（大件优先）；图宽按剩余高度换算，不固执下限；文字 fit 收字号
   const byRegion = new Map();
   for (const b of page.blocks) {
     if (!b.region) continue;
     if (!byRegion.has(b.region)) byRegion.set(b.region, []);
     byRegion.get(b.region).push(b);
   }
-  for (const r of regs) {
-    let cursorY = r.y + 14;
-    if (r.header) {
-      const hb = {
-        uid: `h${++uidSeq}`,
-        kind: "header",
-        text: r.header,
-        x: r.x + 24,
-        y: cursorY,
-        width: r.w - 48,
-        fontSize: 45,
-        color: "#ffe066",
-        emphasis: [],
-      };
-      computeLayout(hb);
-      page.headers.push(hb);
-      cursorY += layouts.get(hb.uid).lineH + 12;
-    }
-    // 图先排（大件优先，从区顶开始放最稳），文字填余下空间
-    const list = byRegion.get(r.id) || [];
-    const ordered = [...list.filter((b) => b.svg), ...list.filter((b) => !b.svg)];
-    for (const b of ordered) {
-      b.fontSize = clampNum(b.fontSize || 45, 36, 63);
-      b.x = r.x + 24;
-      const avail = r.y + r.h - 6 - cursorY;
-      if (b.svg) {
-        // 图宽自适应剩余高度：从满宽逐档收窄，直到 图高+图题 放得下（最窄 200）
-        const aspect = b._figure ? b._figure.aspect : 0.75;
-        for (let w = r.w - 48; w >= 180; w -= 50) {
-          b.width = w;
+  const baseFonts = new Map(); // 每块原始字号（多轮收缩的基准）
+  for (const b of page.blocks) baseFonts.set(b.uid, b.fontSize || 45);
+
+  const layRegions = (fontScale) => {
+    const out = [];
+    for (const r of regs) {
+      const headFont = Math.max(30, Math.round(45 * fontScale));
+      let cursorY = 14; // 相对区顶
+      let headerLay = null;
+      if (r.header) {
+        const hb = { uid: `h${++uidSeq}`, kind: "header", text: r.header, x: r.x + 24, y: 0, width: r.w - 48, fontSize: headFont, color: "#ffe066", emphasis: [] };
+        computeLayout(hb);
+        headerLay = hb;
+        cursorY += layouts.get(hb.uid).lineH + 12;
+      }
+      const list = byRegion.get(r.id) || [];
+      const ordered = [...list.filter((b) => b.svg), ...list.filter((b) => !b.svg)];
+      const placed = [];
+      const regionH = Math.max(r.h, cursorY + 60); // 区高不足时至少给一点空间
+      for (const b of ordered) {
+        b.fontSize = clampNum(Math.round(baseFonts.get(b.uid) * fontScale), 26, 63);
+        b.x = r.x + 24;
+        const avail = regionH - 6 - cursorY;
+        if (b.svg) {
+          const aspect = b._figure ? b._figure.aspect : 0.75;
+          // 先按满宽算图题行数，再按剩余高度换算图宽（夹在 140 ~ 满宽）
+          b.width = r.w - 48;
           computeLayout(b);
-          const lay = layouts.get(b.uid);
-          const figH = w * aspect + (lay.lines.length ? 10 : 0);
-          if (figH + lay.lines.length * lay.lineH <= avail) break; // 图题按实际行数计全高
+          let lay = layouts.get(b.uid);
+          const captionH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
+          const wByH = Math.floor((avail - captionH) / aspect);
+          b.width = clampNum(wByH, 140, Math.round((r.w - 48) * Math.min(1, fontScale + 0.2)));
+          computeLayout(b);
+          lay = layouts.get(b.uid);
+          // 图题行数可能随宽度变化，再校一轮
+          const captionH2 = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
+          if (captionH2 > captionH) {
+            b.width = clampNum(Math.floor((avail - captionH2) / aspect), 140, Math.round((r.w - 48) * Math.min(1, fontScale + 0.2)));
+            computeLayout(b);
+          }
+        } else {
+          b.width = r.w - 48;
+          for (let tries = 0; tries < 5; tries++) {
+            computeLayout(b);
+            if (cursorY + blockHeight(b) <= regionH - 6 || b.fontSize <= 26) break;
+            b.fontSize = Math.max(26, Math.round(b.fontSize * 0.88));
+          }
         }
-      } else {
-        b.width = r.w - 48;
-        for (let tries = 0; tries < 4; tries++) {
-          computeLayout(b);
-          if (cursorY + blockHeight(b) <= r.y + r.h - 6 || b.fontSize <= 32) break;
-          b.fontSize = Math.max(32, Math.round(b.fontSize * 0.9));
+        placed.push({ b, dy: cursorY });
+        cursorY += blockHeight(b) + 16;
+      }
+      out.push({ r, headerLay, placed, contentH: cursorY });
+    }
+    return out;
+  };
+
+  // 纵向堆叠：区域从上到下排列（同列的按模型顺序），后区顶 = 前区内容底 + 28，消除区域交叠
+  const stackRegions = (laid, minTop) => {
+    let bottom = 0;
+    for (let i = 0; i < laid.length; i++) {
+      const it = laid[i];
+      let top = Math.max(it.r.y, minTop);
+      for (let j = 0; j < i; j++) {
+        const prev = laid[j];
+        const xOverlap = Math.min(prev.r.x + prev.r.w, it.r.x + it.r.w) - Math.max(prev.r.x, it.r.x);
+        if (xOverlap > 40) top = Math.max(top, prev.r.y + prev.contentH + 28); // 同列纵向避让
+      }
+      const shift = top - it.r.y;
+      it.r.y = top;
+      it.r.h = Math.max(it.r.h, it.contentH + 10);
+      if (it.headerLay) it.headerLay.y = top + (it.headerLay.y ?? 0);
+      for (const p of it.placed) p.b.y = top + p.dy;
+      bottom = Math.max(bottom, top + it.contentH);
+    }
+    return bottom;
+  };
+
+  const summaryTop = page.summaryBlock ? H - 150 : H - 60;
+  const minTop = page.titleBlock ? 160 : 110; // 区域不得侵入标题带
+  let laid;
+  let bottom = 0;
+  for (let round = 0; round < 6; round++) {
+    laid = layRegions(round === 0 ? 1 : Math.pow(0.8, round));
+    bottom = stackRegions(laid, minTop);
+    if (bottom <= summaryTop) break; // 全部内容都在总结条之上 → 收工
+  }
+  if (bottom > summaryTop) {
+    // 多档仍放不下（内容过多）：整体上移，但绝不侵入标题带
+    const lift = Math.max(0, Math.min(bottom - summaryTop, Math.max(...laid.map((it) => it.r.y)) - minTop));
+    for (const it of laid) {
+      it.r.y -= lift;
+      if (it.headerLay) it.headerLay.y -= lift;
+      for (const p of it.placed) p.b.y -= lift;
+    }
+  }
+  page.headers = laid.map((it) => it.headerLay).filter(Boolean);
+
+  // 相邻区域之间的粉笔分隔线（左右相邻→竖线；上下相邻→横线）——用堆叠后的最终几何
+  page._dividers = [];
+  for (let i = 0; i < regs.length; i++) {
+    for (let j = i + 1; j < regs.length; j++) {
+      const A = regs[i];
+      const B = regs[j];
+      const ovX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+      const ovY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+      if (ovX > Math.min(A.w, B.w) * 0.5 && ovY <= 0) {
+        const yTop = Math.max(A.y, B.y);
+        const yBot = Math.min(A.y + A.h, B.y + B.h);
+        if (yTop - yBot < 180) {
+          const y = (yTop + yBot) / 2;
+          page._dividers.push({ a: { x: Math.max(A.x, B.x) + 10, y }, b: { x: Math.min(A.x + A.w, B.x + B.w) - 10, y } });
+        }
+      } else if (ovY > Math.min(A.h, B.h) * 0.5 && ovX <= 0) {
+        const xLeft = Math.max(A.x, B.x);
+        const xRight = Math.min(A.x + A.w, B.x + B.w);
+        if (xLeft - xRight < 180) {
+          const x = (xLeft + xRight) / 2;
+          page._dividers.push({ a: { x, y: Math.max(A.y, B.y) + 10 }, b: { x, y: Math.min(A.y + A.h, B.y + B.h) - 10 } });
         }
       }
-      b.y = cursorY;
-      cursorY += blockHeight(b) + 16;
     }
   }
 
@@ -1132,7 +1183,9 @@ async function loadFigure(b) {
 }
 
 function loadFigures(page) {
-  return Promise.all((page._drawOrder || []).filter((b) => b.svg).map(loadFigure));
+  // 遍历 page.blocks（而非 _drawOrder）：生成流程在 layoutPage 之前调用，
+  // 此时 _drawOrder 尚未构建 —— 之前因此漏载图，排版按 0 图高导致图文重叠
+  return Promise.all((page.blocks || []).filter((b) => b.svg).map(loadFigure));
 }
 
 function normalizePage(pg) {
