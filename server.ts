@@ -61,6 +61,7 @@ interface AppConfig {
   ttsVoice: string;
   ttsSpeed: number;
   font: string; // 板书字体预设 id（前端可选）
+  grain: number; // 字体磨砂强度 0~2.5
 }
 
 type ContentPart =
@@ -97,6 +98,7 @@ const DEFAULT_CONFIG: AppConfig = {
   ttsVoice: "FunAudioLLM/CosyVoice2-0.5B:alex",
   ttsSpeed: 1.0,
   font: "kaiti",
+  grain: 1.3,
 };
 
 function loadConfig(): AppConfig {
@@ -121,6 +123,7 @@ function loadConfig(): AppConfig {
       cfg.ttsSpeed = parsed.ttsSpeed;
     }
     if (isStr(parsed.font) && parsed.font.trim()) cfg.font = parsed.font.trim().slice(0, 32);
+    if (typeof parsed.grain === "number" && Number.isFinite(parsed.grain) && parsed.grain >= 0 && parsed.grain <= 2.5) cfg.grain = parsed.grain;
     return cfg;
   } catch (err) {
     console.error("config.json 解析失败，使用默认配置:", err instanceof Error ? err.message : err);
@@ -447,6 +450,7 @@ Bun.serve({
           ttsVoice: cfg.ttsVoice,
           ttsSpeed: cfg.ttsSpeed,
           font: cfg.font,
+          grain: cfg.grain,
           hasTtsKey: cfg.ttsApiKey.length > 0,
           ttsApiKeyMasked: cfg.ttsApiKey ? `${cfg.ttsApiKey.slice(0, 10)}…${cfg.ttsApiKey.slice(-4)}` : "",
           hasKey: cfg.apiKey.length > 0,
@@ -478,6 +482,7 @@ Bun.serve({
           cfg.ttsSpeed = body.ttsSpeed;
         }
         if (isStr(body.font) && body.font.trim()) cfg.font = body.font.trim().slice(0, 32);
+        if (typeof body.grain === "number" && Number.isFinite(body.grain) && body.grain >= 0 && body.grain <= 2.5) cfg.grain = body.grain;
         writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
         try {
           chmodSync(CONFIG_PATH, 0o600); // 双保险：已有文件也收敛权限

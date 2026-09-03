@@ -30,6 +30,13 @@ const FONT_PRESETS = [
   { id: "fangsong", label: "仿宋", stack: `"STFangsong","FangSong","仿宋",serif` },
 ];
 let fontChoice = "kaiti";
+let chalkGrain = 1.3; // 字体磨砂强度倍率（0 关闭 / 0.7 轻 / 1.3 标准 / 2.2 重）
+
+function applyGrain(v) {
+  chalkGrain = Number.isFinite(Number(v)) ? Math.max(0, Math.min(2.5, Number(v))) : 1.3;
+  spriteCache.clear(); // 字粒缓存含强度键，直接清空重生成
+  relayout();
+}
 
 function fontStack() {
   return (FONT_PRESETS.find((f) => f.id === fontChoice) ?? FONT_PRESETS[0]).stack;
@@ -234,7 +241,7 @@ function redrawStrokes() {
 const spriteCache = new Map();
 
 function chalkSprite(ch, fontSize, chalkColor) {
-  const key = `${ch}|${fontSize}|${chalkColor}`;
+  const key = `${ch}|${fontSize}|${chalkColor}|${chalkGrain}`;
   const hit = spriteCache.get(key);
   if (hit) return hit;
   const scale = 2; // 2x 内部分辨率，缩放后仍锐利
@@ -251,13 +258,25 @@ function chalkSprite(ch, fontSize, chalkColor) {
   g.fillStyle = chalkColor;
   g.fillText(ch, pad, pad + fontSize);
   // 石膏磨砂：destination-out 打颗粒孔洞（确定性，动画不闪变）
-  g.globalCompositeOperation = "destination-out";
+  // 孔位从字形像素掩码采样——全部命中笔画（此前随机撒在全画布仅 ~19% 命中，效果弱）
   const rnd = mulberry32(hashStr(key));
-  const n = Math.round(fontSize * 1.15);
-  for (let i = 0; i < n; i++) {
-    g.globalAlpha = 0.22 + rnd() * 0.5;
-    const s = 0.5 + rnd() * 1.2;
-    g.fillRect(rnd() * cw, rnd() * chh, s, s);
+  const W2 = c.width;
+  const H2 = c.height;
+  const glyph = g.getImageData(0, 0, W2, H2).data;
+  const pts = [];
+  for (let y = 0; y < H2; y += 2) {
+    for (let x = 0; x < W2; x += 2) {
+      if (glyph[(y * W2 + x) * 4 + 3] > 80) pts.push(x, y);
+    }
+  }
+  const n = Math.round((pts.length / 8) * 0.5 * chalkGrain); // 按笔画面积定孔量（每2采样点≈1孔×强度）
+  g.setTransform(1, 0, 0, 1, 0, 0); // 切设备坐标（pts 是设备像素；缩放坐标下会被再放大打偏）
+  g.globalCompositeOperation = "destination-out";
+  for (let i = 0; i < n && pts.length >= 4; i++) {
+    const k = (rnd() * (pts.length / 2) | 0) * 2;
+    g.globalAlpha = 0.2 + rnd() * 0.45;
+    const s = (0.8 + rnd() * 1.4) * (0.7 + 0.3 * Math.min(2, chalkGrain));
+    g.fillRect(pts[k] + (rnd() - 0.5) * 2, pts[k + 1] + (rnd() - 0.5) * 2, s, s);
   }
   g.globalCompositeOperation = "source-over";
   g.globalAlpha = 1;
@@ -1957,6 +1976,7 @@ async function openSettings() {
     buildSettingSelects();
     $("#cfg-voice").value = VOICE_LIST.some((v) => v.id === voiceId) ? voiceId : VOICE_LIST[0].id;
     $("#cfg-font").value = fontChoice;
+    $("#cfg-grain").value = String(chalkGrain);
     $("#cfg-status").textContent =
       cfg.hasKey && cfg.hasTtsKey
         ? "已配置 LLM + TTS 密钥"
@@ -1982,6 +2002,7 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     ttsModel: $("#cfg-ttsModel").value.trim(),
     ttsVoice: $("#cfg-voice").value, // 音色由下拉选择（持久化）
     font: $("#cfg-font").value,
+    grain: Number($("#cfg-grain").value),
   };
   try {
     const res = await fetch("/api/config", {
@@ -1993,6 +2014,7 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     voiceId = $("#cfg-voice").value; // 立即生效（语音按音色缓存，重讲即用新音色）
     applyFont($("#cfg-font").value);
+    applyGrain($("#cfg-grain").value);
     $("#cfg-status").textContent = "已保存 ✓";
     toast("设置已保存", "ok");
     setTimeout(() => $("#settings-modal").classList.add("hidden"), 600);
@@ -2031,6 +2053,7 @@ fetch("/api/config")
     }
     // 持久化的字体与音色
     if (cfg.font) applyFont(cfg.font);
+    if (cfg.grain !== undefined) applyGrain(cfg.grain);
     if (cfg.ttsVoice && VOICE_LIST.some((v) => v.id === cfg.ttsVoice)) voiceId = cfg.ttsVoice;
   })
   .catch(() => {});
