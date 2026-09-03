@@ -602,7 +602,12 @@ function renderText(t = Infinity) {
       else if (inFlight) partials.set(e.b.uid, { gi: e.gi, alpha: Math.max(0.1, (t - e.t0) / e.cost) });
     }
   }
+  const notes = [];
   for (const b of page._drawOrder) {
+    if (b.kind === "note") {
+      notes.push(b); // 便签最后画：底色矩形要盖住下面的文字与讲解标记
+      continue;
+    }
     const allowed = quota.size ? (quota.get(b.uid) ?? Infinity) : Infinity;
     drawBlock(textCtx, b, allowed, partials.get(b.uid));
   }
@@ -612,6 +617,12 @@ function renderText(t = Infinity) {
     const frac = animState && t !== Infinity ? Math.min(1, Math.max(0, (t - mk.tAppear) / 340)) : 1;
     if (frac <= 0) continue;
     drawSayMark(textCtx, mk, frac);
+  }
+
+  // 提问便签置顶：底色矩形挡住下方一切（含圈/下划线标记），解释文字写在最上层
+  for (const b of notes) {
+    const allowed = quota.size ? (quota.get(b.uid) ?? Infinity) : Infinity;
+    drawBlock(textCtx, b, allowed, partials.get(b.uid));
   }
 
 }
