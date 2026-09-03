@@ -89,6 +89,16 @@
         <button id="btn-generate" class="ai-btn primary">✦ 一键排版</button>
       </div>
     </aside>
+
+    <!-- 右侧 AI 解答区（独立小黑板，不与板书混排） -->
+    <aside id="answer-panel" class="hidden">
+      <div class="drawer-head">
+        <h2>✦ AI 解答</h2>
+        <button id="btn-answer-close" class="tool-btn" title="收起解答区">✕</button>
+      </div>
+      <p class="drawer-tip">解答写在这块小黑板上，不影响左侧板书；点击可跳过书写。</p>
+      <div id="ap-board"><canvas id="ap-canvas"></canvas></div>
+    </aside>
   </main>
 
   <!-- 设置弹窗 -->

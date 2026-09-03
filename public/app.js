@@ -1273,6 +1273,7 @@ function applyTheme() {
   $("#board-frame").style.background = THEMES[theme].frame;
   document.documentElement.style.setProperty("--bg", theme === "green" ? "#101b13" : "#12100e");
   paintBoard(bgCtx, bgC.width, bgC.height, theme);
+  if (!apPanel.classList.contains("hidden") && apCanvas.width > 1) apPaintStatic(apAnim ? Infinity : undefined);
 }
 
 $("#btn-theme").addEventListener("click", () => {
@@ -1459,6 +1460,221 @@ async function generateBoard() {
   }
 }
 
+// ---------- AI 解答侧栏（独立小黑板：粉笔渲染 + 配音 + 标记，不与板书混排） ----------
+
+const apPanel = $("#answer-panel");
+const apCanvas = $("#ap-canvas");
+const apCtx = apCanvas.getContext("2d");
+const AP_W = 560;
+const AP_H = 1000;
+let apAnim = null; // { blocks, entries, marks, dur, startTs, tNow, audios, timers }
+let apSeq = 0;
+let apRaf = 0;
+
+function fitApCanvas() {
+  if (apPanel.classList.contains("hidden")) return;
+  const rect = apCanvas.getBoundingClientRect();
+  if (rect.width < 10 || rect.height < 10) return;
+  const dpr = window.devicePixelRatio || 1;
+  apCanvas.width = Math.round(rect.width * dpr);
+  apPaintStatic(apAnim ? Infinity : undefined);
+}
+
+function computeApLayout(b) {
+  apCtx.font = fontString(b);
+  const lines = b.text ? wrapText(apCtx, b.text, b.width) : [];
+  layouts.set(b.uid, { lines, lineH: b.fontSize * 1.7 });
+  b._chars = lines.reduce((n, l) => n + l.length, 0);
+}
+
+function apBlockHeight(b) {
+  const lay = layouts.get(b.uid);
+  const figH = b.svg && b._figure ? b.width * b._figure.aspect + (lay && lay.lines.length ? 10 : 0) : 0;
+  return figH + (lay ? lay.lines.length * lay.lineH : 0);
+}
+
+// 面板排版：顶部“AI 解答”题头 → 图优先 → 逐块下排，高度自适应
+function apLayoutBlocks(blocks) {
+  const head = { uid: `ap${++uidSeq}`, kind: "header", text: "AI 解答", x: 40, y: 30, width: AP_W - 80, fontSize: 44, color: "#ffe066", emphasis: [] };
+  computeApLayout(head);
+  const out = [head];
+  let cursor = 30 + layouts.get(head.uid).lineH + 18;
+  const list = [...blocks.filter((b) => b.svg), ...blocks.filter((b) => !b.svg)];
+  for (const b of list) {
+    b.fontSize = clampNum(b.fontSize || 36, 26, 44);
+    b.x = 40;
+    const avail = AP_H - 24 - cursor;
+    if (b.svg) {
+      const aspect = b._figure ? b._figure.aspect : 0.75;
+      for (let w = AP_W - 80; w >= 160; w -= 40) {
+        b.width = w;
+        computeApLayout(b);
+        const lay = layouts.get(b.uid);
+        if (w * aspect + (lay.lines.length ? 10 : 0) + lay.lines.length * lay.lineH <= avail) break;
+      }
+    } else {
+      b.width = AP_W - 80;
+      for (let t = 0; t < 4; t++) {
+        computeApLayout(b);
+        if (cursor + apBlockHeight(b) <= AP_H - 20 || b.fontSize <= 24) break;
+        b.fontSize = Math.max(24, Math.round(b.fontSize * 0.9));
+      }
+    }
+    b.y = cursor;
+    cursor += apBlockHeight(b) + 14;
+  }
+  out.push(...list);
+  return out;
+}
+
+// t=Infinity 全显；undefined 仅刷底色
+function apPaintStatic(t) {
+  apCtx.setTransform(1, 0, 0, 1, 0, 0);
+  paintBoard(apCtx, apCanvas.width, apCanvas.height, theme);
+  if (t !== undefined && apAnim) apRender(t);
+}
+
+function apRender(t) {
+  apCtx.setTransform(1, 0, 0, 1, 0, 0);
+  paintBoard(apCtx, apCanvas.width, apCanvas.height, theme);
+  apCtx.setTransform(apCanvas.width / AP_W, 0, 0, apCanvas.height / AP_H, 0, 0);
+  apCtx.textBaseline = "alphabetic";
+
+  const quota = new Map();
+  const partials = new Map();
+  const figSave = figAlphaMap;
+  figAlphaMap = new Map();
+  if (t !== Infinity) {
+    for (const e of apAnim.entries) {
+      if (e.kind === "figure") {
+        figAlphaMap.set(e.b.uid, Math.max(0, Math.min(1, (t - e.t0) / e.cost)));
+        continue;
+      }
+      if (!quota.has(e.b.uid)) quota.set(e.b.uid, 0);
+      const done = t >= e.t0 + e.cost;
+      if (done) quota.set(e.b.uid, quota.get(e.b.uid) + 1);
+      else if (t >= e.t0) partials.set(e.b.uid, { gi: e.gi, alpha: Math.max(0.1, (t - e.t0) / e.cost) });
+    }
+  }
+  for (const b of apAnim.blocks) {
+    const allowed = quota.size ? (quota.get(b.uid) ?? Infinity) : Infinity;
+    drawBlock(apCtx, b, allowed, partials.get(b.uid));
+  }
+  for (const mk of apAnim.marks || []) {
+    const frac = t !== Infinity ? Math.min(1, Math.max(0, (t - mk.tAppear) / 340)) : 1;
+    if (frac <= 0) continue;
+    drawSayMark(apCtx, mk, frac);
+  }
+  figAlphaMap = figSave;
+}
+
+function stopApAnim(finish) {
+  const a = apAnim;
+  apSeq++;
+  if (apRaf) cancelAnimationFrame(apRaf);
+  apRaf = 0;
+  if (a) {
+    for (const tm of a.timers) clearTimeout(tm);
+    for (const au of a.audios) {
+      try {
+        au.pause();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  if (finish && a) {
+    a.entries = [];
+    apRender(Infinity); // 定格完整解答
+  }
+}
+
+// 面板讲解：快写完一块 → 讲这块（say 标记随语音画圈/划线）→ 下一块
+async function apPlay(blocks) {
+  stopApAnim(false);
+  const seq = apSeq;
+  const voices = await Promise.all(blocks.map(fetchVoice));
+  if (seq !== apSeq) return;
+  const laid = apLayoutBlocks(blocks);
+  const voiceMap = new Map(blocks.map((b, i) => [b, voices[i]]));
+  const entries = [];
+  const marks = [];
+  const audios = [];
+  const timers = [];
+  let t = 300;
+  const per = 70;
+  for (const b of laid) {
+    const v = voiceMap.get(b) ?? { el: null, dur: 0.5 };
+    const start = t + 150;
+    const figDur = b.svg ? 500 : 0;
+    const lay = layouts.get(b.uid);
+    if (b.svg) entries.push({ kind: "figure", b, t0: start, cost: 500 });
+    let gi = 0;
+    for (let li = 0; li < lay.lines.length; li++) {
+      for (let ci = 0; ci < lay.lines[li].length; ci++) {
+        entries.push({ kind: "char", b, li, ci, gi, t0: start + figDur + gi * per, cost: per });
+        gi++;
+      }
+    }
+    const writeDur = figDur + Math.max(300, gi * per);
+    const speakAt = start + writeDur + 200;
+    if (v.el) {
+      audios.push(v.el);
+      timers.push(
+        setTimeout(() => {
+          if (seq !== apSeq) return;
+          v.el.currentTime = 0;
+          v.el.play().catch(() => {});
+        }, speakAt),
+      );
+    }
+    // say 标记 → 面板行内定位，随语音时刻圈/划
+    const parsed = parseSay(b.say);
+    const cleanLen = Math.max(1, parsed.clean.length);
+    if (parsed.marks.length) {
+      apCtx.font = fontString(b);
+      const yOff = b.svg ? apBlockHeight(b) - (lay.lines.length ? lay.lines.length * lay.lineH : 0) : 0;
+      for (const mk of parsed.marks) {
+        for (let li = 0; li < lay.lines.length; li++) {
+          const idx = lay.lines[li].indexOf(mk.text);
+          if (idx < 0) continue;
+          const x0 = b.x + apCtx.measureText(lay.lines[li].slice(0, idx)).width;
+          const x1 = x0 + apCtx.measureText(mk.text).width;
+          marks.push({
+            type: mk.type,
+            text: mk.text,
+            tAppear: speakAt + (mk.start / cleanLen) * v.dur * 1000,
+            span: { x0, x1, y: b.y + yOff + li * lay.lineH + b.fontSize * 0.9, fontSize: b.fontSize },
+          });
+          break;
+        }
+      }
+    }
+    t = speakAt + v.dur * 1000 + 350;
+  }
+  apAnim = { blocks: laid, entries, marks, dur: t + 200, startTs: 0, tNow: 0, audios, timers };
+  const frame = (ts) => {
+    if (!apAnim) return;
+    if (!apAnim.startTs) apAnim.startTs = ts;
+    apAnim.tNow = ts - apAnim.startTs;
+    apRender(apAnim.tNow);
+    if (apAnim.tNow < apAnim.dur) apRaf = requestAnimationFrame(frame);
+    else {
+      apRaf = 0;
+      apAnim.entries = [];
+      apRender(Infinity);
+    }
+  };
+  apRaf = requestAnimationFrame(frame);
+}
+
+$("#btn-answer-close").addEventListener("click", () => {
+  stopApAnim(false);
+  apPanel.classList.add("hidden");
+});
+$("#ap-board").addEventListener("pointerdown", () => stopApAnim(true)); // 点击跳过书写
+new ResizeObserver(() => fitApCanvas()).observe($("#ap-board"));
+
 async function answerBoard() {
   const p = pages[curPage];
   if (!strokesByPage[curPage].length && !p._drawOrder.length) {
@@ -1466,6 +1682,10 @@ async function answerBoard() {
   }
   thinking(true, "AI 正在识别黑板并思考…");
   try {
+    // 解答前先定格板书（讲解中也要让 AI 看到完整内容）
+    stopNarration();
+    stopAnim();
+    renderText();
     const snap = document.createElement("canvas");
     snap.width = W;
     snap.height = H;
@@ -1482,37 +1702,16 @@ async function answerBoard() {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     const board = data.board || (data.pages || [])[0] || {};
-    const appended = (board.blocks || [])
-      .map((b) => mkBlock(b, "block", { x: 100, y: 700, width: 640, fontSize: 28, color: "#ffe066" }))
+    const blocks = (board.blocks || [])
+      .map((b) => mkBlock(b, "block", { x: 40, y: 200, width: 480, fontSize: 36, color: "#f2f0e6" }))
       .filter(Boolean);
-    const extra = [];
-    if (board.title) {
-      const tb = mkBlock(board.title, "block", { x: 100, y: 640, width: 640, fontSize: 30, color: "#ffe066" });
-      if (tb) extra.push(tb);
-    }
-    const blocks = extra.concat(appended);
     if (!blocks.length) throw new Error("模型没有返回作答内容，请重试");
     await Promise.all(blocks.filter((b) => b.svg).map(loadFigure));
-    for (const b of blocks) {
-      computeLayout(b);
-      if (b.svg) {
-        // 图块不出画布：先按总高钳 y，仍放不下再收窄图宽
-        const aspect = b._figure ? b._figure.aspect : 0.75;
-        if (b.y + blockHeight(b) > H - 30) {
-          b.y = Math.max(60, H - 30 - blockHeight(b));
-          if (b.y + blockHeight(b) > H - 30) {
-            b.width = Math.max(220, Math.floor((H - 90 - b.y) / aspect));
-            computeLayout(b);
-          }
-        }
-        b.x = Math.min(b.x, W - b.width - 40);
-      }
-    }
-    p.blocks = p.blocks.concat(blocks);
-    p._drawOrder = p._drawOrder.concat(blocks);
-    if (blocks.some((b) => b.say && b.say.trim())) playNarration(p, blocks); // AI 解答也开口讲
-    else animateIn(p, blocks, false);
-    toast("AI 已作答", "ok");
+    // 解答写入右侧独立小黑板（不与板书混排）
+    $("#answer-panel").classList.remove("hidden");
+    fitApCanvas();
+    apPlay(blocks);
+    toast("AI 已作答（右侧解答区）", "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? "无法连接本地服务" : err.message, "err");
   } finally {
