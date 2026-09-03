@@ -49,6 +49,10 @@ function applyFont(id) {
   layouts.clear();
   for (const p of pages) p._laid = false;
   relayout();
+  // SVG 图内文字同步换字体：作废已渲染图像并异步重载
+  const figBlocks = [];
+  for (const p of pages) for (const b of p.blocks) if (b.svg) { b._figure = null; figBlocks.push(b); }
+  if (figBlocks.length) Promise.all(figBlocks.map(loadFigure)).then(() => relayout());
 }
 
 const THEMES = {
@@ -1248,6 +1252,10 @@ function prepSvgForBoard(svg) {
   if (!/\sfill=/.test(head)) s = s.replace(/<svg\b/, '<svg fill="none"');
   s = s.replace(/<text(?![^>]*\sfill=)/g, '<text fill="#f2f0e6"');
   s = s.replace(/<tspan(?![^>]*\sfill=)/g, '<tspan fill="#f2f0e6"');
+  // 图内文字与板书同字体（未显式指定时注入当前字体栈；切字体时 applyFont 会重载图像）
+  const ff = `font-family='${fontStack()}'`;
+  s = s.replace(/<text(?![^>]*\sfont-family=)/g, `<text ${ff}`);
+  s = s.replace(/<tspan(?![^>]*\sfont-family=)/g, `<tspan ${ff}`);
   return s;
 }
 
