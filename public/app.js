@@ -396,60 +396,84 @@ function layoutPage(page) {
   const baseFonts = new Map(); // 每块原始字号（多轮收缩的基准）
   for (const b of page.blocks) baseFonts.set(b.uid, b.fontSize || 45);
 
-  const layRegions = (fontScale) => {
-    const out = [];
-    for (const r of regs) {
-      const headFont = Math.max(30, Math.round(45 * fontScale));
-      let cursorY = 14; // 相对区顶
-      let headerLay = null;
+  // 贪心流式装填：块按阅读顺序流动——当前区装不下（含图宽换算/文字缩字号到 30）就流入下一区，
+  // 区用尽才整体收缩一档重来。彻底消除"单区爆满、邻区空闲"与溢出。
+  const layFlow = (fontScale) => {
+    const flowOrder = [...regs].sort((a, b) => a.y - b.y || a.x - b.x); // 阅读顺序：上行左→右，再下行
+    if (!flowOrder.length) return { out: [], overflow: false }; // 无区域页：块走绝对定位分支
+    const seq = [];
+    const seen = new Set();
+    for (const r of flowOrder) for (const b of byRegion.get(r.id) || []) { seq.push(b); seen.add(b.uid); }
+    for (const b of page.blocks) if (b.region && !seen.has(b.uid)) { b.region = null; } // 引用不存在区域 → 绝对定位
+    const outByRegion = new Map(regs.map((r) => [r.id, { r, headerLay: null, placed: [], contentH: 0 }]));
+    let ri = 0;
+    let cur = outByRegion.get(flowOrder[0].id);
+    let cursorY = 0;
+    const openRegion = () => {
+      const r = cur.r;
+      cursorY = 14;
       if (r.header) {
-        const hb = { uid: `h${++uidSeq}`, kind: "header", text: r.header, x: r.x + 24, y: 0, width: r.w - 48, fontSize: headFont, color: "#ffe066", emphasis: [] };
+        const hb = { uid: `h${++uidSeq}`, kind: "header", text: r.header, x: r.x + 24, y: 0, width: r.w - 48, fontSize: Math.max(30, Math.round(45 * fontScale)), color: "#ffe066", emphasis: [] };
         computeLayout(hb);
-        headerLay = hb;
+        cur.headerLay = hb;
         cursorY += layouts.get(hb.uid).lineH + 12;
       }
-      const list = byRegion.get(r.id) || [];
-      const ordered = [...list.filter((b) => b.svg), ...list.filter((b) => !b.svg)];
-      const placed = [];
-      const regionH = Math.max(r.h, cursorY + 60); // 区高不足时至少给一点空间
-      for (const b of ordered) {
-        b.fontSize = clampNum(Math.round(baseFonts.get(b.uid) * fontScale), 26, 63);
-        b.x = r.x + 24;
-        const avail = regionH - 6 - cursorY;
+    };
+    const regionH = () => Math.max(cur.r.h, cursorY + 60);
+    openRegion();
+    let overflow = false;
+    for (const b of seq) {
+      b.fontSize = clampNum(Math.round(baseFonts.get(b.uid) * fontScale), 30, 63);
+      b.x = cur.r.x + 24;
+      let fits = false;
+      for (let attempt = 0; attempt < 2 && !fits; attempt++) {
+        const avail = regionH() - 6 - cursorY;
         if (b.svg) {
           const aspect = b._figure ? b._figure.aspect : 0.75;
-          // 先按满宽算图题行数，再按剩余高度换算图宽（夹在 140 ~ 满宽）
-          b.width = r.w - 48;
+          b.width = cur.r.w - 48;
           computeLayout(b);
           let lay = layouts.get(b.uid);
-          const captionH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
-          const wByH = Math.floor((avail - captionH) / aspect);
-          b.width = clampNum(wByH, 140, Math.round((r.w - 48) * Math.min(1, fontScale + 0.2)));
+          let capH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
+          b.width = clampNum(Math.floor((avail - capH) / aspect), 140, Math.round((cur.r.w - 48) * Math.min(1, fontScale + 0.35)));
           computeLayout(b);
           lay = layouts.get(b.uid);
-          // 图题行数可能随宽度变化，再校一轮
-          const captionH2 = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
-          if (captionH2 > captionH) {
-            b.width = clampNum(Math.floor((avail - captionH2) / aspect), 140, Math.round((r.w - 48) * Math.min(1, fontScale + 0.2)));
-            computeLayout(b);
-          }
+          capH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
+          fits = avail >= b.width * aspect + capH;
         } else {
-          b.width = r.w - 48;
+          b.width = cur.r.w - 48;
+          computeLayout(b);
           for (let tries = 0; tries < 5; tries++) {
+            if (cursorY + blockHeight(b) <= regionH() - 6) { fits = true; break; }
+            if (b.fontSize <= 30) break;
+            b.fontSize = Math.max(30, Math.round(b.fontSize * 0.88));
             computeLayout(b);
-            if (cursorY + blockHeight(b) <= regionH - 6 || b.fontSize <= 26) break;
-            b.fontSize = Math.max(26, Math.round(b.fontSize * 0.88));
           }
         }
-        placed.push({ b, dy: cursorY });
-        cursorY += blockHeight(b) + 16;
+        if (fits) break;
+        // 当前区放不下 → 开下一区
+        if (ri < flowOrder.length - 1) {
+          cur.contentH = cursorY;
+          ri += 1;
+          cur = outByRegion.get(flowOrder[ri].id);
+          b.region = cur.r.id;
+          b.x = cur.r.x + 24;
+          openRegion();
+        } else {
+          overflow = true; // 所有区用尽：最后区内硬放（后续档位收缩兜底）
+          fits = true;
+        }
       }
-      out.push({ r, headerLay, placed, contentH: cursorY });
+      cur.placed.push({ b, dy: cursorY });
+      cursorY += blockHeight(b) + 16;
     }
-    return out;
+    cur.contentH = cursorY;
+    // 未装填区域补零高
+    for (const it of outByRegion.values()) if (!it.contentH) it.contentH = it.headerLay ? 60 : 10;
+    const out = flowOrder.map((r) => outByRegion.get(r.id));
+    return { out, overflow };
   };
 
-  // 纵向堆叠：区域从上到下排列（同列的按模型顺序），后区顶 = 前区内容底 + 28，消除区域交叠
+  // 纵向堆叠：同列区域按阅读顺序顶 = 前区内容底 + 28，消除区域交叠
   const stackRegions = (laid, minTop) => {
     let bottom = 0;
     for (let i = 0; i < laid.length; i++) {
@@ -460,10 +484,9 @@ function layoutPage(page) {
         const xOverlap = Math.min(prev.r.x + prev.r.w, it.r.x + it.r.w) - Math.max(prev.r.x, it.r.x);
         if (xOverlap > 40) top = Math.max(top, prev.r.y + prev.contentH + 28); // 同列纵向避让
       }
-      const shift = top - it.r.y;
       it.r.y = top;
-      it.r.h = Math.max(it.r.h, it.contentH + 10);
       if (it.headerLay) it.headerLay.y = top + (it.headerLay.y ?? 0);
+      it.r.h = it.contentH + 10; // 区域贴合内容高度
       for (const p of it.placed) p.b.y = top + p.dy;
       bottom = Math.max(bottom, top + it.contentH);
     }
@@ -472,16 +495,32 @@ function layoutPage(page) {
 
   const summaryTop = page.summaryBlock ? H - 150 : H - 60;
   const minTop = page.titleBlock ? 160 : 110; // 区域不得侵入标题带
-  let laid;
+  // stackRegions 会改写 r.y/r.h —— 多轮必须每轮从原始几何重来
+  const origGeom = regs.map((r) => ({ y: r.y, h: r.h }));
+  const resetGeom = () => regs.forEach((r, i) => { r.y = origGeom[i].y; r.h = origGeom[i].h; });
+  let laid = null;
   let bottom = 0;
-  for (let round = 0; round < 6; round++) {
-    laid = layRegions(round === 0 ? 1 : Math.pow(0.8, round));
-    bottom = stackRegions(laid, minTop);
-    if (bottom <= summaryTop) break; // 全部内容都在总结条之上 → 收工
+  const TOL = 24;
+  const SCALES = [1, 0.93, 0.87, 0.8, 0.74, 0.68, 0.62];
+  // 两轮尝试：先带总结条；内容实在装不下 → 去掉总结条再试（绝不重叠优先于保留总结）
+  for (const pass of [0, 1]) {
+    const sTop = page.summaryBlock ? H - 150 : H - 56;
+    for (const s of SCALES) {
+      resetGeom();
+      const r = layFlow(s);
+      laid = r.out;
+      bottom = stackRegions(laid, minTop);
+      if (!r.overflow && bottom <= sTop + TOL) break;
+    }
+    if (bottom <= sTop + TOL) break;
+    if (pass === 0 && page.summaryBlock) {
+      page.summaryBlock = null; // 牺牲总结条换空间
+      continue;
+    }
   }
-  if (bottom > summaryTop) {
-    // 多档仍放不下（内容过多）：整体上移，但绝不侵入标题带
-    const lift = Math.max(0, Math.min(bottom - summaryTop, Math.max(...laid.map((it) => it.r.y)) - minTop));
+  if (bottom > (page.summaryBlock ? H - 150 : H - 56) + TOL) {
+    // 仍放不下（极端内容量）：整体上移（以最小区域顶算，绝不侵入标题带）
+    const lift = Math.max(0, Math.min(bottom - (H - 56), Math.min(...laid.map((it) => it.r.y)) - minTop));
     for (const it of laid) {
       it.r.y -= lift;
       if (it.headerLay) it.headerLay.y -= lift;
@@ -534,12 +573,12 @@ function layoutPage(page) {
     s.y = H - 64 - lay.lines.length * lay.lineH;
   }
 
-  // 动画/绘制顺序：标题 → (逐区域：区头+内容) → 其余绝对块 → 总结
+  // 动画/绘制顺序：标题 → (逐区域按装填顺序：区头+块) → 其余绝对块 → 总结
   const order = [];
   if (page.titleBlock) order.push(page.titleBlock);
-  for (const r of regs) {
-    for (const hb of page.headers) if (hb.text === r.header && hb.x === r.x + 24) order.push(hb);
-    for (const b of byRegion.get(r.id) || []) order.push(b); // 视觉顺序已由排版决定（图在前），动画按 _drawOrder 里的实际排列
+  for (const it of laid) {
+    if (it.headerLay) order.push(it.headerLay);
+    for (const p of it.placed) order.push(p.b);
   }
   for (const b of page.blocks) if (!b.region) order.push(b);
   if (page.summaryBlock) order.push(page.summaryBlock);
@@ -1084,6 +1123,16 @@ async function playNarration(page, blockList) {
     () => {
       narration.playing = false;
       setNarrateBtn();
+      // 整页讲完 → 3 秒后自动连播下一页（点击/翻页/停止可打断：计时器入 narration.timers）
+      if (!blockList && pages[curPage] === page && curPage < pages.length - 1) {
+        const seq = narration.seq;
+        narration.timers.push(
+          setTimeout(() => {
+            if (seq !== narration.seq) return;
+            goToPage(curPage + 1);
+          }, 3000),
+        );
+      }
     },
     lectureTick,
   );
