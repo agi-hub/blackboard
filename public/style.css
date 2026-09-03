@@ -223,8 +223,18 @@ button {
 .nav-btn:disabled { opacity: 0.3; cursor: default; }
 .nav-btn:disabled:hover { background: rgba(255, 255, 255, 0.05); }
 
-.ai-btn { border: 1px solid #555240; background: rgba(255, 255, 255, 0.06); color: var(--text); }
-.ai-btn:hover { background: rgba(255, 255, 255, 0.13); }
+/* AI 按钮：尺寸/圆角/边框与 .tool-btn 完全一致，仅配色区分 */
+.ai-btn, .tool-btn { height: 34px; line-height: 1; }
+.ai-btn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #3a332b;
+  transition: background 0.12s;
+}
+.ai-btn:hover { background: rgba(255, 255, 255, 0.12); }
 .ai-btn.primary {
   background: linear-gradient(160deg, #ffe066, #d9a93b);
   color: #241c05;
