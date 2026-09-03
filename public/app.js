@@ -973,8 +973,13 @@ async function fetchVoice(b) {
     const el = new Audio(data.audio);
     el.preload = "auto";
     b._voice = { voice: voiceId, el, dur: dur || fallback.dur };
-  } catch {
+  } catch (e) {
     b._voice = fallback;
+    // TTS 不可用时明确告知（每次会话只提醒一次），避免误以为程序坏了
+    if (!fetchVoice._warned) {
+      fetchVoice._warned = true;
+      toast(`配音不可用（${String(e && e.message ? e.message : "TTS 服务异常").slice(0, 60)}），已切换无声模式`, "err");
+    }
   }
   return b._voice;
 }
@@ -1161,8 +1166,11 @@ $("#btn-narrate").addEventListener("click", () => {
   }
 });
 
+let replayLastAt = 0;
 $("#btn-replay").addEventListener("click", () => {
-  // 重播：从本页开头重新讲解（清标记重画）
+  // 防抖：600ms 内重复点击忽略（快速双击曾造成预取竞态）
+  if (Date.now() - replayLastAt < 600) return;
+  replayLastAt = Date.now();
   stopNarration();
   playNarration(pages[curPage]);
 });
