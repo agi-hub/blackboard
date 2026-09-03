@@ -1046,7 +1046,8 @@ async function playNarration(page, blockList) {
   narration.playing = true;
   narration.pending = !blockList; // 整页讲解预取语音时画面空白；追加讲解保持现有板书
   setNarrateBtn();
-  const voices = await Promise.all([loadFigures(page), ...blocks.map(fetchVoice)]);
+  await loadFigures(page); // 图先加载（结果不进 voices，曾因混入导致 voices 错位、时间线时长 NaN 秒完）
+  const voices = await Promise.all(blocks.map(fetchVoice));
   // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
   page._sayMarks = blockList ? page._sayMarks || [] : [];
 
