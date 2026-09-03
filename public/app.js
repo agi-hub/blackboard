@@ -1510,6 +1510,84 @@ function exportPNG() {
   toast("已导出高清 PNG", "ok");
 }
 
+// ---------- 课程保存 / 加载（只存大模型备课输出的纯文本：板书+讲稿+SVG+标记；音频/图像加载时重建） ----------
+
+function courseBlockToJSON(b) {
+  const o = { text: b.text };
+  if (b.say) o.say = b.say;
+  if (b.svg) o.svg = b.svg;
+  if (b.fontSize) o.fontSize = b.fontSize;
+  if (b.color) o.color = b.color;
+  if (b.emphasis && b.emphasis.length) o.emphasis = b.emphasis;
+  if (b.region) o.region = b.region;
+  else {
+    o.x = Math.round(b.x);
+    o.y = Math.round(b.y);
+    o.width = Math.round(b.width);
+  }
+  return o;
+}
+
+function saveCourse() {
+  if (!pages.length || !pages.some((p) => p._drawOrder.length)) return toast("当前没有可保存的课程", "err");
+  const data = {
+    app: "敲黑板",
+    version: 1,
+    savedAt: new Date().toISOString(),
+    pages: pages.map((p) => ({
+      title: p.titleBlock ? courseBlockToJSON(p.titleBlock) : null,
+      summary: p.summaryBlock ? courseBlockToJSON(p.summaryBlock) : null,
+      regions: p.regions.map((r) => {
+        const o = { id: r.id, x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
+        if (r.header) o.header = r.header;
+        return o;
+      }),
+      blocks: p.blocks.map(courseBlockToJSON),
+    })),
+  };
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  const name = (pages[0].titleBlock?.text || "课程").slice(0, 12);
+  a.download = `敲黑板-${name}-${ts}.json`;
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  a.click();
+  toast(`课程已保存（${pages.length} 页，纯文本）`, "ok");
+}
+
+async function loadCourseFile(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || !Array.isArray(data.pages) || !data.pages.length) throw new Error("不是有效的课程文件");
+    stopNarration();
+    stopApAnim(false);
+    apPanel.classList.add("hidden");
+    lectureReset(false);
+    $("#lecture-panel").classList.add("hidden");
+    const newPages = data.pages.map(normalizePage).filter((p) => p.titleBlock || p.blocks.length || p.summaryBlock);
+    if (!newPages.length) throw new Error("课程文件里没有内容");
+    await Promise.all(newPages.map(loadFigures)); // SVG 图示重新解析成图像
+    for (const p of newPages) layoutPage(p);
+    pages = newPages;
+    strokesByPage = pages.map(() => []); // 课程不含手写涂鸦
+    curPage = 0;
+    syncPageNav();
+    redrawStrokes();
+    pages[0].animated = true;
+    playNarration(pages[0]); // 语音按需重新合成（课程文件不含音频）
+    toast(`课程已加载（${pages.length} 页），开始上课`, "ok");
+  } catch (e) {
+    toast(`加载失败：${e.message}`, "err");
+  }
+}
+
+$("#btn-save-course").addEventListener("click", saveCourse);
+$("#btn-load-course").addEventListener("click", () => $("#course-file").click());
+$("#course-file").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (f) loadCourseFile(f);
+  e.target.value = ""; // 允许重复选同一文件
+});
+
 window.addEventListener("keydown", (e) => {
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA") return;

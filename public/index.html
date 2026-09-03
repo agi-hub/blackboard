@@ -39,9 +39,12 @@
       <button id="btn-fullscreen" class="tool-btn" title="全屏黑板（也可双击黑板）">⛶ 全屏</button>
       <button id="btn-theme" class="tool-btn" title="切换黑板 / 绿板">◐ 主题</button>
       <button id="btn-export" class="tool-btn" title="导出高清 PNG">⬇ 导出</button>
-      <button id="btn-settings" class="tool-btn" title="AI 服务设置（模型/音色/字体）">⚙ 设置</button>
+      <button id="btn-save-course" class="tool-btn" title="保存课程（板书+讲稿，纯文本 JSON）">💾 保存课程</button>
+      <button id="btn-load-course" class="tool-btn" title="加载课程文件，恢复板书与讲解">📂 加载课程</button>
+      <button id="btn-settings" class="tool-btn" title="设置（模型/配音/外观）">⚙ 设置</button>
     </div>
   </header>
+  <input id="course-file" type="file" accept=".json,application/json" hidden />
 
   <main id="stage">
     <!-- 左侧粉笔槽（磁吸上墙：木条轨道 + 磁铁贴粉笔 + 板擦） -->
