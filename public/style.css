@@ -197,6 +197,27 @@ button {
 }
 
 
+
+/* 设置弹窗：Tab 分组 */
+.modal-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--panel-edge);
+  padding-bottom: 8px;
+}
+.mtab {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+.mtab:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.mtab.active { color: var(--accent); border-color: rgba(255, 224, 102, 0.45); background: rgba(255, 224, 102, 0.08); }
+.tab-panes { min-height: 240px; }
+.tab-pane { display: none; flex-direction: column; gap: 12px; }
+.tab-pane.active { display: flex; }
+
 .tool-btn {
   padding: 5px 12px;
   border-radius: 8px;

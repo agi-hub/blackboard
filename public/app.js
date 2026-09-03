@@ -1960,6 +1960,14 @@ $("#settings-modal").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) $("#settings-modal").classList.add("hidden");
 });
 
+// 设置弹窗 Tab 切换
+for (const tab of document.querySelectorAll(".mtab")) {
+  tab.addEventListener("click", () => {
+    for (const t of document.querySelectorAll(".mtab")) t.classList.toggle("active", t === tab);
+    for (const p of document.querySelectorAll(".tab-pane")) p.classList.toggle("active", p.id === tab.dataset.tab);
+  });
+}
+
 async function openSettings() {
   try {
     const res = await fetch("/api/config");
