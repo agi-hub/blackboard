@@ -9,19 +9,7 @@
 <body>
   <!-- 顶部工具栏 -->
   <header id="toolbar">
-    <div class="tb-group brand">
-      <span class="brand-mark">◼</span>
-      <span class="brand-name">黑板</span>
-    </div>
-
     <div class="tb-group">
-      <button id="btn-undo" class="tool-btn" title="撤销 (Ctrl/Cmd+Z)">↩ 撤销</button>
-      <button id="btn-clear" class="tool-btn danger" title="清空黑板">✕ 清屏</button>
-    </div>
-
-
-    <div class="tb-group spacer-right">
-      <select id="voice-select" title="讲解音色"></select>
       <button id="btn-ask" class="ai-btn" title="进入提问模式：用鼠标指向黑板某行文字，AI 就地解释">🙋 我要问问题</button>
       <button id="btn-replay" class="ai-btn" title="从本页开头重新讲解">↻ 重播</button>
       <button id="btn-narrate" class="ai-btn primary" title="停止/继续 配音讲解">🔊 讲解</button>
@@ -38,7 +26,7 @@
       <button id="btn-fullscreen" class="tool-btn" title="全屏黑板（也可双击黑板）">⛶ 全屏</button>
       <button id="btn-theme" class="tool-btn" title="切换黑板 / 绿板">◐ 主题</button>
       <button id="btn-export" class="tool-btn" title="导出高清 PNG">⬇ 导出</button>
-      <button id="btn-settings" class="tool-btn" title="AI 服务设置">⚙ 设置</button>
+      <button id="btn-settings" class="tool-btn" title="AI 服务设置（模型/音色/字体）">⚙ 设置</button>
     </div>
   </header>
 
@@ -62,6 +50,9 @@
       </div>
       <div class="rail-divider"></div>
       <button id="btn-eraser" class="rail-eraser" title="橡皮擦（板擦）"><span class="felt"></span></button>
+      <div class="rail-divider"></div>
+      <button id="btn-undo" class="rail-tool" title="撤销 (Ctrl/Cmd+Z)">↩ 撤销</button>
+      <button id="btn-clear" class="rail-tool danger" title="清空黑板">✕ 清屏</button>
     </aside>
 
     <!-- 黑板（木框 + 三层画布） -->
@@ -133,9 +124,14 @@
       <label>配音 TTS · API Key（留打码值表示不修改）
         <input id="cfg-ttsApiKey" type="password" autocomplete="off" />
       </label>
-      <label>配音 TTS · 模型 / 音色
+      <label>配音 TTS · 模型
         <input id="cfg-ttsModel" type="text" autocomplete="off" />
-        <input id="cfg-ttsVoice" type="text" autocomplete="off" />
+      </label>
+      <label>讲解音色（男/女声预置）
+        <select id="cfg-voice"></select>
+      </label>
+      <label>板书字体
+        <select id="cfg-font"></select>
       </label>
       <div class="drawer-actions">
         <span id="cfg-status" class="cfg-status"></span>

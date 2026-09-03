@@ -20,7 +20,29 @@ const strokeCtx = strokeC.getContext("2d");
 const textCtx = textC.getContext("2d");
 const eraserCursorEl = $("#eraser-cursor");
 
-const FONT_STACK = `"Kaiti SC","STKaiti","楷体","Xingkai SC",serif`;
+// 板书字体预设（macOS 自带中文字体；设置页可选，持久化到服务端配置）
+const FONT_PRESETS = [
+  { id: "kaiti", label: "楷体", stack: `"Kaiti SC","STKaiti","楷体",serif` },
+  { id: "xingkai", label: "行楷（手写风）", stack: `"Xingkai SC","STXingkai","行楷","Kaiti SC",serif` },
+  { id: "songti", label: "宋体", stack: `"Songti SC","STSong","宋体",serif` },
+  { id: "heiti", label: "黑体", stack: `"PingFang SC","Heiti SC","黑体",serif` },
+  { id: "yuanti", label: "圆体", stack: `"Yuanti SC","STYuanti","圆体",serif` },
+  { id: "fangsong", label: "仿宋", stack: `"STFangsong","FangSong","仿宋",serif` },
+];
+let fontChoice = "kaiti";
+
+function fontStack() {
+  return (FONT_PRESETS.find((f) => f.id === fontChoice) ?? FONT_PRESETS[0]).stack;
+}
+
+// 切换字体：字粒缓存与排版全部失效，重排当前页
+function applyFont(id) {
+  fontChoice = FONT_PRESETS.some((f) => f.id === id) ? id : "kaiti";
+  spriteCache.clear();
+  layouts.clear();
+  for (const p of pages) p._laid = false;
+  relayout();
+}
 
 const THEMES = {
   black: { base: "#20241f", frame: "linear-gradient(135deg,#6b4a2c,#4a3118 55%,#6b4a2c)" },
@@ -224,7 +246,7 @@ function chalkSprite(ch, fontSize, chalkColor) {
   c.height = Math.ceil(chh * scale);
   const g = c.getContext("2d");
   g.scale(scale, scale);
-  g.font = `${fontSize}px ${FONT_STACK}`;
+  g.font = `${fontSize}px ${fontStack()}`;
   g.textBaseline = "alphabetic";
   g.fillStyle = chalkColor;
   g.fillText(ch, pad, pad + fontSize);
@@ -267,7 +289,7 @@ function chalkChar(ctx, ch, x, y, b, rnd, alphaScale = 1, colorOverride) {
 // ---------- 文本排版（区域流式 / 确定性） ----------
 
 function fontString(b) {
-  return `${b.fontSize}px ${FONT_STACK}`;
+  return `${b.fontSize}px ${fontStack()}`;
 }
 
 const CJK_RE = /[\u2e80-\u9fff\u3000-\u303f\uff00-\uffef]/;
@@ -616,12 +638,7 @@ function renderText(t = Infinity) {
       else if (inFlight) partials.set(e.b.uid, { gi: e.gi, alpha: Math.max(0.1, (t - e.t0) / e.cost) });
     }
   }
-  const notes = [];
   for (const b of page._drawOrder) {
-    if (b.kind === "note") {
-      notes.push(b); // 便签最后画：底色矩形要盖住下面的文字与讲解标记
-      continue;
-    }
     const allowed = quota.size ? (quota.get(b.uid) ?? Infinity) : Infinity;
     drawBlock(textCtx, b, allowed, partials.get(b.uid));
   }
@@ -632,13 +649,6 @@ function renderText(t = Infinity) {
     if (frac <= 0) continue;
     drawSayMark(textCtx, mk, frac);
   }
-
-  // 提问便签置顶：底色矩形挡住下方一切（含圈/下划线标记），解释文字写在最上层
-  for (const b of notes) {
-    const allowed = quota.size ? (quota.get(b.uid) ?? Infinity) : Infinity;
-    drawBlock(textCtx, b, allowed, partials.get(b.uid));
-  }
-
 }
 
 // ---------- 时间线动画：分隔线 → 逐字渐现 ----------
@@ -754,16 +764,17 @@ const VOICE_LIST = [
 ];
 let voiceId = VOICE_LIST[0].id;
 
-for (const v of VOICE_LIST) {
-  const opt = document.createElement("option");
-  opt.value = v.id;
-  opt.textContent = v.label;
-  $("#voice-select").appendChild(opt);
+// 设置页的音色/字体下拉一次性构建（顶栏不再放音色）
+function buildSettingSelects() {
+  const vs = $("#cfg-voice");
+  if (!vs.options.length) {
+    for (const v of VOICE_LIST) vs.add(new Option(v.label, v.id));
+  }
+  const fs = $("#cfg-font");
+  if (!fs.options.length) {
+    for (const f of FONT_PRESETS) fs.add(new Option(f.label, f.id));
+  }
 }
-$("#voice-select").addEventListener("change", () => {
-  voiceId = $("#voice-select").value;
-  toast(`音色已切换：${VOICE_LIST.find((v) => v.id === voiceId)?.label ?? voiceId}`, "");
-});
 
 // 讲稿标记解析：circle{词}/underline{词} → 纯文本 + 标记位置（转语音前剥离）
 function parseSay(say) {
@@ -1378,19 +1389,14 @@ async function handleAskClick(e) {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-    const note = mkBlock(
-      { text: data.text, say: data.text, x: pt.x + 34, y: pt.y + 30, width: 460, fontSize: 30, color: "#ffe066" },
-      "note",
-      { x: pt.x + 34, y: pt.y + 30, width: 460, fontSize: 30, color: "#ffe066" },
-    );
-    computeLayout(note);
-    const lay = layouts.get(note.uid);
-    // 便签不出画布：右/下越界时往回收
-    note.x = Math.min(note.x, W - note.width - 40);
-    note.y = Math.min(note.y, H - lay.lines.length * lay.lineH - 60);
-    page.blocks.push(note);
-    page._drawOrder.push(note);
-    playNarration(page, [note]); // 答案快写 + 教师开口讲解（其他板书保持不动）
+    // 答案写入右侧解答面板（新一问覆盖前一问）
+    const blocks = [
+      mkBlock({ text: data.text, say: data.text, x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }, "block", { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }),
+    ].filter(Boolean);
+    $("#answer-panel").classList.remove("hidden");
+    fitApCanvas();
+    apPlay(blocks, "课堂提问");
+    toast("AI 已解答（右侧，新问题会覆盖前一问）", "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? "无法连接本地服务" : err.message, "err");
   } finally {
@@ -1494,8 +1500,8 @@ function apBlockHeight(b) {
 }
 
 // 面板排版：顶部“AI 解答”题头 → 图优先 → 逐块下排，高度自适应
-function apLayoutBlocks(blocks) {
-  const head = { uid: `ap${++uidSeq}`, kind: "header", text: "AI 解答", x: 40, y: 30, width: AP_W - 80, fontSize: 44, color: "#ffe066", emphasis: [] };
+function apLayoutBlocks(blocks, title) {
+  const head = { uid: `ap${++uidSeq}`, kind: "header", text: title || "AI 解答", x: 40, y: 30, width: AP_W - 80, fontSize: 44, color: "#ffe066", emphasis: [] };
   computeApLayout(head);
   const out = [head];
   let cursor = 30 + layouts.get(head.uid).lineH + 18;
@@ -1590,12 +1596,11 @@ function stopApAnim(finish) {
 }
 
 // 面板讲解：快写完一块 → 讲这块（say 标记随语音画圈/划线）→ 下一块
-async function apPlay(blocks) {
+async function apPlay(blocks, title) {
   stopApAnim(false);
   const seq = apSeq;
   const voices = await Promise.all(blocks.map(fetchVoice));
-  if (seq !== apSeq) return;
-  const laid = apLayoutBlocks(blocks);
+  const laid = apLayoutBlocks(blocks, title);
   const voiceMap = new Map(blocks.map((b, i) => [b, voices[i]]));
   const entries = [];
   const marks = [];
@@ -1710,7 +1715,7 @@ async function answerBoard() {
     // 解答写入右侧独立小黑板（不与板书混排）
     $("#answer-panel").classList.remove("hidden");
     fitApCanvas();
-    apPlay(blocks);
+    apPlay(blocks, "AI 解答");
     toast("AI 已作答（右侧解答区）", "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? "无法连接本地服务" : err.message, "err");
@@ -1766,7 +1771,9 @@ async function openSettings() {
     $("#cfg-ttsBaseUrl").value = cfg.ttsBaseUrl || "";
     $("#cfg-ttsApiKey").value = cfg.ttsApiKeyMasked || "";
     $("#cfg-ttsModel").value = cfg.ttsModel || "";
-    $("#cfg-ttsVoice").value = cfg.ttsVoice || "";
+    buildSettingSelects();
+    $("#cfg-voice").value = VOICE_LIST.some((v) => v.id === voiceId) ? voiceId : VOICE_LIST[0].id;
+    $("#cfg-font").value = fontChoice;
     $("#cfg-status").textContent =
       cfg.hasKey && cfg.hasTtsKey
         ? "已配置 LLM + TTS 密钥"
@@ -1790,7 +1797,8 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     ttsBaseUrl: $("#cfg-ttsBaseUrl").value.trim(),
     ttsApiKey: $("#cfg-ttsApiKey").value.trim(),
     ttsModel: $("#cfg-ttsModel").value.trim(),
-    ttsVoice: $("#cfg-ttsVoice").value.trim(),
+    ttsVoice: $("#cfg-voice").value, // 音色由下拉选择（持久化）
+    font: $("#cfg-font").value,
   };
   try {
     const res = await fetch("/api/config", {
@@ -1800,6 +1808,8 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    voiceId = $("#cfg-voice").value; // 立即生效（语音按音色缓存，重讲即用新音色）
+    applyFont($("#cfg-font").value);
     $("#cfg-status").textContent = "已保存 ✓";
     toast("设置已保存", "ok");
     setTimeout(() => $("#settings-modal").classList.add("hidden"), 600);
@@ -1836,5 +1846,8 @@ fetch("/api/config")
     if (!cfg.hasKey) {
       toast("尚未配置 API Key，点「⚙ 设置」填写后即可使用 AI", "err");
     }
+    // 持久化的字体与音色
+    if (cfg.font) applyFont(cfg.font);
+    if (cfg.ttsVoice && VOICE_LIST.some((v) => v.id === cfg.ttsVoice)) voiceId = cfg.ttsVoice;
   })
   .catch(() => {});
