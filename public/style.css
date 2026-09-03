@@ -178,11 +178,20 @@ button {
 
 .spacer-right { margin-left: auto; }
 
-.brand { gap: 8px; }
-.brand-mark { color: var(--accent); font-size: 18px; text-shadow: 0 0 8px rgba(255, 224, 102, 0.4); }
+.brand {
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 0 6px;
+}
+.brand-logo {
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
 .brand-name {
-  font-size: 20px;
-  letter-spacing: 6px;
+  font-size: 21px;
+  letter-spacing: 5px;
   color: var(--chalk);
   text-shadow: 0 0 10px rgba(242, 240, 230, 0.35);
 }
