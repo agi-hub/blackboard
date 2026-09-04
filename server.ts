@@ -52,7 +52,6 @@ interface AppConfig {
   baseUrl: string;
   apiKey: string;
   textModel: string;
-  visionModel: string;
   maxRPM: number;
   disableThinking: boolean;
   ttsBaseUrl: string;
@@ -89,7 +88,6 @@ const DEFAULT_CONFIG: AppConfig = {
   baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4",
   apiKey: "",
   textModel: "glm-5.3",
-  visionModel: "glm-5.3-flash",
   maxRPM: 10,
   disableThinking: true,
   ttsBaseUrl: "https://api.siliconflow.cn/v1",
@@ -110,7 +108,6 @@ function loadConfig(): AppConfig {
     if (isStr(parsed.baseUrl) && parsed.baseUrl.trim()) cfg.baseUrl = parsed.baseUrl.trim();
     if (isStr(parsed.apiKey)) cfg.apiKey = parsed.apiKey.trim();
     if (isStr(parsed.textModel) && parsed.textModel.trim()) cfg.textModel = parsed.textModel.trim();
-    if (isStr(parsed.visionModel) && parsed.visionModel.trim()) cfg.visionModel = parsed.visionModel.trim();
     if (typeof parsed.maxRPM === "number" && Number.isFinite(parsed.maxRPM) && parsed.maxRPM > 0) {
       cfg.maxRPM = Math.min(60, Math.floor(parsed.maxRPM));
     }
@@ -378,26 +375,6 @@ function layoutSystemPrompt(W: number, H: number): string {
   ].join("\n");
 }
 
-function visionPrompt(W: number, H: number, note: string): string {
-  return [
-    "你现在是黑板AI助教。用户提供一张黑板整屏截图。",
-    `画布为 ${W}x${H} 像素坐标（左上角为原点）。`,
-    "请：",
-    "1. 识别图上所有印刷文字、手写文字、圈选、问号、草图与标记；",
-    "2. 理解用户的提问、疑惑、解题或补充需求；",
-    "3. 在黑板的空白区域作答：精准、简洁、分步、要点化，符合板书风格（可用 ①②③ 与 →）；",
-    "4. 新内容必须放在空白处，避开图上已有内容所在区域，字号 36~48（大字），总量控制在 2~6 行；",
-    "5. 颜色 8 色粉笔（丰富用色）：白 #f2f0e6 正文；黄 #ffe066 答案/重点；橙 #ffab6e 注意；粉 #ff9ec4 纠错/易错；蓝 #9fd8ff 公式/推导；绿 #b8f2b8 验证/正确；灰 #d8d8d8 次要；紫 #d8b8ff 注释。",
-    '6. emphasis 彩色重点词（与 text 原文完全一致，≤8 字）：[{"text":"答案","color":"#ffe066"}]',
-    '8. say 是老师口播，必须口语化、有亲和力：多用「你看」「那么」「然后」「对吧」「比如说」「嗯」这类口头语，像当面给学生讲题，不要书面腔。say 里可嵌板书动作标记：circle{词}/underline{词}（词必须是本块 text 原文，讲到时圈/划它；转语音会剥离标记）。例："say":"那么你看，我们先算 circle{乘积}，然后呢再 underline{求和}，对吧？"',
-    '9. 解答需要画图（几何/流程/结构）时，块加 svg 字段（行内 SVG：粉笔线框风、stroke 用 #f2f0e6/#ffe066/#9fd8ff、fill="none"、viewBox="0 0 400 300"、≤40 元素、禁 script/外链）。',
-    "严格只返回板书 JSON（无解释、无 markdown 代码块）：",
-    '{"blocks":[{"id":"a1","text":"…","x":0,"y":0,"width":640,"fontSize":42,"color":"#f2f0e6","say":"口播讲解…","emphasis":[{"text":"…","color":"#ffe066"}]}]}',
-    note ? `用户附加说明：${note}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
 
 // ---------- HTTP ----------
 
@@ -443,7 +420,6 @@ Bun.serve({
           ok: true,
           baseUrl: cfg.baseUrl,
           textModel: cfg.textModel,
-          visionModel: cfg.visionModel,
           maxRPM: cfg.maxRPM,
           disableThinking: cfg.disableThinking,
           ttsBaseUrl: cfg.ttsBaseUrl,
@@ -468,7 +444,6 @@ Bun.serve({
           cfg.apiKey = body.apiKey.trim();
         }
         if (isStr(body.textModel) && body.textModel.trim()) cfg.textModel = body.textModel.trim();
-        if (isStr(body.visionModel) && body.visionModel.trim()) cfg.visionModel = body.visionModel.trim();
         if (typeof body.maxRPM === "number" && Number.isFinite(body.maxRPM) && body.maxRPM > 0) {
           cfg.maxRPM = Math.min(60, Math.floor(body.maxRPM));
         }
@@ -560,41 +535,6 @@ Bun.serve({
         return Response.json({ ok: true, pages, raw: content.length > 2000 ? content.slice(0, 2000) : content });
       }
 
-      // ---- 整屏截图 → 多模态识图作答 ----
-      if (path === "/api/answer" && req.method === "POST") {
-        const body = await readJSONBody(req);
-        if (!body) return jsonError("请求体必须是 JSON 对象", 400);
-        if (!isStr(body.image) || !body.image.startsWith("data:image/")) {
-          return jsonError("image 必须是 data:image/* 的 Base64 DataURL", 400);
-        }
-        const W = typeof body.canvasW === "number" ? body.canvasW : 1600;
-        const H = typeof body.canvasH === "number" ? body.canvasH : 1000;
-        const note = isStr(body.note) ? body.note.slice(0, 500) : "";
-
-        const cfg = loadConfig();
-        if (!cfg.apiKey) return jsonError("未配置 API Key，请先在「设置」中填写", 400);
-        if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
-
-        const content = await callLLM(
-          cfg,
-          cfg.visionModel,
-          [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: visionPrompt(W, H, note) },
-                { type: "image_url", image_url: { url: body.image } },
-              ],
-            },
-          ],
-          8192,
-        );
-        const board = normalizeBoard(extractJSON(content), W, H);
-        if (board.blocks.length === 0 && !board.title && !board.summary) {
-          return jsonError("模型未返回有效作答 JSON，请重试", 502);
-        }
-        return Response.json({ ok: true, board, raw: content.length > 2000 ? content.slice(0, 2000) : content });
-      }
 
       // ---- 指句提问：学生指着黑板某行文字，AI 给出就地解释 ----
       if (path === "/api/ask" && req.method === "POST") {

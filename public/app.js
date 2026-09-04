@@ -1694,7 +1694,7 @@ function thinking(on, text) {
   const el = $("#thinking");
   el.classList.toggle("hidden", !on);
   if (on) $("#thinking-text").textContent = text || "AI 正在思考…";
-  for (const id of ["btn-answer", "btn-generate"]) {
+  for (const id of ["btn-generate"]) {
     const b = document.getElementById(id);
     if (b) b.disabled = !!on;
   }
@@ -1968,52 +1968,9 @@ $("#btn-answer-close").addEventListener("click", () => {
 $("#ap-board").addEventListener("pointerdown", () => stopApAnim(true)); // 点击跳过书写
 new ResizeObserver(() => fitApCanvas()).observe($("#ap-board"));
 
-async function answerBoard() {
-  const p = pages[curPage];
-  if (!strokesByPage[curPage].length && !p._drawOrder.length) {
-    return toast("黑板是空的，先写点什么或先生成板书", "err");
-  }
-  thinking(true, "AI 正在识别黑板并思考…");
-  try {
-    // 解答前先定格板书（讲解中也要让 AI 看到完整内容）
-    stopNarration();
-    stopAnim();
-    renderText();
-    const snap = document.createElement("canvas");
-    snap.width = W;
-    snap.height = H;
-    const sctx = snap.getContext("2d");
-    paintBoard(sctx, W, H, theme);
-    sctx.drawImage(strokeC, 0, 0, W, H);
-    sctx.drawImage(textC, 0, 0, W, H);
-
-    const res = await fetch("/api/answer", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: snap.toDataURL("image/jpeg", 0.85), canvasW: W, canvasH: H }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    const board = data.board || (data.pages || [])[0] || {};
-    const blocks = (board.blocks || [])
-      .map((b) => mkBlock(b, "block", { x: 40, y: 200, width: 480, fontSize: 36, color: "#f2f0e6" }))
-      .filter(Boolean);
-    if (!blocks.length) throw new Error("模型没有返回作答内容，请重试");
-    await Promise.all(blocks.filter((b) => b.svg).map(loadFigure));
-    // 解答写入右侧独立小黑板（不与板书混排）
-    $("#answer-panel").classList.remove("hidden");
-    fitApCanvas();
-    apPlay(blocks, "AI 解答");
-    toast("AI 已作答（右侧解答区）", "ok");
-  } catch (err) {
-    toast(err.message.includes("Failed to fetch") ? "无法连接本地服务" : err.message, "err");
-  } finally {
-    thinking(false);
-  }
-}
 
 $("#btn-generate").addEventListener("click", generateBoard);
-$("#btn-answer").addEventListener("click", answerBoard);
+// AI 解答（截图识图）功能已下线；右侧解答面板仍由「我要问问题」使用
 
 // 抽屉
 $("#btn-layout").addEventListener("click", () => $("#drawer").classList.toggle("hidden"));
@@ -2061,7 +2018,6 @@ async function openSettings() {
     $("#cfg-baseUrl").value = cfg.baseUrl || "";
     $("#cfg-apiKey").value = cfg.apiKeyMasked || "";
     $("#cfg-textModel").value = cfg.textModel || "";
-    $("#cfg-visionModel").value = cfg.visionModel || "";
     $("#cfg-maxRPM").value = cfg.maxRPM || 10;
     $("#cfg-disableThinking").checked = cfg.disableThinking !== false;
     $("#cfg-ttsBaseUrl").value = cfg.ttsBaseUrl || "";
@@ -2088,7 +2044,6 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     baseUrl: $("#cfg-baseUrl").value.trim(),
     apiKey: $("#cfg-apiKey").value.trim(),
     textModel: $("#cfg-textModel").value.trim(),
-    visionModel: $("#cfg-visionModel").value.trim(),
     maxRPM: Number($("#cfg-maxRPM").value) || 10,
     disableThinking: $("#cfg-disableThinking").checked,
     ttsBaseUrl: $("#cfg-ttsBaseUrl").value.trim(),

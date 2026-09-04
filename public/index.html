@@ -23,11 +23,10 @@
     </div>
 
     <div class="tb-group spacer-right">
-      <button id="btn-ask" class="ai-btn" title="进入提问模式：用鼠标指向黑板某行文字，AI 就地解释">🙋 我要问问题</button>
-      <button id="btn-replay" class="ai-btn" title="从本页开头重新讲解">↻ 重播</button>
-      <button id="btn-narrate" class="ai-btn primary" title="停止/继续 配音讲解">🔊 讲解</button>
       <button id="btn-layout" class="ai-btn" title="粘贴文本，AI 精炼排版为板书">✎ 文本转板书</button>
-      <button id="btn-answer" class="ai-btn" title="截图整块黑板，AI 识别手写并作答">✦ AI 解答</button>
+      <button id="btn-narrate" class="ai-btn primary" title="停止/继续 配音讲解">🔊 讲解</button>
+      <button id="btn-replay" class="ai-btn" title="从本页开头重新讲解">↻ 重播</button>
+      <button id="btn-ask" class="ai-btn" title="进入提问模式：用鼠标指向黑板某行文字，AI 就地解释">🙋 我要问问题</button>
     </div>
     <div class="tb-group" id="page-nav" title="黑板翻页（←/→）">
       <button id="btn-prev-page" class="tool-btn nav-btn" title="上一页 (←)">◀</button>
@@ -139,9 +138,6 @@
           </label>
           <label>文本模型（板书排版）
             <input id="cfg-textModel" type="text" autocomplete="off" />
-          </label>
-          <label>视觉模型（识图作答）
-            <input id="cfg-visionModel" type="text" autocomplete="off" />
           </label>
           <label>限流（次/分钟）
             <input id="cfg-maxRPM" type="number" min="1" max="60" />
