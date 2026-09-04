@@ -460,6 +460,12 @@ function layoutPage(page) {
           let lay = layouts.get(b.uid);
           let capH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
           b.width = clampNum(Math.floor((avail - capH) / aspect), 140, Math.round((cur.r.w - 48) * Math.min(1, fontScale + 0.35)));
+          // 文字可读下限：图内最小字有效字号 ≥ 20 逻辑px（图宁可高些，交给收缩档兜底）
+          const fig = b._figure;
+          if (fig && fig.minFont && fig.vbW) {
+            const wFloor = Math.min(cur.r.w - 48, Math.ceil((20 * fig.vbW) / fig.minFont));
+            b.width = Math.max(b.width, wFloor);
+          }
           computeLayout(b);
           lay = layouts.get(b.uid);
           capH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
@@ -1264,11 +1270,15 @@ async function loadFigure(b) {
   if (!b.svg || b._figure) return;
   const vb = b.svg.match(/viewBox=["']([\d.\s,-]+)["']/); // 兼容单/双引号
   let aspect = 0.75;
+  let vbW = 400;
   if (vb) {
     const p = vb[1].split(/[\s,]+/).map(Number);
-    if (p.length === 4 && p[2] > 0 && p[3] > 0) aspect = p[3] / p[2];
+    if (p.length === 4 && p[2] > 0 && p[3] > 0) { aspect = p[3] / p[2]; vbW = p[2]; }
   }
-  b._figure = { aspect, img: null };
+  // 图内最小字号（无声明按提示词默认 16）——排版时据此保证文字实际显示尺寸
+  const sizes = [...b.svg.matchAll(/font-size=["'](\d+(?:\.\d+)?)["']/g)].map((m) => Number(m[1]));
+  const minFont = sizes.length ? Math.min(...sizes) : 16;
+  b._figure = { aspect, vbW, minFont, img: null };
   try {
     const url = URL.createObjectURL(new Blob([prepSvgForBoard(b.svg)], { type: "image/svg+xml;charset=utf-8" }));
     const img = new Image();
@@ -1797,12 +1807,16 @@ function apLayoutBlocks(blocks, title) {
     const avail = AP_H - 24 - cursor;
     if (b.svg) {
       const aspect = b._figure ? b._figure.aspect : 0.75;
-      for (let w = AP_W - 80; w >= 160; w -= 40) {
+      let wFloorAP = 160;
+      const fig = b._figure;
+      if (fig && fig.minFont && fig.vbW) wFloorAP = Math.min(AP_W - 80, Math.ceil((22 * fig.vbW) / fig.minFont));
+      for (let w = AP_W - 80; w >= wFloorAP; w -= 40) {
         b.width = w;
         computeApLayout(b);
         const lay = layouts.get(b.uid);
         if (w * aspect + (lay.lines.length ? 10 : 0) + lay.lines.length * lay.lineH <= avail) break;
       }
+      b.width = Math.max(b.width, wFloorAP); // 有效字号 ≥ 22 下限优先于高度
     } else {
       b.width = AP_W - 80;
       for (let t = 0; t < 4; t++) {

@@ -276,7 +276,7 @@ function figurePrompt(boardSummary: string): string {
     "你是黑板画图助手。为下面的黑板板书内容配 1~2 张讲解图（流程图/结构图/示意图），帮助理解。",
     "严格只返回 JSON 数组（无解释、无 markdown 代码块）：",
     '[{"svg":"<svg viewBox=\'0 0 400 300\' xmlns=\'http://www.w3.org/2000/svg\'>…</svg>","text":"图题（≤10字，直接写内容，禁止加【图】/(图)等前缀——板书没人这么写）","say":"配合图的一句讲解（20~40字）"}]',
-    "SVG 硬性要求：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 3，fill='none'；所有图形元素（rect/circle/ellipse/path/polyline/polygon/line）都必须显式带 fill='none'，折线图/趋势线绝不填充底色；用矩形框 + 箭头(path/line) + 少量 <text>（font-size 16~18、text-anchor='middle'、fill 用粉笔色）；viewBox='0 0 400 300'；元素 ≤ 30；严禁 script/事件属性/外链。",
+    "SVG 硬性要求：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 3，fill='none'；所有图形元素（rect/circle/ellipse/path/polyline/polygon/line）都必须显式带 fill='none'，折线图/趋势线绝不填充底色；用矩形框 + 箭头(path/line) + 少量 <text>（font-size 20~24、text-anchor='middle'、fill 用粉笔色；图会被等比缩放，字号务必 ≥20 否则缩放后看不清）；viewBox='0 0 400 300'；元素 ≤ 30；严禁 script/事件属性/外链。",
     "板书内容：",
     boardSummary,
   ].join("\n");
@@ -353,7 +353,7 @@ function layoutSystemPrompt(W: number, H: number): string {
     "- 讲稿嵌「板书动作标记」配合讲解：circle{词} = 讲到该词时在黑板上圈出它；underline{词} = 划下划线。标记在转语音时会被剥离，不会读出。",
     "- 标记完备性（硬性要求）：讲稿里每个要点/关键词讲到时都必须带标记——讲三个重点就画三个标记，一个都不能漏；每块讲稿 2~5 个标记。",
     "- 同等强度原则：同一重要级别的信息用同一种标记（最重要的关键词都用 circle，次级要点都用 underline），不许级别相同却标记不同或有的标有的不标。词必须与该块板书 text 原文完全一致。",
-    "- 图示（硬性要求）：凡页面内容涉及 流程 / 结构 / 对比 / 关系 / 几何，必须至少 1 个块带 svg 字段（行内 SVG 代码字符串）；用户文本里出现「画图/图/示意/流程」等字样时更必须画，不许用文字替代图。SVG 规格：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 2~3，fill='none' 或半透明，不画背景矩形；viewBox='0 0 400 300'；元素 ≤ 40；少量 <text>（font-size 16~20、fill 用粉笔色）；严禁 script/事件/外链。图块 text 可为简短图题，say 配一句讲解。",
+    "- 图示（硬性要求）：凡页面内容涉及 流程 / 结构 / 对比 / 关系 / 几何，必须至少 1 个块带 svg 字段（行内 SVG 代码字符串）；用户文本里出现「画图/图/示意/流程」等字样时更必须画，不许用文字替代图。SVG 规格：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 2~3，fill='none' 或半透明，不画背景矩形；viewBox='0 0 400 300'；元素 ≤ 40；少量 <text>（font-size 20~24、fill 用粉笔色；图可能被等比缩小，字号务必 ≥20）；严禁 script/事件/外链。图块 text 可为简短图题，say 配一句讲解。",
     "- svg 字段示例（参考写法）：\"<svg viewBox='0 0 400 300' xmlns='http://www.w3.org/2000/svg'><rect x='20' y='20' width='150' height='70' fill='none' stroke='#f2f0e6' stroke-width='3'/><text x='45' y='60' fill='#ffe066' font-size='18'>Query</text><path d='M170 55 L250 55' stroke='#9fd8ff' stroke-width='2'/></svg>\"",
     "- 示例：\"say\":\"先记住 circle{Query} 和 circle{Key} 这两个输入，然后 underline{打分} 得到权重。\"",
     "- 公式转读标记：讲稿(say)里的数学公式/表达式一律用 math{...} 包裹（如 math{a²+b²=c²}、math{3x-5}），系统对 math 段原样直读、不做符号转写；math 外的普通文本中的 - 系统会自动读作「杠」，你不要自己写「杠」字。",
