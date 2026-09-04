@@ -1767,6 +1767,7 @@ function fitApCanvas() {
   if (rect.width < 10 || rect.height < 10) return;
   const dpr = window.devicePixelRatio || 1;
   apCanvas.width = Math.round(rect.width * dpr);
+  apCanvas.height = Math.round(rect.height * dpr); // 此前漏设：canvas 默认高 150，垂直被压至 0.15 倍 → 文字压扁模糊
   apPaintStatic(apAnim ? Infinity : undefined);
 }
 
