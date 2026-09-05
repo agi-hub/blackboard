@@ -1,0 +1,9 @@
+{
+  "name": "qiao-heiban",
+  "version": "1.0.0",
+  "description": "敲黑板 —— AI 备课授课一体化的黑板教学原型",
+  "scripts": {
+    "start": "bun server.ts",
+    "dev": "bun --watch server.ts"
+  }
+}
