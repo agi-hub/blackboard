@@ -92,3 +92,12 @@ config.json        运行时配置（gitignore）
 - **没声音**：看页面 toast 提示——TTS 失败会告知原因（余额/Key），自动切无声模式
 - **图内文字小**：已保证有效字号 ≥20px（受区域宽度物理限制的极端情况除外）
 - **端口占用**：`PORT=9000 bun server.ts`
+
+## 在 iPad / iPhone 上使用（PWA）
+
+1. Mac 与 iPad/手机连接**同一 WiFi**
+2. 设备 Safari 打启动日志里的局域网地址（形如 `http://192.168.1.9:8918`）
+3. Safari 分享菜单 →「**加入主屏幕**」→ 获得 App 图标，点开即全屏运行（无浏览器栏）
+4. Apple Pencil 直接书写（已支持压感）；双指/双击等触屏交互与桌面一致
+
+> 注意：此方式需要 Mac 上的 `bun server.ts` 保持运行。服务当前**无鉴权**，仅限家庭/教室局域网使用；如需公网访问，须先加访问令牌。若要做成 App Store 上的独立 App，用 Capacitor 把 `public/` 打包为 iOS 壳即可（需 Apple 开发者账号）。

@@ -1,0 +1,14 @@
+{
+  "name": "敲黑板",
+  "short_name": "敲黑板",
+  "description": "AI 备课授课一体化的黑板教学",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101b13",
+  "theme_color": "#1c1813",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

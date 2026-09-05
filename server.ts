@@ -404,7 +404,7 @@ async function readJSONBody(req: Request): Promise<Record<string, unknown> | nul
 
 Bun.serve({
   port: PORT,
-  hostname: "127.0.0.1",
+  hostname: "0.0.0.0", // 监听局域网：iPad/手机同 WiFi 可直接访问
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
@@ -633,4 +633,5 @@ Bun.serve({
   },
 });
 
-console.log(`黑板原型已启动: http://127.0.0.1:${PORT}`);
+const lanIP = Object.values(import.meta.require?.("node:os").networkInterfaces?.() ?? {}).flat().find((i) => i && i.family === "IPv4" && !i.internal)?.address;
+console.log(`敲黑板已启动: http://127.0.0.1:${PORT}${lanIP ? ` （局域网: http://${lanIP}:${PORT}，iPad/手机同 WiFi 访问后「加入主屏幕」即成 App）` : ""}`);
