@@ -61,6 +61,7 @@ interface AppConfig {
   ttsSpeed: number;
   font: string; // 板书字体预设 id（前端可选）
   grain: number; // 字体磨砂强度 0~2.5
+  lang: "zh" | "en"; // 界面与生成内容语言
 }
 
 type ContentPart =
@@ -96,6 +97,7 @@ const DEFAULT_CONFIG: AppConfig = {
   ttsSpeed: 1.0,
   font: "kaiti",
   grain: 1.3,
+  lang: "zh",
 };
 
 function loadConfig(): AppConfig {
@@ -121,6 +123,7 @@ function loadConfig(): AppConfig {
     }
     if (isStr(parsed.font) && parsed.font.trim()) cfg.font = parsed.font.trim().slice(0, 32);
     if (typeof parsed.grain === "number" && Number.isFinite(parsed.grain) && parsed.grain >= 0 && parsed.grain <= 2.5) cfg.grain = parsed.grain;
+    if (parsed.lang === "en" || parsed.lang === "zh") cfg.lang = parsed.lang;
     return cfg;
   } catch (err) {
     console.error("config.json 解析失败，使用默认配置:", err instanceof Error ? err.message : err);
@@ -271,12 +274,13 @@ function sanitizeSvg(raw: unknown): string | null {
 }
 
 // 两段式补图：主生成未产出 svg 时，专门再调一次画图
-function figurePrompt(boardSummary: string): string {
+function figurePrompt(boardSummary: string, en = false): string {
   return [
     "你是黑板画图助手。为下面的黑板板书内容配 1~2 张讲解图（流程图/结构图/示意图），帮助理解。",
     "严格只返回 JSON 数组（无解释、无 markdown 代码块）：",
     '[{"svg":"<svg viewBox=\'0 0 400 300\' xmlns=\'http://www.w3.org/2000/svg\'>…</svg>","text":"图题（≤10字，直接写内容，禁止加【图】/(图)等前缀——板书没人这么写）","say":"配合图的一句讲解（20~40字）"}]',
     "SVG 硬性要求：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 3，fill='none'；所有图形元素（rect/circle/ellipse/path/polyline/polygon/line）都必须显式带 fill='none'，折线图/趋势线绝不填充底色；用矩形框 + 箭头(path/line) + 少量 <text>（font-size 20~24、text-anchor='middle'、fill 用粉笔色；图会被等比缩放，字号务必 ≥20 否则缩放后看不清）；viewBox='0 0 400 300'；元素 ≤ 30；严禁 script/事件属性/外链。",
+    ...(en ? ["text 与 say 一律用英文（图题与讲解，不得出现中文）。"] : []),
     "板书内容：",
     boardSummary,
   ].join("\n");
@@ -337,6 +341,12 @@ const IMAGE_HINT = [
   "- 如果图片是一道题目（习题/例题/考题），必须专门辟区域完整呈现：题目条件 → 解题步骤（分步，关键公式与推导保留）→ 最终答案（用醒目颜色）。步骤与答案是硬性要求，不许只给答案。",
   "- 图片模糊或无法识别时，用一块板书如实说明「图片无法识别」，不要编造。",
   "- 图片与用户文本同时存在时，将两者内容融合整理，不要割裂成两套板书。",
+].join("\n");
+
+// 英文模式附加提示：全部输出（板书/讲稿/图题/解答）强制英文
+const EN_LANG_HINT = [
+  "",
+  "Language (HARD requirement): Write EVERYTHING in English — page title, region headers, every block's text and say (natural spoken English, friendly teacher tone), figure captions, and summary. Keep the circle{}/underline{}/math{} markers exactly as specified. Do not output any Chinese characters.",
 ].join("\n");
 
 function layoutSystemPrompt(W: number, H: number): string {
@@ -440,6 +450,7 @@ Bun.serve({
           ttsSpeed: cfg.ttsSpeed,
           font: cfg.font,
           grain: cfg.grain,
+          lang: cfg.lang,
           hasTtsKey: cfg.ttsApiKey.length > 0,
           ttsApiKeyMasked: cfg.ttsApiKey ? `${cfg.ttsApiKey.slice(0, 10)}…${cfg.ttsApiKey.slice(-4)}` : "",
           hasKey: cfg.apiKey.length > 0,
@@ -471,6 +482,7 @@ Bun.serve({
         }
         if (isStr(body.font) && body.font.trim()) cfg.font = body.font.trim().slice(0, 32);
         if (typeof body.grain === "number" && Number.isFinite(body.grain) && body.grain >= 0 && body.grain <= 2.5) cfg.grain = body.grain;
+        if (body.lang === "en" || body.lang === "zh") cfg.lang = body.lang;
         writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
         try {
           chmodSync(CONFIG_PATH, 0o600); // 双保险：已有文件也收敛权限
@@ -495,13 +507,12 @@ Bun.serve({
 
         const cfg = loadConfig();
         if (!cfg.apiKey) return jsonError("未配置 API Key，请先在「设置」中填写", 400);
-        if (images.length > 0 && !cfg.visionModel) return jsonError("有图片素材但未配置视觉模型", 400);
         if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
 
         // 图片存在 → 视觉模型多模态输入（文本+图）；否则纯文本走排版模型
         const useVision = images.length > 0;
         const model = useVision ? cfg.visionModel : cfg.textModel;
-        const systemPrompt = layoutSystemPrompt(W, H) + (useVision ? IMAGE_HINT : "");
+        const systemPrompt = layoutSystemPrompt(W, H) + (useVision ? IMAGE_HINT : "") + (body.lang === "en" ? EN_LANG_HINT : "");
         const userContent: ChatMessage["content"] = useVision
           ? [
               {
@@ -538,7 +549,7 @@ Bun.serve({
         const wantsFigure = boardSummary.length > 10; // 内容足够就有配图价值，默认尝试
         if (!hasSvg && wantsFigure) {
           try {
-            const figContent = await callLLM(cfg, cfg.textModel, [{ role: "user", content: figurePrompt(boardSummary) }], 4096);
+            const figContent = await callLLM(cfg, cfg.textModel, [{ role: "user", content: figurePrompt(boardSummary, body.lang === "en") }], 4096);
             const figRaw = extractJSON(figContent);
             const figList = Array.isArray(figRaw) ? figRaw : [figRaw];
             const target = pages.find((p) => p.regions.length > 0 && p.blocks.length > 0) ?? pages[0];
@@ -596,6 +607,7 @@ Bun.serve({
                 `学生指的位置：(${px}, ${py})，画布 ${W}x${H}。`,
                 `学生指的这行字：「${line}」`,
     "要求：结合上下文解释这行字在讲什么；像老师当面给学生答疑——口语化、亲和，多用「你看」「那么」「就是说」「对吧」「比如说」这类口头语，允许语气词；25~60 字；不要复述问题，不要书面腔。若回答含公式/表达式，用 math{...} 包裹（系统直读不转写）；图注类前缀【图】禁止出现。",
+    ...(body.lang === "en" ? ["Language: answer entirely in English (conversational teacher tone, 15~40 words)."] : []),
     '严格只返回 JSON（无解释无代码块）：{"text":"解释内容"}',
               ].join("\n"),
             },
