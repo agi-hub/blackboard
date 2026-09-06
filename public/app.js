@@ -164,12 +164,12 @@ const tt = (zh, en) => (lang === "en" ? en : zh);
 const UI_I18N = [
   ["#btn-layout", "✎ 输入素材", "✎ Materials", "text"],
   ["#btn-replay", "↻ 重播", "↻ Replay", "text"],
-  ["#btn-ask", "🙋 我要问问题", "🙋 Ask Me", "text"],
+  ["#btn-ask", "🙋 问问题", "🙋 Ask", "text"],
   ["#btn-fullscreen", "⛶ 全屏", "⛶ Full Screen", "text"],
   ["#btn-theme", "◐ 主题", "◐ Theme", "text"],
   ["#btn-export", "📷 截屏", "📷 Capture", "text"],
-  ["#btn-save-course", "💾 保存课程", "💾 Save Course", "text"],
-  ["#btn-load-course", "📂 加载课程", "📂 Load Course", "text"],
+  ["#btn-save-course", "💾 保存", "💾 Save", "text"],
+  ["#btn-load-course", "📂 加载", "📂 Load", "text"],
   ["#btn-settings", "⚙ 设置", "⚙ Settings", "text"],
   ["#drawer h2", "文本及图片 → 板书", "Text & Image → Board", "text"],
   ["#text-input", "粘贴文本…（可配合下方图片）", "Paste text… (images optional)", "ph"],
@@ -1932,7 +1932,7 @@ let askMode = false;
 function setAskMode(on) {
   askMode = on;
   const b = $("#btn-ask");
-  b.textContent = on ? tt("↩ 还原听课模式", "↩ Back to Lesson") : tt("🙋 我要问问题", "🙋 Ask Me");
+  b.textContent = on ? tt("↩ 还原听课", "↩ Lesson") : tt("🙋 问问题", "🙋 Ask");
   b.classList.toggle("primary", on);
   boardEl.classList.toggle("ask-mode", on);
   // 面板互斥：提问模式只看 AI 解答——隐藏讲义；还原听课时若讲解进行中则恢复讲义
