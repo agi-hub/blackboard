@@ -934,6 +934,18 @@ function drawBlock(ctx, b, allowed, partial) {
       ctx.save();
       ctx.globalAlpha = 0.95 * (figAlphaMap.get(b.uid) ?? 1);
       ctx.drawImage(fig.img, b.x, b.y, b.width, figH);
+      // 图内文字：loadFigure 剥离的 <text> 在主画布按当前字体栈绘制（img 内用不了 webfont）
+      if (fig.texts && fig.texts.length) {
+        const sc = b.width / (fig.vbW || 400);
+        ctx.textBaseline = "alphabetic";
+        for (const t of fig.texts) {
+          if (!t.content) continue;
+          ctx.font = `${t.weight ? t.weight + " " : ""}${Math.max(8, Math.round(t.size * sc))}px ${fontStack()}`;
+          ctx.fillStyle = t.fill;
+          ctx.textAlign = t.anchor === "middle" ? "center" : t.anchor === "end" ? "right" : "left";
+          ctx.fillText(t.content, b.x + t.x * sc, b.y + t.y * sc);
+        }
+      }
       ctx.restore();
     } else if (allowed >= 0) {
       ctx.save();
@@ -1584,7 +1596,10 @@ function prepSvgForBoard(svg) {
   return s;
 }
 
-// SVG → 图像（异步解析加载：viewBox 定宽高比，Blob URL 装入 <img>，上下文安全不执行脚本）
+// <img> 内的 SVG 既加载不了文档 webfont，data: 内嵌 @font-face 在多数引擎也不生效 → 图内文字曾回退宋体。
+// 方案：把 <text> 元素从 SVG 剥离（图只留矢量线条），文字由主画布按当前字体栈绘制——
+// 与板书正文字体完全一致，换字体即时生效。见 loadFigure / drawBlock。
+
 async function loadFigure(b) {
   if (!b.svg || b._figure) return;
   const vb = b.svg.match(/viewBox=["']([\d.\s,-]+)["']/); // 兼容单/双引号
@@ -1597,9 +1612,30 @@ async function loadFigure(b) {
   // 图内最小字号（无声明按提示词默认 16）——排版时据此保证文字实际显示尺寸
   const sizes = [...b.svg.matchAll(/font-size=["'](\d+(?:\.\d+)?)["']/g)].map((m) => Number(m[1]));
   const minFont = sizes.length ? Math.min(...sizes) : 16;
-  b._figure = { aspect, vbW, minFont, img: null };
+  b._figure = { aspect, vbW, minFont, img: null, texts: [] };
   try {
-    const url = URL.createObjectURL(new Blob([prepSvgForBoard(b.svg)], { type: "image/svg+xml;charset=utf-8" }));
+    let s = prepSvgForBoard(b.svg);
+    // 剥离 <text>：记录位置/颜色/字号/锚点/内容，元素本体从 SVG 移除（主画布另行绘制）
+    s = s.replace(/<text([^>]*)>([\s\S]*?)<\/text>/g, (_m, attrs, body) => {
+      const num = (re, d) => {
+        const mm = attrs.match(re);
+        return mm ? parseFloat(mm[1]) : d;
+      };
+      const content = body.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      if (content) {
+        b._figure.texts.push({
+          x: num(/x=["']([-?\d.]+)["']/, 0),
+          y: num(/y=["']([-?\d.]+)["']/, 0),
+          fill: (attrs.match(/fill=["']([^"']+)["']/) || [])[1] || "#f2f0e6",
+          size: num(/font-size=["']([-?\d.]+)["']/, 20),
+          anchor: (attrs.match(/text-anchor=["']([^"']+)["']/) || [])[1] || "start",
+          weight: (attrs.match(/font-weight=["']([^"']+)["']/) || [])[1] || "",
+          content,
+        });
+      }
+      return "";
+    });
+    const url = URL.createObjectURL(new Blob([s], { type: "image/svg+xml;charset=utf-8" }));
     const img = new Image();
     img.src = url;
     await img.decode();
