@@ -617,6 +617,27 @@ function layoutPage(page) {
     if (!byRegion.has(b.region)) byRegion.set(b.region, []);
     byRegion.get(b.region).push(b);
   }
+  // 前端兜底强制独栏：含 svg 的区域剔除文字块 → 迁往首个无图区域（无处可去则保持原区）
+  const figRegionIds = new Set();
+  for (const [, list] of byRegion) for (const b of list) if (b.svg) figRegionIds.add(b.region);
+  if (figRegionIds.size) {
+    const noFigIds = page.regions.map((r) => r.id).filter((id) => !figRegionIds.has(id));
+    const target = noFigIds[0];
+    for (const id of figRegionIds) {
+      const list = byRegion.get(id) || [];
+      const texts = list.filter((b) => !b.svg);
+      if (!texts.length) continue;
+      byRegion.set(id, list.filter((b) => b.svg));
+      if (target) {
+        for (const t of texts) {
+          t.region = target;
+          byRegion.get(target).push(t);
+        }
+      } else {
+        byRegion.set(id, list); // 没有无图区域可迁：退回混排（优于丢弃）
+      }
+    }
+  }
   const baseFonts = new Map(); // 每块原始字号（多轮收缩的基准）
   for (const b of page.blocks) baseFonts.set(b.uid, b.fontSize || 45);
 
