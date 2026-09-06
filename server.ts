@@ -51,7 +51,7 @@ interface BoardJSON {
 interface AppConfig {
   baseUrl: string;
   apiKey: string;
-  textModel: string;
+  visionModel: string; // 视觉模型（图片素材识别，纯文本时不用）
   maxRPM: number;
   disableThinking: boolean;
   ttsBaseUrl: string;
@@ -87,8 +87,7 @@ function isStr(v: unknown): v is string {
 const DEFAULT_CONFIG: AppConfig = {
   baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4",
   apiKey: "",
-  textModel: "glm-5.3",
-  maxRPM: 10,
+  visionModel: "glm-5.3-flash",
   disableThinking: true,
   ttsBaseUrl: "https://api.siliconflow.cn/v1",
   ttsApiKey: "",
@@ -108,6 +107,7 @@ function loadConfig(): AppConfig {
     if (isStr(parsed.baseUrl) && parsed.baseUrl.trim()) cfg.baseUrl = parsed.baseUrl.trim();
     if (isStr(parsed.apiKey)) cfg.apiKey = parsed.apiKey.trim();
     if (isStr(parsed.textModel) && parsed.textModel.trim()) cfg.textModel = parsed.textModel.trim();
+    if (isStr(parsed.visionModel) && parsed.visionModel.trim()) cfg.visionModel = parsed.visionModel.trim();
     if (typeof parsed.maxRPM === "number" && Number.isFinite(parsed.maxRPM) && parsed.maxRPM > 0) {
       cfg.maxRPM = Math.min(60, Math.floor(parsed.maxRPM));
     }
@@ -329,6 +329,16 @@ function normalizePages(json: unknown, W: number, H: number): BoardJSON[] {
 }
 // ---------- Prompt（方案 §2.2：先分区 → 区域内写字，前端确定性排版） ----------
 
+// 图片素材附加提示：识别图中文字/题目，题目自动附解题过程
+const IMAGE_HINT = [
+  "",
+  "素材里附有图片（拍照或截图）。要求：",
+  "- 先仔细识别图片里的全部文字、公式、图形与题目条件，把识别结果当作输入素材的一部分来提炼板书。",
+  "- 如果图片是一道题目（习题/例题/考题），必须专门辟区域完整呈现：题目条件 → 解题步骤（分步，关键公式与推导保留）→ 最终答案（用醒目颜色）。步骤与答案是硬性要求，不许只给答案。",
+  "- 图片模糊或无法识别时，用一块板书如实说明「图片无法识别」，不要编造。",
+  "- 图片与用户文本同时存在时，将两者内容融合整理，不要割裂成两套板书。",
+].join("\n");
+
 function layoutSystemPrompt(W: number, H: number): string {
   return [
     "你是专业的黑板板书排版引擎兼授课教师。任务：把输入文本（冗长文章、笔记或 Markdown）精炼为「多页、分区、大字、重点分明」的黑板板书，同时为每块内容写口播讲稿。",
@@ -354,6 +364,7 @@ function layoutSystemPrompt(W: number, H: number): string {
     "- 标记完备性（硬性要求）：讲稿里每个要点/关键词讲到时都必须带标记——讲三个重点就画三个标记，一个都不能漏；每块讲稿 2~5 个标记。",
     "- 同等强度原则：同一重要级别的信息用同一种标记（最重要的关键词都用 circle，次级要点都用 underline），不许级别相同却标记不同或有的标有的不标。词必须与该块板书 text 原文完全一致。",
     "- 图示（硬性要求）：凡页面内容涉及 流程 / 结构 / 对比 / 关系 / 几何，必须至少 1 个块带 svg 字段（行内 SVG 代码字符串）；用户文本里出现「画图/图/示意/流程」等字样时更必须画，不许用文字替代图。SVG 规格：粉笔线框风——stroke 用 #f2f0e6/#ffe066/#9fd8ff/#ff9ec4，stroke-width 2~3，fill='none' 或半透明，不画背景矩形；viewBox='0 0 400 300'；元素 ≤ 40；少量 <text>（font-size 20~24、fill 用粉笔色；图可能被等比缩小，字号务必 ≥20）；严禁 script/事件/外链。图块 text 可为简短图题，say 配一句讲解。",
+    "- 图示独栏（硬性要求）：带 svg 的图示块必须独占一个区域——为其单独开一个 region（如右栏专放图、左栏专放文字），该 region 内只放图示块（同主题的多张图可同栏），严禁把图示块和文字要点块混排在同一 region 里。画图页建议布局：一栏文字要点 + 一栏图示。",
     "- svg 字段示例（参考写法）：\"<svg viewBox='0 0 400 300' xmlns='http://www.w3.org/2000/svg'><rect x='20' y='20' width='150' height='70' fill='none' stroke='#f2f0e6' stroke-width='3'/><text x='45' y='60' fill='#ffe066' font-size='18'>Query</text><path d='M170 55 L250 55' stroke='#9fd8ff' stroke-width='2'/></svg>\"",
     "- 示例：\"say\":\"先记住 circle{Query} 和 circle{Key} 这两个输入，然后 underline{打分} 得到权重。\"",
     "- 公式转读标记：讲稿(say)里的数学公式/表达式一律用 math{...} 包裹（如 math{a²+b²=c²}、math{3x-5}），系统对 math 段原样直读、不做符号转写；math 外的普通文本中的 - 系统会自动读作「杠」，你不要自己写「杠」字。",
@@ -387,6 +398,7 @@ const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json",
 };
 
 function jsonError(message: string, status: number): Response {
@@ -468,25 +480,45 @@ Bun.serve({
         return Response.json({ ok: true });
       }
 
-      // ---- 文本 → 板书 ----
+      // ---- 素材 → 板书（文本及图片；有图走视觉模型） ----
       if (path === "/api/text2board" && req.method === "POST") {
         const body = await readJSONBody(req);
         if (!body) return jsonError("请求体必须是 JSON 对象", 400);
-        if (!isStr(body.text) || !body.text.trim()) return jsonError("text 不能为空", 400);
-        if (body.text.length > 20_000) return jsonError("text 过长（上限 2 万字符）", 400);
+        const hasText = isStr(body.text) && body.text.trim() && body.text.length <= 20_000;
+        const rawImages = Array.isArray(body.images) ? body.images.filter(isStr) : [];
+        // dataURL 白名单校验：只收 data:image/*;base64，单张 ≤ 6MB（base64 后约 8M 字符）
+        const images = rawImages.filter((u) => /^data:image\/(png|jpe?g|webp|gif);base64,/.test(u) && u.length <= 8_000_000).slice(0, 4);
+        if (!hasText && images.length === 0) return jsonError("text 或 images 至少一项非空", 400);
+        if (isStr(body.text) && body.text.length > 20_000) return jsonError("text 过长（上限 2 万字符）", 400);
         const W = typeof body.canvasW === "number" ? body.canvasW : 1600;
         const H = typeof body.canvasH === "number" ? body.canvasH : 1000;
 
         const cfg = loadConfig();
         if (!cfg.apiKey) return jsonError("未配置 API Key，请先在「设置」中填写", 400);
+        if (images.length > 0 && !cfg.visionModel) return jsonError("有图片素材但未配置视觉模型", 400);
         if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
 
+        // 图片存在 → 视觉模型多模态输入（文本+图）；否则纯文本走排版模型
+        const useVision = images.length > 0;
+        const model = useVision ? cfg.visionModel : cfg.textModel;
+        const systemPrompt = layoutSystemPrompt(W, H) + (useVision ? IMAGE_HINT : "");
+        const userContent: ChatMessage["content"] = useVision
+          ? [
+              {
+                type: "text",
+                text: hasText
+                  ? `用户素材：\n${body.text}\n\n（另附 ${images.length} 张图片，见上）`
+                  : `用户素材为 ${images.length} 张图片，请识别后生成板书。`,
+              },
+              ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+            ]
+          : body.text as string;
         const content = await callLLM(
           cfg,
-          cfg.textModel,
+          model,
           [
-            { role: "system", content: layoutSystemPrompt(W, H) },
-            { role: "user", content: body.text },
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContent },
           ],
           8192,
         );
@@ -617,12 +649,17 @@ Bun.serve({
       }
 
       // ---- 静态文件 ----
+      // HTML / manifest 必须 no-store：Safari「加入主屏幕」的 PWA 独立存储缓存极激进，
+      // no-cache 仍可能吃旧 HTML → 引用旧 app.js（宋体问题根源）
       const rel = path === "/" ? "/index.html" : path;
       const file = join(PUBLIC_DIR, rel);
       if (!file.startsWith(PUBLIC_DIR)) return new Response("Forbidden", { status: 403 });
       const f = Bun.file(file);
       if (await f.exists()) {
-        return new Response(f, { headers: { "Content-Type": MIME[extname(file)] ?? "application/octet-stream" } });
+        const nocache = /\.(html|webmanifest)$/.test(file) || path === "/";
+        const headers = { "Content-Type": MIME[extname(file)] ?? "application/octet-stream" };
+        headers["Cache-Control"] = nocache ? "no-store" : "no-cache";
+        return new Response(f, { headers });
       }
       return new Response("Not Found", { status: 404 });
     } catch (err) {

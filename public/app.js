@@ -1,3 +1,4 @@
+window.__APP_VER = 3; // 缓存自检标记：index.html 内联脚本据此判断 app.js 是否为旧缓存
 // 「黑板」原型 — 粉笔画布引擎 + AI 交互（分区排版版）
 // 架构：LLM 只输出分区语义（regions + 归属块），前端做确定性排版 → 根治坐标乱
 // 动画：时间线调度，分隔线先画 → 逐字渐现（每字透明度爬升）→ 重点圈/划
@@ -20,17 +21,94 @@ const strokeCtx = strokeC.getContext("2d");
 const textCtx = textC.getContext("2d");
 const eraserCursorEl = $("#eraser-cursor");
 
-// 板书字体预设（macOS 自带中文字体；设置页可选，持久化到服务端配置）
+let chalkGrain = 1.3; // 字体磨砂强度倍率（0 关闭 / 0.7 轻 / 1.3 标准 / 2.2 重）
+
+// 板书字体预设：跨平台字体栈（mac / iOS / Windows / 安卓逐个命中）。
+// 各端预装差异很大；部分环境（如这台 Mac 的 Safari 26）系统楷体名在网页里全部失效，
+// 因此楷/行楷栈内嵌一层 CDN 开源楷体兜底（霞鹜文楷，切片 woff2 按需下载，本地命中时零流量）。
+// initFontChoice()：用户保存的偏好永远生效；检测仅用于首次未配置时挑默认。
 const FONT_PRESETS = [
-  { id: "kaiti", label: "楷体", stack: `"Kaiti SC","STKaiti","楷体",serif` },
-  { id: "xingkai", label: "行楷（手写风）", stack: `"Xingkai SC","STXingkai","行楷","Kaiti SC",serif` },
-  { id: "songti", label: "宋体", stack: `"Songti SC","STSong","宋体",serif` },
-  { id: "heiti", label: "黑体", stack: `"PingFang SC","Heiti SC","黑体",serif` },
-  { id: "yuanti", label: "圆体", stack: `"Yuanti SC","STYuanti","圆体",serif` },
-  { id: "fangsong", label: "仿宋", stack: `"STFangsong","FangSong","仿宋",serif` },
+  {
+    id: "kaiti",
+    label: "楷体",
+    stack: `"Kaiti SC","STKaiti","Kaiti TC","楷体-简","楷体","KaiTi","BiauKai","AR PL UKai CN","LXGW WenKai","Noto Serif CJK SC",serif`,
+    names: ["Kaiti SC", "STKaiti", "Kaiti TC", "楷体-简", "楷体", "KaiTi", "BiauKai", "AR PL UKai CN"],
+  },
+  {
+    id: "xingkai",
+    label: "行楷（手写风）",
+    stack: `"Xingkai SC","STXingkai","行楷","Kaiti SC","Kaiti TC","楷体-简","KaiTi","BiauKai","LXGW WenKai Lite","Noto Serif CJK SC",serif`,
+    names: ["Xingkai SC", "STXingkai", "行楷", "Kaiti SC", "Kaiti TC", "楷体-简", "KaiTi", "BiauKai"],
+  },
+  {
+    id: "songti",
+    label: "宋体",
+    stack: `"Songti SC","STSong","宋体","SimSun","NSimSun","Noto Serif CJK SC","Source Han Serif SC",serif`,
+    names: ["Songti SC", "STSong", "宋体", "SimSun", "NSimSun", "Noto Serif CJK SC", "Source Han Serif SC"],
+  },
+  {
+    id: "heiti",
+    label: "黑体",
+    stack: `"PingFang SC","Heiti SC","Microsoft YaHei","微软雅黑","SimHei","黑体","Noto Sans CJK SC","Source Han Sans SC",sans-serif`,
+    names: ["PingFang SC", "Heiti SC", "Microsoft YaHei", "微软雅黑", "SimHei", "黑体", "Noto Sans CJK SC", "Source Han Sans SC"],
+  },
+  {
+    id: "yuanti",
+    label: "圆体",
+    stack: `"Yuanti SC","STYuan","圆体","YouYuan","幼圆","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif`,
+    names: ["Yuanti SC", "STYuan", "圆体", "YouYuan", "幼圆"],
+  },
+  {
+    id: "fangsong",
+    label: "仿宋",
+    stack: `"STFangsong","FangSong","仿宋","STFang","Noto Serif CJK SC",serif`,
+    names: ["STFangsong", "FangSong", "仿宋", "STFang"],
+  },
 ];
 let fontChoice = "kaiti";
-let chalkGrain = 1.3; // 字体磨砂强度倍率（0 关闭 / 0.7 轻 / 1.3 标准 / 2.2 重）
+
+// 检测字体名在本机是否真实可用（宽度对比法：与任一通用族测宽不同 → 命中了真实字体）
+let _fontAvailCache = null;
+function fontAvailability() {
+  if (_fontAvailCache) return _fontAvailCache;
+  const avail = new Set();
+  try {
+    const c = document.createElement("canvas");
+    const g = c.getContext("2d");
+    const probeText = "永板书 chalk 123";
+    const widthOf = (fontSpec) => {
+      g.font = `72px ${fontSpec}`;
+      return Math.round(g.measureText(probeText).width * 100);
+    };
+    const ref = new Map();
+    for (const base of ["serif", "sans-serif", "monospace"]) ref.set(base, widthOf(base));
+    const available = (name) => {
+      const q = JSON.stringify(name);
+      return ["serif", "sans-serif", "monospace"].some((base) => widthOf(`${q},${base}`) !== ref.get(base));
+    };
+    for (const p of FONT_PRESETS) for (const n of p.names) if (available(n)) avail.add(n);
+  } catch {
+    /* 检测失败 → 全部视为可用，行为与不检测一致 */
+  }
+  _fontAvailCache = avail;
+  return avail;
+}
+
+// 选定字体：
+// - 用户明确保存过的偏好永远被尊重（栈内逐名回退由引擎完成，检测仅用于提示）；
+// - 首次使用（无保存值）→ 检测可用性选第一个命中的预设；
+// - 保存值是无效 id → 回落 kaiti。
+function initFontChoice(saved) {
+  const pref = FONT_PRESETS.find((f) => f.id === saved);
+  if (pref) {
+    fontChoice = pref.id;
+    return fontChoice;
+  }
+  const avail = fontAvailability();
+  const has = (p) => p.names.some((n) => avail.has(n));
+  fontChoice = (FONT_PRESETS.find(has) ?? FONT_PRESETS[0]).id;
+  return fontChoice;
+}
 
 function applyGrain(v) {
   chalkGrain = Number.isFinite(Number(v)) ? Math.max(0, Math.min(2.5, Number(v))) : 1.3;
@@ -42,17 +120,40 @@ function fontStack() {
   return (FONT_PRESETS.find((f) => f.id === fontChoice) ?? FONT_PRESETS[0]).stack;
 }
 
-// 切换字体：字粒缓存与排版全部失效，重排当前页
-function applyFont(id) {
-  fontChoice = FONT_PRESETS.some((f) => f.id === id) ? id : "kaiti";
+// webfont 就绪闸门：Safari 的 canvas 不会等待 @font-face 加载完成——字体未就绪时
+// 逐字绘制的粉笔字粒会变成问号/空白并被永久缓存，且布局与绘制期度量不一致导致错位。
+// 因此每次换字体后，等 webfont 真正就绪再整体失效重排一次。
+let _fontGateSeq = 0;
+function invalidateFontArtifacts() {
   spriteCache.clear();
   layouts.clear();
   for (const p of pages) p._laid = false;
-  relayout();
-  // SVG 图内文字同步换字体：作废已渲染图像并异步重载
   const figBlocks = [];
   for (const p of pages) for (const b of p.blocks) if (b.svg) { b._figure = null; figBlocks.push(b); }
+  relayout();
   if (figBlocks.length) Promise.all(figBlocks.map(loadFigure)).then(() => relayout());
+}
+async function ensureFontsReady() {
+  if (!document.fonts || !document.fonts.load) return;
+  const seq = ++_fontGateSeq;
+  try {
+    await Promise.race([
+      Promise.all([document.fonts.load(`48px ${fontStack()}`), document.fonts.ready]),
+      new Promise((r) => setTimeout(r, 5000)), // CDN 不通最多等 5s，按本地回退字体渲染
+    ]);
+  } catch {
+    /* 加载失败按当前字体渲染 */
+  }
+  if (seq !== _fontGateSeq) return; // 期间又切了字体，交给新一轮
+  invalidateFontArtifacts();
+}
+
+// 切换字体：字粒缓存与排版全部失效，重排当前页。
+// 用户显式选择的 id 永远生效（引擎按栈逐名回退）；未知 id 回落 kaiti。
+function applyFont(id) {
+  fontChoice = FONT_PRESETS.some((f) => f.id === id) ? id : initFontChoice(undefined);
+  invalidateFontArtifacts();
+  ensureFontsReady();
 }
 
 const THEMES = {
@@ -358,7 +459,9 @@ function wrapText(ctx, text, maxWidth) {
 function computeLayout(b) {
   textCtx.font = fontString(b);
   // 显示层剥离 math{公式} 标记（保留公式内容）；TTS 转读在 fetchVoice 单独处理
-  const display = b.text ? b.text.replace(/math\{([^{}]*)\}/g, "$1") : "";
+  let display = b.text ? b.text.replace(/math\{([^{}]*)\}/g, "$1") : "";
+  // 图题抑制（b._noCap：空间不足时保图舍题）：按空行处理，不参与换行与逐字书写
+  if (b._noCap) display = "";
   const lines = display ? wrapText(textCtx, display, b.width) : [];
   layouts.set(b.uid, { lines, lineH: b.fontSize * 1.7 });
   b._chars = lines.reduce((n, l) => n + l.length, 0);
@@ -367,9 +470,9 @@ function computeLayout(b) {
 // 块占用的总高度（图 + 说明文字）
 function blockHeight(b) {
   const lay = layouts.get(b.uid);
-  // 图未加载完成也按默认 0.75 宽高比占位，绝不按 0 高排版（否则文字压图）
   const aspect = b._figure ? b._figure.aspect : 0.75;
-  const figH = b.svg ? b.width * aspect + (lay && lay.lines.length ? 10 : 0) : 0;
+  const hasCap = lay && lay.lines.length > 0;
+  const figH = b.svg ? b.width * aspect + (hasCap ? 10 : 0) : 0;
   return figH + (lay ? lay.lines.length * lay.lineH : 0);
 }
 
@@ -447,29 +550,59 @@ function layoutPage(page) {
     const regionH = () => Math.max(cur.r.h, cursorY + 60);
     openRegion();
     let overflow = false;
+    const assigned = new Map(); // 多轮收缩时记住上一轮的流动结果，同轮内保持一致
+    const seededRegions = new Set();
     for (const b of seq) {
+      if (assigned.has(b.uid)) {
+        const r = assigned.get(b.uid);
+        if (r !== cur.r.id && !seededRegions.has(r)) {
+          // 上一轮已流到后续区：本轮流经中间区时按其已分配内容压住 cursor，避免再抢前区
+          cur.contentH = cursorY;
+          ri = flowOrder.findIndex((x) => x.id === r);
+          cur = outByRegion.get(r);
+          seededRegions.add(r);
+          openRegion();
+        }
+        b.region = r;
+      }
       b.fontSize = clampNum(Math.round(baseFonts.get(b.uid) * fontScale), 30, 63);
       b.x = cur.r.x + 24;
       let fits = false;
-      for (let attempt = 0; attempt < 2 && !fits; attempt++) {
+      let hops = 0; // 换区次数：文本最多 1 次；图可顺流到装得下的区（而非被硬性宽度顶出去）
+      for (;;) {
         const avail = regionH() - 6 - cursorY;
         if (b.svg) {
           const aspect = b._figure ? b._figure.aspect : 0.75;
-          b.width = cur.r.w - 48;
-          computeLayout(b);
-          let lay = layouts.get(b.uid);
-          let capH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
-          b.width = clampNum(Math.floor((avail - capH) / aspect), 140, Math.round((cur.r.w - 48) * Math.min(1, fontScale + 0.35)));
-          // 文字可读下限：图内最小字有效字号 ≥ 20 逻辑px（图宁可高些，交给收缩档兜底）
+          const maxW = Math.round((cur.r.w - 48) * Math.min(1, fontScale + 0.35));
+          // 图内文字可读宽（有效字号≥20）只作软下限（取半）：曾用 Math.max 硬性顶回，
+          // 图宽缩不下去 → fits 恒假 → 图被逐区外推到隔壁栏/尾区溢出
           const fig = b._figure;
-          if (fig && fig.minFont && fig.vbW) {
-            const wFloor = Math.min(cur.r.w - 48, Math.ceil((20 * fig.vbW) / fig.minFont));
-            b.width = Math.max(b.width, wFloor);
+          const wReadable = fig && fig.minFont && fig.vbW ? Math.ceil((20 * fig.vbW) / fig.minFont) : maxW;
+          const wMin = Math.min(Math.max(140, Math.round(wReadable / 2)), maxW);
+          // 图宽收敛：宽变 → 图题换行数变 → 高度约束变。单次估算曾因再换行失效（图窜栏根因之二）
+          let w = maxW;
+          let capH = 0;
+          for (let i = 0; i < 4; i++) {
+            b.width = w;
+            computeLayout(b);
+            const lay = layouts.get(b.uid);
+            capH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
+            const wNext = clampNum(Math.floor((avail - capH) / aspect), wMin, maxW);
+            if (wNext === w) break;
+            w = wNext;
           }
-          computeLayout(b);
-          lay = layouts.get(b.uid);
-          capH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
-          fits = avail >= b.width * aspect + capH;
+          let fitsNow = avail >= w * aspect + capH;
+          // 收敛后仍放不下 → 舍弃图题保图位（图题可无，图不可窜栏）
+          if (!fitsNow) {
+            const lay = layouts.get(b.uid);
+            if (lay.lines.length) {
+              b._noCap = true;
+              computeLayout(b);
+              b.width = clampNum(Math.floor(avail / aspect), wMin, maxW);
+              fitsNow = avail >= b.width * aspect;
+            }
+          }
+          fits = fitsNow;
         } else {
           b.width = cur.r.w - 48;
           computeLayout(b);
@@ -482,18 +615,43 @@ function layoutPage(page) {
         }
         if (fits) break;
         // 当前区放不下 → 开下一区
-        if (ri < flowOrder.length - 1) {
+        if (ri < flowOrder.length - 1 && (hops < 1 || b.svg)) {
           cur.contentH = cursorY;
           ri += 1;
           cur = outByRegion.get(flowOrder[ri].id);
           b.region = cur.r.id;
           b.x = cur.r.x + 24;
           openRegion();
-        } else {
-          overflow = true; // 所有区用尽：最后区内硬放（后续档位收缩兜底）
-          fits = true;
+          hops++;
+          continue;
         }
+        // 区用尽：最后区内硬放；图收缩进剩余空间（宁小勿溢，防止压到别栏/总结条）
+        overflow = true;
+        if (b.svg) {
+          const aspect = b._figure ? b._figure.aspect : 0.75;
+          // 逐轮收敛：宽 → (图题行数变) → 高度约束 → 宽；两轮后仍放不下则舍图题、按纯图高定宽
+          let room = regionH() - 6 - cursorY;
+          for (let i = 0; i < 2; i++) {
+            const l = layouts.get(b.uid);
+            const capH = l.lines.length ? l.lines.length * l.lineH + 10 : 0;
+            const wFit = Math.max(140, Math.floor((room - capH) / aspect));
+            if (wFit >= b.width) break; // 已满足，别放大
+            b.width = wFit;
+            computeLayout(b);
+          }
+          {
+            const l = layouts.get(b.uid);
+            if (b.width * aspect + (l.lines.length ? l.lines.length * l.lineH + 10 : 0) > room && l.lines.length) {
+              b._noCap = true;
+              computeLayout(b);
+              room = regionH() - 6 - cursorY;
+              b.width = Math.max(140, Math.min(b.width, Math.floor(room / aspect)));
+            }
+          }
+        }
+        break;
       }
+      assigned.set(b.uid, b.region);
       cur.placed.push({ b, dy: cursorY });
       cursorY += blockHeight(b) + 16;
     }
@@ -506,6 +664,7 @@ function layoutPage(page) {
 
   // 纵向堆叠：同列区域按阅读顺序顶 = 前区内容底 + 28，消除区域交叠
   const stackRegions = (laid, minTop) => {
+    const origH = new Map(regs.map((r) => [r.id, r.h])); // 原始（钳制后）区域高，供保底计算
     let bottom = 0;
     for (let i = 0; i < laid.length; i++) {
       const it = laid[i];
@@ -517,7 +676,8 @@ function layoutPage(page) {
       }
       it.r.y = top;
       if (it.headerLay) it.headerLay.y = top + (it.headerLay.y ?? 0);
-      it.r.h = it.contentH + 10; // 区域贴合内容高度
+      // 区域贴合内容高度；但内容已流走（本区被路过）时保底原高的 1/3，避免缩成一条细带
+      it.r.h = Math.max(it.contentH + 10, origH.get(it.r.id) ? Math.round(origH.get(it.r.id) / 3) : 0);
       for (const p of it.placed) p.b.y = top + p.dy;
       bottom = Math.max(bottom, top + it.contentH);
     }
@@ -888,7 +1048,6 @@ const NARRATE_WRITE_MS = 80; // 讲解模式：快写节奏（教师写字不出
 
 // ---------- 配音讲解（讲写协同：讲什么写什么，讲完才写下一块） ----------
 
-let audioCtx = null;
 const narration = { playing: false, seq: 0, timers: [], audios: [] };
 
 function setNarrateBtn() {
@@ -991,16 +1150,19 @@ async function fetchVoice(b) {
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
-    const ab = await (await fetch(data.audio)).arrayBuffer();
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let dur = 0;
-    try {
-      dur = await audioCtx.decodeAudioData(ab).then((x) => x.duration);
-    } catch {
-      /* 解码失败走估算 */
-    }
     const el = new Audio(data.audio);
     el.preload = "auto";
+    // 时长由 loadedmetadata 提供（不再用 AudioContext.decodeAudioData：
+    // Safari 对未手势激活的 AudioContext 会挂起，曾导致整个配音链路静默失败）
+    let dur = 0;
+    await new Promise((resolve) => {
+      const done = () => resolve(undefined);
+      el.addEventListener("loadedmetadata", done, { once: true });
+      el.addEventListener("error", done, { once: true });
+      setTimeout(done, 8000);
+      if (el.readyState >= 1) done();
+    });
+    dur = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0;
     b._voice = { voice: voiceId, el, dur: dur || fallback.dur };
   } catch (e) {
     b._voice = fallback;
@@ -1024,26 +1186,49 @@ function pushSayMarks(page, b, windowStart, windowDur, mode) {
   }
 }
 
-// 在块的板书行内找词的像素跨度
+// 在块的板书行内找词的像素跨度（图块：文字在图下方，行 y 必须加上图高偏移）
 function findMarkSpan(b, text) {
   const lay = layouts.get(b.uid);
   if (!lay || !text) return null;
   textCtx.font = fontString(b);
+  const yOff = b.svg ? b.width * (b._figure ? b._figure.aspect : 0.75) + (lay.lines.length ? 10 : 0) : 0;
   for (let li = 0; li < lay.lines.length; li++) {
     const line = lay.lines[li];
     const idx = line.indexOf(text);
     if (idx < 0) continue;
     const x0 = b.x + textCtx.measureText(line.slice(0, idx)).width;
     const x1 = x0 + textCtx.measureText(text).width;
-    return { x0, x1, y: b.y + li * lay.lineH + b.fontSize * 0.9, fontSize: b.fontSize };
+    return { x0, x1, y: b.y + yOff + li * lay.lineH + b.fontSize * 0.9, fontSize: b.fontSize };
   }
   return null;
 }
 
+// 找点击位置对应的板书行（横向命中的块优先，按行中心距离取最近）
+function findLineAt(page, pt) {
+  let best = null;
+  let bestD = Infinity;
+  for (const b of page._drawOrder) {
+    const lay = layouts.get(b.uid);
+    if (!lay) continue;
+    // 图块：文字行在图下方，行 y 加图高偏移（曾漏加 → 指行提问命中跑到图上）
+    const yOff = b.svg ? b.width * (b._figure ? b._figure.aspect : 0.75) + (lay.lines.length ? 10 : 0) : 0;
+    const withinX = pt.x >= b.x - 60 && pt.x <= b.x + b.width + 120;
+    for (let li = 0; li < lay.lines.length; li++) {
+      if (!lay.lines[li].trim()) continue;
+      const cy = b.y + yOff + li * lay.lineH + lay.lineH * 0.5;
+      let d = Math.abs(pt.y - cy);
+      if (!withinX) d += 800; // 不在本块横向范围内 → 强惩罚
+      if (d < bestD) {
+        bestD = d;
+        best = { b, li, line: lay.lines[li] };
+      }
+    }
+  }
+  return bestD < 400 ? best : null;
+}
+
 // 手绘粉笔圈（frac: 0~1 渐进画弧）
 function drawChalkCircle(ctx, cx, cy, rx, ry, chalkColor, rnd, frac = 1) {
-  ctx.strokeStyle = chalkColor;
-  ctx.lineCap = "round";
   for (let pass = 0; pass < 2; pass++) {
     ctx.globalAlpha = 0.6 + rnd() * 0.28;
     ctx.lineWidth = 2.4 + rnd() * 1.6;
@@ -1082,8 +1267,24 @@ function drawSayMark(ctx, mk, frac) {
   }
 }
 
+// Safari 静音策略：HTMLAudioElement 必须先在用户手势中成功 play 过一次，后续由定时器触发的
+// play() 才允许出声（Chrome 无此限制）。手势入口统一在此解锁。
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  try {
+    const u = new Audio();
+    u.muted = true;
+    u.play().then(() => u.pause()).catch(() => {});
+  } catch {
+    /* 解锁尽力而为 */
+  }
+}
+
 // blocks 默认整页；逐块：块内写字均布在语音时长内，语音停 → 下一块才开写
 async function playNarration(page, blockList) {
+  unlockAudio();
   stopNarration();
   stopAnim();
   layoutPage(page);
@@ -1187,6 +1388,7 @@ async function playNarration(page, blockList) {
 }
 
 $("#btn-narrate").addEventListener("click", () => {
+  unlockAudio(); // Safari：必须点击当下解锁，异步回调里无效
   if (narration.playing) {
     stopNarration();
     renderText(); // 定格完整板书
@@ -1198,7 +1400,7 @@ $("#btn-narrate").addEventListener("click", () => {
 let replayLastAt = 0;
 $("#btn-replay").addEventListener("click", () => {
   // 防抖：600ms 内重复点击忽略（快速双击曾造成预取竞态）
-  if (Date.now() - replayLastAt < 600) return;
+  unlockAudio();
   replayLastAt = Date.now();
   stopNarration();
   playNarration(pages[curPage]);
@@ -1415,6 +1617,14 @@ async function toggleFullscreen() {
 
 $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
 
+// 粉笔槽显隐：隐藏后黑板自动占据全宽（relayout 由 ResizeObserver 触发）
+$("#btn-rail").addEventListener("click", () => {
+  const rail = $("#chalk-rail");
+  const hidden = rail.classList.toggle("rail-hidden");
+  $("#btn-rail").textContent = hidden ? "🖍 显示粉笔" : "🖍 隐藏粉笔";
+  toast(hidden ? "粉笔槽已隐藏" : "粉笔槽已显示", "");
+});
+
 boardEl.addEventListener("pointermove", (e) => {
   if (tool === "eraser") moveEraserCursor(e);
   if (!current) return;
@@ -1599,7 +1809,6 @@ async function loadCourseFile(file) {
 }
 
 $("#btn-save-course").addEventListener("click", saveCourse);
-$("#btn-load-course").addEventListener("click", () => $("#course-file").click());
 $("#course-file").addEventListener("change", (e) => {
   const f = e.target.files && e.target.files[0];
   if (f) loadCourseFile(f);
@@ -1658,6 +1867,7 @@ function findLineAt(page, pt) {
 }
 
 async function handleAskClick(e) {
+  unlockAudio(); // Safari：解答面板配音同样需手势解锁
   if (narration.playing || animState) {
     stopNarration();
     stopAnim();
@@ -1722,16 +1932,67 @@ function toast(msg, type = "") {
     setTimeout(() => el.classList.add("hidden"), 300);
   }, 2600);
 }
+// ---------- 图片素材（拍照/选图，随文本一起发给视觉模型） ----------
+
+let pendingImage = null; // dataURL（已压缩）；null = 无图片
+
+function setImage(dataUrl) {
+  pendingImage = dataUrl;
+  $("#img-thumb").src = dataUrl;
+  $("#img-preview").classList.toggle("hidden", !dataUrl);
+}
+
+async function fileToShrunkDataURL(file) {
+  if (!file.type.startsWith("image/")) throw new Error("请选择图片文件");
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => {
+      const im = new Image();
+      im.onload = () => ok(im);
+      im.onerror = () => no(new Error("图片读取失败"));
+      im.src = url;
+    });
+    const MAX = 1600; // 最长边上限：够识别，控请求体大小
+    const s = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(img.naturalWidth * s));
+    c.height = Math.max(1, Math.round(img.naturalHeight * s));
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.85);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+$("#btn-image").addEventListener("click", () => $("#board-image").click());
+$("#board-image").addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = ""; // 允许重复选同一张
+  if (!f) return;
+  try {
+    setImage(await fileToShrunkDataURL(f));
+    toast("图片已就绪，点「🚀 开始学习」一起生成", "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+});
+$("#btn-img-remove").addEventListener("click", () => setImage(null));
+
 
 async function generateBoard() {
   const text = $("#text-input").value.trim();
-  if (!text) return toast("先粘贴一些文本", "err");
+  if (!text && !pendingImage) return toast("先粘贴文本或拍张照片", "err");
   thinking(true, "老师正在备课…");
   try {
     const res = await fetch("/api/text2board", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, canvasW: W, canvasH: H }),
+      body: JSON.stringify({
+        text,
+        ...(pendingImage ? { images: [pendingImage] } : {}),
+        canvasW: W,
+        canvasH: H,
+      }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -1984,8 +2245,14 @@ $("#ap-board").addEventListener("pointerdown", () => stopApAnim(true)); // 点�
 new ResizeObserver(() => fitApCanvas()).observe($("#ap-board"));
 
 
-$("#btn-generate").addEventListener("click", generateBoard);
-// AI 解答（截图识图）功能已下线；右侧解答面板仍由「我要问问题」使用
+$("#btn-generate").addEventListener("click", () => {
+  unlockAudio(); // Safari：生成后自动开讲，须在点击手势内解锁
+  generateBoard();
+});
+$("#btn-load-course").addEventListener("click", () => {
+  unlockAudio(); // Safari：加载课程即自动开讲
+  $("#course-file").click();
+});
 
 // 抽屉
 $("#btn-layout").addEventListener("click", () => $("#drawer").classList.toggle("hidden"));
@@ -2115,8 +2382,8 @@ fetch("/api/config")
     if (!cfg.hasKey) {
       toast("尚未配置 API Key，点「⚙ 设置」填写后即可使用 AI", "err");
     }
-    // 持久化的字体与音色
-    if (cfg.font) applyFont(cfg.font);
+    // 持久化的字体与音色：先按本机可用性选定字体（偏好不可用则就近降级），再应用
+    applyFont(initFontChoice(cfg.font));
     if (cfg.grain !== undefined) applyGrain(cfg.grain);
     if (cfg.ttsVoice && VOICE_LIST.some((v) => v.id === cfg.ttsVoice)) voiceId = cfg.ttsVoice;
   })
