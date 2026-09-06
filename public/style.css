@@ -245,8 +245,7 @@ button {
 .nav-btn:disabled { opacity: 0.3; cursor: default; }
 .nav-btn:disabled:hover { background: rgba(255, 255, 255, 0.05); }
 
-/* AI 按钮：尺寸/圆角/边框与 .tool-btn 完全一致，仅配色区分 */
-.ai-btn, .tool-btn { height: 34px; line-height: 1; }
+.ai-btn, .tool-btn { height: 34px; line-height: 1; white-space: nowrap; }
 .ai-btn {
   padding: 5px 12px;
   border-radius: 8px;
@@ -537,6 +536,7 @@ button {
 /* 粉笔槽底部：撤销 / 清屏 */
 .rail-tool {
   width: 60px;
+  white-space: nowrap;
   padding: 5px 0;
   border-radius: 8px;
   font-size: 12px;
