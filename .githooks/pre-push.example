@@ -1,0 +1,72 @@
+#!/bin/sh
+# pre-push 密钥泄漏防线：扫描待推送提交的新增行，命中密钥即拒绝推送。
+# 钩子仅存在于本地 .git/hooks/，不会被提交或推送。
+# 真实密钥 needles 在运行时从 config.json 提取，本文件不含任何秘密。
+
+NULL_SHA="0000000000000000000000000000000000000000"
+FAIL=0
+
+# 从 config.json 提取真实密钥作为精确匹配 needles（跳过空值与占位符）
+NEEDLES=""
+if [ -f "config.json" ]; then
+  for FIELD in apiKey ttsApiKey; do
+    VAL=$(sed -n "s/.*\"$FIELD\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" config.json | head -n 1)
+    case "$VAL" in
+      ""|"在这里"*) ;;           # 空值 / 占位符不作为 needle
+      *) NEEDLES="$NEEDLES $VAL" ;;
+    esac
+  done
+fi
+
+# 通用密钥模式：bigmodel 32hex.16alnum、sk- 密钥、非占位符 apiKey 字段
+GENERIC='[a-f0-9]{32}\.[A-Za-z0-9]{10,}|sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|"apiKey"[[:space:]]*:[[:space:]]*"[^"]+"'
+
+report_hit() {
+  echo "" >&2
+  echo "════════ 拒绝推送：检测到疑似 API 密钥 ════════" >&2
+  echo "提交: $1" >&2
+  echo "匹配: $2" >&2
+  echo "文件: $(git show --name-only --format= "$1" | tr '\n' ' ')" >&2
+  echo "处理: 移除密钥后重新提交（注意密钥已进历史，需改写或轮换密钥）" >&2
+  echo "════════════════════════════════════════════" >&2
+  FAIL=1
+}
+
+scan_commit() {
+  C="$1"
+  PATCH=$(git show --no-ext-diff --format= "$C" 2>/dev/null | grep -E '^\+[^+]')
+
+  # 1) 精确 needle 命中（真实密钥）
+  for N in $NEEDLES; do
+    if printf '%s\n' "$PATCH" | grep -qF -- "$N"; then
+      report_hit "$C" "真实密钥字面匹配（${N:0:10}…）"
+      return
+    fi
+  done
+
+  # 2) 通用模式命中（排除占位符/掩码）
+  HIT=$(printf '%s\n' "$PATCH" | grep -E "$GENERIC" | grep -vE '在这里|填入|…|此处填' | head -n 1)
+  if [ -n "$HIT" ]; then
+    report_hit "$C" "$HIT"
+    return
+  fi
+
+  # 3) 项目密钥文件本身禁止入库
+  if git show --name-only --format= "$C" | grep -qx "config.json"; then
+    report_hit "$C" "提交触及 config.json（项目约定该文件不入库）"
+    return
+  fi
+}
+
+while read LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+  # 新分支或正常推送：扫描所有远端尚未包含的提交
+  for C in $(git rev-list "$LOCAL_SHA" --not --remotes 2>/dev/null); do
+    scan_commit "$C"
+  done
+done
+
+if [ "$FAIL" -ne 0 ]; then
+  echo "推送已被 pre-push 钩子阻止。" >&2
+  exit 1
+fi
+exit 0

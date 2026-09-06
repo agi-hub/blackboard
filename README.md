@@ -25,6 +25,8 @@ bun server.ts        # 或 bun run start；默认 http://127.0.0.1:8918
 
 配置持久化在本机 `config.json`（权限 600，已被 gitignore）。也可复制 `config.example.json` 手工填写。
 
+> **密钥安全**：`config.json` 含真实 API Key，**永远不要提交或推送**。本仓库的 `pre-push` 钩子（`.git/hooks/pre-push`）会在推送前扫描所有待推送提交的新增行，命中 API 密钥格式或触及 `config.json` 即拒绝推送。克隆后如需启用同一防线，可执行：`cp .githooks/pre-push.example .git/hooks/pre-push && chmod +x .git/hooks/pre-push`。
+
 ## 功能总览
 
 ### 备课（✎ 文本转板书 → 🚀 开始学习）
