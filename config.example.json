@@ -2,12 +2,13 @@
   "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
   "apiKey": "在这里填入你的 API Key",
   "textModel": "glm-5.3",
-  "visionModel": "glm-5.3-flash",
   "maxRPM": 10,
   "disableThinking": true,
   "ttsBaseUrl": "https://api.siliconflow.cn/v1",
   "ttsApiKey": "在这里填入 SiliconFlow API Key",
   "ttsModel": "FunAudioLLM/CosyVoice2-0.5B",
   "ttsVoice": "FunAudioLLM/CosyVoice2-0.5B:anna",
-  "ttsSpeed": 1.0
+  "ttsSpeed": 1.0,
+  "font": "kaiti",
+  "grain": 1.3
 }
