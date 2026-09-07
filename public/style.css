@@ -652,12 +652,16 @@ button {
   /* 翻页组 + AI 按钮同行靠右 */
   #page-nav { order: 2; margin-left: 0; }
   #page-nav #page-indicator { font-size: 12px; min-width: 34px; text-align: center; }
-  /* AI 按钮：行 1 尾部，小号紧凑（不独占一行） */
+  /* AI 按钮 + 设置：行 1 尾部同行（设置由 JS 移入此组） */
   .tb-group.spacer-right { order: 3; margin-left: 0; }
-  .tb-group.spacer-right .ai-btn { height: 30px; font-size: 13px; padding: 0 8px; }
-  /* 工具组：行 2 单行均分（全屏/主题/截屏/保存/加载/设置/隐藏粉笔/EN 同行） */
+  .tb-group.spacer-right .ai-btn { height: 30px; font-size: 13px; padding: 0 7px; }
+  .tb-group.spacer-right .tool-btn { height: 30px; font-size: 13px; padding: 0 9px; }
+  /* 工具组：行 2 单行均分（全屏/主题/截屏/保存/加载/隐藏粉笔/EN） */
   .tb-group:last-child { order: 4; width: 100%; display: flex; }
   .tb-group:last-child .tool-btn { flex: 1; height: 32px; font-size: 11.5px; padding: 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 「隐藏粉笔/显示粉笔」文字太长：竖屏显示短标签（JS 切换的 textContent 置零隐藏） */
+  #btn-rail { font-size: 0; padding: 0; }
+  #btn-rail::after { content: "粉笔"; font-size: 11.5px; }
 
   /* ---- 主舞台：竖向堆叠（黑板主体 + 底部面板层） ---- */
   #stage {
@@ -694,6 +698,7 @@ button {
     flex-shrink: 0;
   }
   #chalk-rail .chalk-dot::after { display: none; } /* 去掉磁铁贴片装饰 */
+  #chalk-rail .chalk-dot.active { transform: none; } /* 横屏抬起效果在此错位：竖屏只用光晕标识选中 */
   /* 粗细按钮：紧凑正方形，圆点按粗细分级 */
   #chalk-rail .size-btn {
     width: 24px;
@@ -708,9 +713,9 @@ button {
   #chalk-rail .size-btn .dot.l { width: 14px; height: 14px; }
   #chalk-rail .rail-eraser { width: 20px; height: 24px; border-radius: 4px; flex-shrink: 0; }
   .rail-tool { font-size: 14px; padding: 0; width: 24px; height: 24px; line-height: 24px; border-radius: 6px; letter-spacing: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-  #btn-undo.rail-tool::after { content: "↩"; }
-  #btn-clear.rail-tool::after { content: "🗑"; }
-  #btn-undo.rail-tool, #btn-clear.rail-tool { font-size: 0; } /* 文字隐藏,::after 图标顶替 */
+  #btn-undo.rail-tool::after { content: "↩"; font-size: 15px; }
+  #btn-clear.rail-tool::after { content: "🗑"; font-size: 13px; }
+  #btn-undo.rail-tool, #btn-clear.rail-tool { font-size: 0; } /* 文字隐藏,::after 图标顶替(必须显式给 ::after 字号,否则继承 0) */
 
   /* ---- 黑板：占满主区，竖向画布 ---- */
   #board-frame { flex: 1; min-height: 0; }

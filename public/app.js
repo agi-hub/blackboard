@@ -271,6 +271,22 @@ function applyLangUI() {
   document.title = lang === "en" ? "ChalkTalk" : "敲黑板";
 }
 
+// 竖屏：设置按钮移入 AI 按钮行（行 1），避免工具行 8 按钮挤爆；横屏移回工具组
+const mqPortrait = window.matchMedia("(max-width: 760px) and (orientation: portrait)");
+function placeSettingsBtn() {
+  const btn = $("#btn-settings");
+  const target = mqPortrait.matches ? $(".tb-group.spacer-right") : btn.closest("#toolbar").lastElementChild;
+  if (btn.parentElement !== target) {
+    if (mqPortrait.matches) {
+      target.appendChild(btn); // 移到行 1 尾部
+    } else {
+      target.appendChild(btn); // 横屏放回工具组末尾
+    }
+  }
+}
+mqPortrait.addEventListener("change", placeSettingsBtn);
+placeSettingsBtn();
+
 $("#btn-lang").addEventListener("click", () => {
   lang = lang === "en" ? "zh" : "en";
   applyLangUI();
