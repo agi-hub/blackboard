@@ -409,11 +409,15 @@ button {
   position: relative;
   display: flex;
   align-items: center;
+  min-height: 124px; /* Safari flex 内 img 高度塌 0 兜底 */
 }
 #img-preview.hidden { display: none; }
 #img-preview img {
   max-width: 100%;
-  max-height: 120px;
+  max-height: 150px;
+  min-width: 60px;  /* 防 flex 压缩成极窄;高截图也给足可见宽度 */
+  min-height: 40px;
+  flex-shrink: 0;
   border-radius: 8px;
   border: 1px solid var(--panel-edge);
   object-fit: contain;

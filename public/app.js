@@ -2215,8 +2215,13 @@ let pendingImage = null; // dataURL（已压缩）；null = 无图片
 
 function setImage(dataUrl) {
   pendingImage = dataUrl;
-  $("#img-thumb").src = dataUrl;
+  const img = $("#img-thumb");
+  img.src = dataUrl || "";
   $("#img-preview").classList.toggle("hidden", !dataUrl);
+  // Safari 偶发不触发重排:显式等解码完成后强制刷新一次布局尺寸
+  if (dataUrl && img.decode) {
+    img.decode().catch(() => {}).then(() => { if (img.naturalWidth) img.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight; });
+  }
 }
 
 async function fileToShrunkDataURL(file) {
