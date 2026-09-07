@@ -185,6 +185,107 @@ async function callLLM(cfg: AppConfig, model: string, messages: ChatMessage[], m
   throw new Error("LLM 响应缺少 content");
 }
 
+// 流式调用：LLM 逐块输出时回调 onChunk（用于 text2board 增量提取 pages，边生成边推页）
+async function callLLMStream(
+  cfg: AppConfig,
+  model: string,
+  messages: ChatMessage[],
+  maxTokens: number,
+  onChunk: (full: string) => void,
+): Promise<string> {
+  const url = cfg.baseUrl.replace(/\/+$/, "") + "/chat/completions";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${cfg.apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: 0.4,
+      max_tokens: maxTokens,
+      stream: true,
+      ...(cfg.disableThinking ? { thinking: { type: "disabled" } } : {}),
+    }),
+    signal: AbortSignal.timeout(180_000),
+  });
+  if (!res.ok || !res.body) {
+    const errText = res.ok ? "" : (await res.text()).slice(0, 400);
+    throw new Error(`LLM 服务返回 ${res.status}: ${errText}`);
+  }
+  let full = "";
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t.startsWith("data:")) continue;
+      const payload = t.slice(5).trim();
+      if (payload === "[DONE]") continue;
+      try {
+        const j: unknown = JSON.parse(payload);
+        const delta = (j as { choices?: Array<{ delta?: { content?: string } }> }).choices?.[0]?.delta?.content;
+        if (typeof delta === "string" && delta) {
+          full += delta;
+          onChunk(full);
+        }
+      } catch {
+        /* 半包 JSON 忽略 */
+      }
+    }
+  }
+  return full;
+}
+
+// 增量提取 pages 数组中已完整（括号平衡）的页对象：[新页列表, 下次扫描起点]
+function extractNewPages(text: string, fromIndex: number): [unknown[], number] {
+  const pagesKey = text.indexOf('"pages"');
+  if (pagesKey === -1) return [[], fromIndex];
+  const arrIdx = text.indexOf("[", pagesKey);
+  if (arrIdx === -1) return [[], fromIndex];
+  const out: unknown[] = [];
+  let cursor = fromIndex || arrIdx + 1;
+  for (;;) {
+    const objStart = text.indexOf("{", cursor);
+    if (objStart === -1) break;
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    let end = -1;
+    for (let i = objStart; i < text.length; i++) {
+      const ch = text[i];
+      if (esc) { esc = false; continue; }
+      if (ch === "\\") { if (inStr) esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+    if (end === -1) break; // 页对象尚未写完
+    const slice = text.slice(objStart, end + 1).replace(/,\s*([}\]])/g, "$1");
+    try {
+      out.push(JSON.parse(slice));
+    } catch {
+      /* 坏页跳过 */
+    }
+    cursor = end + 1;
+    const closeArr = text.indexOf("]", cursor);
+    const nextObj = text.indexOf("{", cursor);
+    if (closeArr !== -1 && (nextObj === -1 || closeArr < nextObj)) break; // pages 数组闭合
+  }
+  return [out, cursor];
+}
+
 // ---------- LLM 输出解析：剥围栏 → 首个平衡对象 → 容错 parse ----------
 
 function extractJSON(text: string): unknown | null {
@@ -431,6 +532,7 @@ async function readJSONBody(req: Request): Promise<Record<string, unknown> | nul
 }
 
 Bun.serve({
+  idleTimeout: 255, // 秒:LLM 流式生成首页常超 10s(默认),SSE 长连接需更大空闲超时(上限 255)
   port: PORT,
   hostname: "0.0.0.0", // 监听局域网：iPad/手机同 WiFi 可直接访问
   async fetch(req) {
@@ -530,15 +632,62 @@ Bun.serve({
               ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
             ]
           : body.text as string;
-        const content = await callLLM(
-          cfg,
-          model,
-          [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-          8192,
-        );
+        const messages: ChatMessage[] = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ];
+
+        // 流式模式（stream=1）：SSE 逐页推送——LLM 每写完一页 JSON 就推给前端先讲，
+        // 首页到达时间 ≈ 生成总时长/页数，后续页在讲解期间继续生成。
+        if (body.stream) {
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({
+            async start(controller) {
+              const send = (event: string, data: unknown) => {
+                controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+              };
+              try {
+                let scanFrom = 0;
+                let pushed = 0;
+                let content = "";
+                send("open", { ok: true });
+                content = await callLLMStream(cfg, model, messages, 8192, (full) => {
+                  const [newPages, next] = extractNewPages(full, scanFrom);
+                  scanFrom = next;
+                  for (const pg of newPages) {
+                    const board = normalizeBoard(pg, W, H);
+                    if (board.title || board.blocks.length > 0 || board.summary) {
+                      pushed++;
+                      send("page", board);
+                    }
+                  }
+                });
+                // 全量兜底：流式提取漏页（如模型输出非标准结构）→ 结束时全量解析补发差异
+                const all = normalizePages(extractJSON(content), W, H).filter(
+                  (p) => p.title !== null || p.blocks.length > 0 || p.summary !== null,
+                );
+                if (all.length > pushed) {
+                  for (let i = pushed; i < all.length; i++) send("page", all[i]);
+                }
+                send("done", { ok: true, pages: all.length });
+                controller.close();
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                send("error", { ok: false, error: msg.slice(0, 400) });
+                controller.close();
+              }
+            },
+          });
+          return new Response(stream, {
+            headers: {
+              "Content-Type": "text/event-stream; charset=utf-8",
+              "Cache-Control": "no-cache",
+              Connection: "keep-alive",
+            },
+          });
+        }
+
+        const content = await callLLM(cfg, model, messages, 8192);
         const pages = normalizePages(extractJSON(content), W, H).filter(
           (p) => p.title !== null || p.blocks.length > 0 || p.summary !== null,
         );

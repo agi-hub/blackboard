@@ -1566,14 +1566,18 @@ async function playNarration(page, blockList) {
       narration.playing = false;
       setNarrateBtn();
       // 整页讲完 → 3 秒后自动连播下一页（点击/翻页/停止可打断：计时器入 narration.timers）
-      if (!blockList && pages[curPage] === page && curPage < pages.length - 1) {
-        const seq = narration.seq;
-        narration.timers.push(
-          setTimeout(() => {
-            if (seq !== narration.seq) return;
-            goToPage(curPage + 1);
-          }, 3000),
-        );
+      if (!blockList && pages[curPage] === page) {
+        if (curPage < pages.length - 1) {
+          const seq = narration.seq;
+          narration.timers.push(
+            setTimeout(() => {
+              if (seq !== narration.seq) return;
+              goToPage(curPage + 1);
+            }, 3000),
+          );
+        } else if (tryAdvancePending()) {
+          // 已是最后一页但生成中 → 挂起等下一页（页到达由 acceptStreamPage 续播）
+        }
       }
     },
     lectureTick,
@@ -2202,47 +2206,148 @@ $("#board-image").addEventListener("change", async (e) => {
 $("#btn-img-remove").addEventListener("click", () => setImage(null));
 
 
+let generatingBoard = false; // 备课中：防重复点击；讲解翻页逻辑感知
+let awaitingNextPage = false; // 讲完当前页但下一页还在生成 → 自动连播等待
+
 async function generateBoard() {
+  if (generatingBoard) return;
   const text = $("#text-input").value.trim();
   if (!text && !pendingImage) return toast(tt("先粘贴文本或拍张照片", "Paste text or upload a photo first"), "err");
+  generatingBoard = true;
   thinking(true, tt("老师正在备课…", "Teacher is preparing the lesson…"));
+  const receivedPages = [];
+  let started = false;
   try {
     const res = await fetch("api/text2board", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text,
+        stream: 1,
         ...(pendingImage ? { images: [pendingImage] } : {}),
         ...(lang === "en" ? { lang: "en" } : {}),
         canvasW: W,
         canvasH: H,
       }),
     });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    const newPages = (data.pages || [])
-      .map(normalizePage)
-      .filter((p) => p._drawOrder.length > 0 || p.titleBlock || p.blocks.length || p.summaryBlock);
-    // 计算最终 _drawOrder
-    await Promise.all(newPages.map(loadFigures)); // SVG 图示先解析成图像，排版需要宽高比
-    for (const p of newPages) layoutPage(p);
-    const withContent = newPages.filter((p) => p._drawOrder.length > 0);
-    if (!withContent.length) throw new Error(tt("模型没有生成有效板书，请重试", "Model returned no valid board, please retry"));
+    const ctype = res.headers.get("content-type") || "";
+    if (!res.ok || !ctype.includes("text/event-stream")) {
+      // 服务端不支持流式 → 回退整包 JSON
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      for (const pg of data.pages || []) await acceptStreamPage(pg, receivedPages, () => started, (v) => (started = v));
+      if (!started) throw new Error(tt("模型没有生成有效板书，请重试", "Model returned no valid board, please retry"));
+      return;
+    }
+    // SSE：逐页接收。首页到达即开讲；后续页在讲解进行中静默追加
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let streamDone = false;
+    const pump = async () => {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const frames = buf.split("\n\n");
+        buf = frames.pop() ?? "";
+        for (const frame of frames) {
+          let evt = "message";
+          const dataLines = [];
+          for (const line of frame.split("\n")) {
+            if (line.startsWith("event:")) evt = line.slice(6).trim();
+            else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+          }
+          if (!dataLines.length) continue;
+          let payload;
+          try {
+            payload = JSON.parse(dataLines.join("\n"));
+          } catch {
+            continue;
+          }
+          if (evt === "page") {
+            try {
+              await acceptStreamPage(payload, receivedPages, () => started, (v) => (started = v));
+            } catch (e) {
+              console.warn("页追加失败", e);
+            }
+          } else if (evt === "done") {
+            streamDone = true;
+          } else if (evt === "error") {
+            throw new Error(payload.error || "生成失败");
+          }
+        }
+      }
+      if (!streamDone && !receivedPages.length) throw new Error(tt("模型没有生成有效板书，请重试", "Model returned no valid board, please retry"));
+      if (!streamDone && receivedPages.length) {
+        // 流意外截断但已有页面：保留已到的，提示可能不完整
+        toast(tt("生成中断，仅获得部分页面", "Generation interrupted; partial pages kept"), "err");
+      }
+    };
+    await pump();
+    if (!started) throw new Error(tt("模型没有生成有效板书，请重试", "Model returned no valid board, please retry"));
+    // 全部页到齐且当前页已讲完 → 若处于等待态立即续播
+    if (awaitingNextPage) tryAdvancePending();
+  } catch (err) {
+    toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
+    if (!started && !receivedPages.length) {
+      // 完全失败：恢复原状态
+    }
+  } finally {
+    generatingBoard = false;
+    // 收尾续播：done 已到但页面停在等待态（讲解结束、有下一页未翻）→ 直接连播
+    if (awaitingNextPage && !narration.playing && curPage < pages.length - 1) {
+      awaitingNextPage = false;
+      goToPage(curPage + 1);
+    } else if (awaitingNextPage && !generatingBoard && !narration.playing && curPage >= pages.length - 1) {
+      awaitingNextPage = false;
+    }
+    thinking(false);
+  }
+}
+
+// 接收流式页：首页替换板面并开讲；后续页排版好静默入列（讲解翻页自然衔接）
+async function acceptStreamPage(pg, receivedPages, getStarted, setStarted) {
+  const page = normalizePage(pg);
+  if (!(page._drawOrder.length > 0 || page.titleBlock || page.blocks.length || page.summaryBlock)) return;
+  await loadFigures(page); // SVG 图示先解析（排版需要宽高比）
+  layoutPage(page);
+  if (page._drawOrder.length === 0) return; // 纯装饰页丢弃
+  receivedPages.push(page);
+  if (!getStarted()) {
+    setStarted(true);
     stopAnim();
-    pages = withContent;
-    strokesByPage = pages.map(() => []);
+    pages = [page];
+    strokesByPage = [ [] ];
     curPage = 0;
     syncPageNav();
     redrawStrokes();
-    pages[0].animated = true;
-    playNarration(pages[0]); // 生成即开讲：边讲边写
+    page.animated = true;
     $("#drawer").classList.add("hidden");
-    toast(pages.length > 1 ? tt(`板书已生成，共 ${pages.length} 页（←/→ 翻页）`, `Board generated — ${pages.length} pages (←/→)`) : tt("板书已生成", "Board generated"), "ok");
-  } catch (err) {
-    toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
-  } finally {
-    thinking(false);
+    toast(tt("第一页好了，先开讲（后续页备课中…）", "First page ready — starting (more pages coming…)"), "ok");
+    playNarration(page); // 首页到达即开讲
+  } else {
+    pages.push(page);
+    strokesByPage.push([]);
+    syncPageNav();
+    if (awaitingNextPage) tryAdvancePending();
   }
+}
+
+// 讲完当前页：若还有页在生成 → 挂起等待，页到达时由此续播
+function tryAdvancePending() {
+  if (awaitingNextPage && curPage < pages.length - 1) {
+    // 等待中的下一页已到达 → 立即续播
+    awaitingNextPage = false;
+    goToPage(curPage + 1);
+    return true;
+  }
+  if (curPage >= pages.length - 1 && generatingBoard) {
+    awaitingNextPage = true; // 挂起等下一页（acceptStreamPage 到页后续播）
+    toast(tt("下一页备课中…", "Preparing next page…"), "");
+    return true;
+  }
+  return false;
 }
 
 // ---------- AI 解答侧栏（独立小黑板：粉笔渲染 + 配音 + 标记，不与板书混排） ----------
