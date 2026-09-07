@@ -2702,7 +2702,7 @@ async function acceptStreamPage(pg, receivedPages, getStarted, setStarted) {
     page.animated = true;
     $("#drawer").classList.add("hidden");
     thinking(false); // 首页开讲即撤遮罩:后续页在后台继续生成,不再挡住讲解画面
-    toast(tt("第一页好了，先开讲（后续页备课中…）", "First page ready — starting (more pages coming…)"), "ok");
+    toast(tt("第一页好了，先开讲", "First page ready — starting"), "ok");
     playNarration(page); // 首页到达即开讲
   } else {
     pages.push(page);
@@ -2733,8 +2733,8 @@ function tryAdvancePending() {
 const apPanel = $("#answer-panel");
 const apCanvas = $("#ap-canvas");
 const apCtx = apCanvas.getContext("2d");
-const AP_W = 560; // 横屏解答面板逻辑宽（竖屏下 CSS 全宽显示，画布按容器缩放，逻辑宽高比仅影响排版密度）
-const AP_H = 1000;
+const AP_W = 560; // 解答面板逻辑宽:横竖屏统一,纵向流式排版
+let AP_H = 1000; // 逻辑高:fitApCanvas 按画布实际纵横比动态换算,保证等比缩放(非等比曾致文字压扁)
 let apAnim = null; // { blocks, entries, marks, dur, startTs, tNow, audios, timers }
 let apSeq = 0;
 let apRaf = 0;
@@ -2745,7 +2745,14 @@ function fitApCanvas() {
   if (rect.width < 10 || rect.height < 10) return;
   const dpr = window.devicePixelRatio || 1;
   apCanvas.width = Math.round(rect.width * dpr);
-  apCanvas.height = Math.round(rect.height * dpr); // 此前漏设：canvas 默认高 150，垂直被压至 0.15 倍 → 文字压扁模糊
+  apCanvas.height = Math.round(rect.height * dpr);
+  // 逻辑高随实际纵横比:apRender 的 setTransform 才能等比(固定 1000 在手机矮面板上
+  // 垂直压缩 3.4 倍 → 文字扁)。重排以适配新的可用高度。
+  const newH = Math.round(AP_W * (apCanvas.height / apCanvas.width));
+  if (newH !== AP_H) {
+    AP_H = newH;
+    if (apAnim) apLayoutBlocks(apAnim.blocks, apAnim.title);
+  }
   apPaintStatic(apAnim ? Infinity : undefined);
 }
 
@@ -2929,7 +2936,7 @@ async function apPlay(blocks, title) {
     pushLectureSay(b, speakAt, v.dur * 1000); // 解答口述逐句进讲义
     t = speakAt + v.dur * 1000 + 350;
   }
-  apAnim = { blocks: laid, entries, marks, dur: t + 200, startTs: 0, tNow: 0, audios, timers };
+  apAnim = { blocks: laid, entries, marks, dur: t + 200, startTs: 0, tNow: 0, audios, timers, title };
   const frame = (ts) => {
     if (!apAnim) return;
     if (!apAnim.startTs) apAnim.startTs = ts;
