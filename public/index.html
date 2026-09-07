@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>敲黑板</title>
-  <link rel="stylesheet" href="style.css?v=15" />
+  <link rel="stylesheet" href="style.css?v=17" />
   <!-- CDN 开源楷体兜底（霞鹜文楷）：本地楷体名全部失效的环境（如 Safari 26 某些配置）自动启用，按需切片下载 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/style.css" />
@@ -55,7 +55,8 @@
     </div>
   </header>
   <input id="course-file" type="file" accept=".json,application/json" hidden />
-  <input id="board-image" type="file" accept="image/*" capture="environment" hidden />
+  <input id="board-image" type="file" accept="image/*" hidden />
+  <input id="board-camera" type="file" accept="image/*" capture="environment" hidden />
 
   <main id="stage">
     <!-- 左侧粉笔槽（磁吸上墙：木条轨道 + 磁铁贴粉笔 + 板擦） -->
@@ -103,11 +104,29 @@
       <textarea id="text-input" placeholder="粘贴文本…（可配合下方图片）"></textarea>
       <div id="img-preview" class="hidden"><img id="img-thumb" alt="待识别图片" /><button id="btn-img-remove" class="tool-btn" title="移除图片">✕</button></div>
       <div class="drawer-actions">
-        <button id="btn-image" class="tool-btn" title="拍照或从相册选图，题目图片会自动附解题过程">上传图像</button>
-        <button id="btn-sample" class="tool-btn">填入示例</button>
+        <button id="btn-image" class="tool-btn" title="拍照或从相册选图（选图后可裁剪），题目图片会自动附解题过程">上传图像</button>
         <button id="btn-generate" class="ai-btn primary">开始学习</button>
       </div>
     </aside>
+
+    <!-- 图片裁剪弹层：拍/选图后先裁剪再进入素材 -->
+    <div id="crop-modal" class="modal-mask hidden">
+      <div class="modal crop-modal">
+        <div class="drawer-head">
+          <h2>裁剪图片</h2>
+          <button id="btn-crop-cancel" class="tool-btn" title="放弃图片">✕</button>
+        </div>
+        <div id="crop-stage">
+          <img id="crop-img" alt="待裁剪图片" draggable="false" />
+          <div id="crop-box"></div>
+        </div>
+        <div class="drawer-actions">
+          <button id="btn-crop-reset" class="tool-btn">重选区域</button>
+          <button id="btn-crop-rotate" class="tool-btn">旋转 90°</button>
+          <button id="btn-crop-ok" class="ai-btn primary">使用图片</button>
+      </div>
+      </div>
+    </div>
 
     <!-- 右侧 AI 解答区（独立小黑板，不与板书混排） -->
     <aside id="answer-panel" class="hidden">
@@ -213,4 +232,4 @@
       }
     });
   </script>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=17"></script>

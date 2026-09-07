@@ -761,3 +761,34 @@ button {
   #toast { max-width: calc(100vw - 32px); font-size: 14px; }
   #thinking-text { font-size: 15px; letter-spacing: 2px; }
 }
+
+
+/* ---------- 图片来源动作面板（拍照 / 相册） ---------- */
+#img-source-sheet { position: fixed; inset: 0; z-index: 60; }
+#img-source-sheet .sheet-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+#img-source-sheet .sheet-body {
+  position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 8px;
+}
+#img-source-sheet .sheet-btn {
+  height: 48px; border-radius: 12px; font-size: 16px;
+  background: var(--panel); color: var(--text); border: 1px solid var(--panel-edge);
+}
+#img-source-sheet .sheet-btn:active { background: rgba(255,255,255,0.1); }
+#img-source-sheet .sheet-cancel { opacity: 0.8; }
+
+/* ---------- 图片裁剪弹层 ---------- */
+.crop-modal { width: min(560px, 94vw); }
+#crop-stage {
+  position: relative; width: 100%; height: min(52vh, 460px);
+  background: #0c0a08; border-radius: 10px; overflow: hidden;
+  display: grid; place-items: center;
+  touch-action: none; cursor: crosshair;
+}
+#crop-img { user-select: none; -webkit-user-drag: none; max-width: 100%; max-height: 100%; }
+#crop-box {
+  position: fixed; display: none; pointer-events: none;
+  border: 2px dashed var(--accent); box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+  z-index: 1;
+}
+.crop-modal .drawer-actions { justify-content: flex-end; }

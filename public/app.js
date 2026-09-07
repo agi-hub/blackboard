@@ -200,7 +200,6 @@ const UI_I18N = [
   ["#drawer h2", "文本及图片 → 板书", "Text & Image → Board", "text"],
   ["#text-input", "粘贴文本…（可配合下方图片）", "Paste text… (images optional)", "ph"],
   ["#btn-image", "上传图像", "Upload Image", "text"],
-  ["#btn-sample", "填入示例", "Sample", "text"],
   ["#btn-generate", "开始学习", "Start", "text"],
   [".brand-name", "敲黑板", "ChalkTalk", "text"],
   ["#btn-undo", "撤销", "Undo", "text"],
@@ -2207,18 +2206,179 @@ async function fileToShrunkDataURL(file) {
   }
 }
 
-$("#btn-image").addEventListener("click", () => $("#board-image").click());
-$("#board-image").addEventListener("change", async (e) => {
+// 上传图像：拍照 / 相册 二选一（桌面端直接打开文件选择）
+let imagePickTarget = null; // 选完后喂给哪个流程（裁剪器或直接使用）
+function pickImage(source) {
+  const input = $(source === "camera" ? "#board-camera" : "#board-image");
+  input.click();
+}
+$("#btn-image").addEventListener("click", () => {
+  const isTouch = matchMedia("(pointer: coarse)").matches;
+  if (!isTouch) {
+    imagePickTarget = "crop";
+    pickImage("album"); // 桌面：直接文件选择
+    return;
+  }
+  // 触屏：底部动作面板二选一
+  const sheet = document.createElement("div");
+  sheet.id = "img-source-sheet";
+  sheet.innerHTML = [
+    '<div class="sheet-backdrop"></div>',
+    '<div class="sheet-body">',
+    '<button class="sheet-btn" data-src="camera">拍照</button>',
+    '<button class="sheet-btn" data-src="album">从相册选择</button>',
+    '<button class="sheet-btn sheet-cancel">取消</button>',
+    "</div>",
+  ].join("");
+  document.body.appendChild(sheet);
+  const close = () => sheet.remove();
+  sheet.querySelector(".sheet-backdrop").addEventListener("click", close);
+  sheet.querySelector(".sheet-cancel").addEventListener("click", close);
+  for (const b of sheet.querySelectorAll(".sheet-btn[data-src]")) {
+    b.addEventListener("click", () => {
+      imagePickTarget = "crop";
+      pickImage(b.dataset.src);
+      close();
+    });
+  }
+});
+
+// ---------- 图片裁剪器：拖选区域 + 旋转，确认后压缩进素材 ----------
+const cropState = { img: null, box: null, dragging: false, sx: 0, sy: 0 };
+function openCropper(dataUrl) {
+  const im = new Image();
+  im.onload = () => {
+    cropState.img = im;
+    cropState.box = null;
+    $("#crop-img").src = dataUrl;
+    $("#crop-modal").classList.remove("hidden");
+    requestAnimationFrame(renderCrop);
+  };
+  im.src = dataUrl;
+}
+// 旋转烘焙进画布(重设图源),避免 CSS transform 与裁剪坐标的逆变换纠缠
+function rotateCropImage() {
+  const im = cropState.img;
+  if (!im) return;
+  const c = document.createElement("canvas");
+  c.width = im.naturalHeight;
+  c.height = im.naturalWidth;
+  const ctx = c.getContext("2d");
+  ctx.translate(c.width / 2, c.height / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.drawImage(im, -im.naturalWidth / 2, -im.naturalHeight / 2);
+  const url = c.toDataURL("image/png");
+  const nim = new Image();
+  nim.onload = () => {
+    cropState.img = nim;
+    $("#crop-img").src = url;
+    cropState.box = null;
+    positionCropBox();
+    renderCrop();
+  };
+  nim.src = url;
+}
+function renderCrop() {
+  const stage = $("#crop-stage");
+  const im = $("#crop-img");
+  const st = stage.getBoundingClientRect();
+  const iw = cropState.img.naturalWidth, ih = cropState.img.naturalHeight;
+  const fit = Math.min(st.width / iw, st.height / ih, 1);
+  im.style.width = Math.round(iw * fit) + "px";
+  im.style.height = Math.round(ih * fit) + "px";
+  if (cropState.box) positionCropBox();
+}
+function positionCropBox() {
+  const box = $("#crop-box"), im = $("#crop-img");
+  if (!cropState.box) { box.style.display = "none"; return; }
+  const r = im.getBoundingClientRect();
+  const b = cropState.box; // 归一化 0~1（相对当前显示图）
+  box.style.display = "block";
+  box.style.left = r.left + b.x * r.width + "px";
+  box.style.top = r.top + b.y * r.height + "px";
+  box.style.width = b.w * r.width + "px";
+  box.style.height = b.h * r.height + "px";
+}
+(function initCropDrag() {
+  const stage = $("#crop-stage");
+  let startPt = null;
+  const ptOf = (e) => {
+    const t = e.touches ? e.touches[0] : e;
+    const r = stage.getBoundingClientRect();
+    return { x: (t.clientX - r.left) / r.width, y: (t.clientY - r.top) / r.height };
+  };
+  const down = (e) => {
+    if (!cropState.img) return;
+    startPt = ptOf(e);
+    cropState.dragging = true;
+    e.preventDefault();
+  };
+  const move = (e) => {
+    if (!cropState.dragging || !startPt) return;
+    const p = ptOf(e);
+    cropState.box = {
+      x: Math.min(startPt.x, p.x), y: Math.min(startPt.y, p.y),
+      w: Math.abs(p.x - startPt.x), h: Math.abs(p.y - startPt.y),
+    };
+    positionCropBox();
+    e.preventDefault();
+  };
+  const up = () => { cropState.dragging = false; };
+  stage.addEventListener("pointerdown", down);
+  stage.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+})();
+$("#btn-crop-reset").addEventListener("click", () => { cropState.box = null; positionCropBox(); });
+$("#btn-crop-rotate").addEventListener("click", rotateCropImage);
+$("#btn-crop-cancel").addEventListener("click", () => $("#crop-modal").classList.add("hidden"));
+$("#btn-crop-ok").addEventListener("click", () => {
+  const im = cropState.img;
+  if (!im) return;
+  const disp = $("#crop-img").getBoundingClientRect();
+  const b = cropState.box || { x: 0, y: 0, w: 1, h: 1 };
+  // 显示坐标 → 原图坐标(显示图无旋转,纯缩放)
+  const scale = disp.width / im.naturalWidth;
+  const ox = Math.max(0, Math.round(b.x * disp.width / scale));
+  const oy = Math.max(0, Math.round(b.y * disp.height / scale));
+  const ow = Math.max(1, Math.round(b.w * disp.width / scale));
+  const oh = Math.max(1, Math.round(b.h * disp.height / scale));
+  const c = document.createElement("canvas");
+  const MAX = 1600;
+  const s = Math.min(1, MAX / Math.max(ow, oh));
+  c.width = Math.max(1, Math.round(ow * s));
+  c.height = Math.max(1, Math.round(oh * s));
+  c.getContext("2d").drawImage(im, ox, oy, ow, oh, 0, 0, c.width, c.height);
+  setImage(c.toDataURL("image/jpeg", 0.85));
+  $("#crop-modal").classList.add("hidden");
+  toast("图片已就绪，点「开始学习」一起生成", "ok");
+});
+window.addEventListener("resize", () => { if (!$("#crop-modal").classList.contains("hidden")) renderCrop(); });
+
+// 文件选中(相册/相机共用):先进裁剪器
+async function onImagePicked(e) {
   const f = e.target.files && e.target.files[0];
-  e.target.value = ""; // 允许重复选同一张
+  e.target.value = "";
   if (!f) return;
   try {
-    setImage(await fileToShrunkDataURL(f));
-    toast("图片已就绪，点「开始学习」一起生成", "ok");
+    const url = URL.createObjectURL(f);
+    const im = await new Promise((ok, no) => {
+      const i = new Image();
+      i.onload = () => ok(i);
+      i.onerror = () => no(new Error("图片读取失败"));
+      i.src = url;
+    });
+    if (imagePickTarget === "crop") {
+      openCropper(im.src); // blob URL 由裁剪器持有(确认/取消后再用也在缓存),此处不 revoke
+    } else {
+      setImage(await fileToShrunkDataURL(f));
+      URL.revokeObjectURL(url);
+    }
   } catch (err) {
     toast(err.message, "err");
   }
-});
+}
+$("#board-image").addEventListener("change", onImagePicked);
+$("#board-camera").addEventListener("change", onImagePicked);
 $("#btn-img-remove").addEventListener("click", () => setImage(null));
 
 
@@ -2602,46 +2762,6 @@ $("#btn-load-course").addEventListener("click", () => {
 // 抽屉
 $("#btn-layout").addEventListener("click", () => $("#drawer").classList.toggle("hidden"));
 $("#btn-drawer-close").addEventListener("click", () => $("#drawer").classList.add("hidden"));
-$("#btn-sample").addEventListener("click", () => {
-  if (lang === "en") {
-    $("#text-input").value = [
-      "# Meeting Notes: LLM Agent Product Review",
-      "",
-      "Thanks everyone for joining today. We're here to discuss next quarter's roadmap for our LLM Agent product.",
-      "Let me walk through the background first, then open the floor, and we'll wrap up with conclusions and action items.",
-      "",
-      "Context: DAU has held steady at around 50k, but retention is only 23%.",
-      "User feedback clusters into three themes: the task pipeline is too long and opaque;",
-      "retry cost after failure is high enough that users would rather do it themselves; and multi-turn context often gets lost.",
-      "",
-      "The proposal is to replace auto-execution with a plan-confirm-execute flow: show the plan first, run after approval.",
-      "We'd also add a live per-step log panel. Engineering estimates 3 people for 6 weeks for streaming DAG orchestration.",
-      "QA reminded us to gray-scale at 5% first and watch the core funnel for a week.",
-      "",
-      "Bottom line: direction approved. Ship an MVP to validate whether plan confirmation lifts retention.",
-      "Detailed schedule by next Friday. Meeting adjourned!",
-    ].join("\n");
-    return;
-  }
-  $("#text-input").value = [
-    "# 会议纪要：大模型 Agent 产品评审会",
-    "",
-    "大家好！感谢各位百忙之中参加今天的会议，今天我们主要讨论一下下一季度大模型 Agent 产品的规划方向，",
-    "我先把背景简单介绍一下，然后大家畅所欲言，最后我们汇总一下结论和待办事项。",
-    "",
-    "首先说一下背景。过去一个季度我们的 Agent 产品 DAU 稳定在 5 万左右，但留存率只有 23%，",
-    "用户反馈主要集中在三点：第一，任务执行链路太长，用户看不懂 Agent 在干什么；",
-    "第二，失败之后的重试成本很高，用户宁可自己动手；第三，多轮对话的上下文经常丢失。",
-    "",
-    "产品侧提出的方案是把“自动执行”改成“规划-确认-执行”三段式，先给用户看计划，确认后再跑。",
-    "同时增加每一步的实时日志面板。技术上需要评估流式 DAG 编排的改造工作量，",
-    "预估是 3 个人 6 周。测试同学提醒灰度要先开 5%，观察一周的核心漏斗。",
-    "",
-    "总之今天的结论就是：方向认可，先做 MVP 验证规划确认这一步对留存的提升，",
-    "下周五之前出详细排期。散会！",
-  ].join("\n");
-});
-
 // ---------- 设置 ----------
 
 $("#btn-settings").addEventListener("click", openSettings);
