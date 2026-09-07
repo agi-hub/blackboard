@@ -658,7 +658,6 @@ button {
   /* 工具组收进第二行尾部/第三行，按钮等分 */
   .tb-group:last-child { order: 4; width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .tb-group:last-child .tool-btn { height: 34px; font-size: 12px; padding: 0 2px; }
-  #btn-rail, #btn-lang { display: none; } /* 竖屏粉笔槽常驻无隐藏需求；语言切换低频，留给设置 */
 
   /* ---- 主舞台：竖向堆叠（黑板主体 + 底部面板层） ---- */
   #stage {
@@ -695,9 +694,11 @@ button {
   .size-btn { width: 30px; height: 30px; }
   .size-btn .dot { width: 22px; height: 22px; }
   .size-btn .dot.s, .size-btn .dot.m, .size-btn .dot.l { background-size: 8px 8px, 8px 8px, 100% 100%; }
-  #btn-eraser { width: 26px; height: 34px; }
-  #btn-eraser .felt { width: 14px; height: 22px; }
-  .rail-tool { font-size: 11px; padding: 5px 2px; width: 30px; }
+  #chalk-rail .rail-eraser { width: 20px; height: 24px; border-radius: 4px; }
+  .rail-tool { font-size: 14px; padding: 4px 0; width: 26px; height: 26px; border-radius: 6px; letter-spacing: 0; }
+  #btn-undo.rail-tool::after { content: "↩"; }
+  #btn-clear.rail-tool::after { content: "🗑"; }
+  #btn-undo.rail-tool, #btn-clear.rail-tool { font-size: 0; } /* 文字隐藏,::after 图标顶替 */
 
   /* ---- 黑板：占满主区，竖向画布 ---- */
   #board-frame { flex: 1; min-height: 0; }
@@ -716,7 +717,11 @@ button {
     z-index: 30;
     box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
   }
-  .drawer-head h2 { font-size: 16px; }
+  .drawer-head { margin: -2px -4px 0; }
+  .drawer-head h2 { font-size: 14px; letter-spacing: 1px; }
+  .drawer-head .tool-btn { padding: 2px 8px; font-size: 13px; height: 24px; border-radius: 6px; }
+  .drawer-tip { font-size: 11.5px; margin: -2px 0 0; }
+  #drawer, #answer-panel, #lecture-panel { gap: 6px; }
   #text-input { min-height: 96px; font-size: 15px; }
   .drawer-actions { flex-wrap: wrap; justify-content: stretch; }
   .drawer-actions .tool-btn, .drawer-actions .ai-btn { flex: 1 1 30%; height: 40px; }
