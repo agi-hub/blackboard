@@ -264,7 +264,7 @@ function applyLangUI() {
   }
   setNarrateBtn();
   const rail = $("#chalk-rail");
-  if (rail) $("#btn-rail").textContent = rail.classList.contains("rail-hidden") ? tt("显示粉笔", "Show Chalks") : tt("隐藏粉笔", "Hide Chalks");
+  if (rail) $("#btn-rail").textContent = rail.classList.contains("rail-hidden") ? tt("收回", "Show") : tt("粉笔", "Chalk");
   $("#btn-lang").textContent = lang === "en" ? "中文" : "EN";
   document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
   document.title = lang === "en" ? "ChalkTalk" : "敲黑板";
@@ -1984,7 +1984,7 @@ $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
 $("#btn-rail").addEventListener("click", () => {
   const rail = $("#chalk-rail");
   const hidden = rail.classList.toggle("rail-hidden");
-  $("#btn-rail").textContent = hidden ? tt("显示粉笔", "Show Chalks") : tt("隐藏粉笔", "Hide Chalks");
+  $("#btn-rail").textContent = hidden ? tt("收回", "Show") : tt("粉笔", "Chalk");
   $("#btn-rail").classList.toggle("hidden-rail", hidden); // 竖屏 ::after 短标签换文案
   toast(hidden ? tt("粉笔槽已隐藏", "Chalk rail hidden") : tt("粉笔槽已显示", "Chalk rail shown"), "");
 });
