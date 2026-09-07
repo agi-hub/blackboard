@@ -720,9 +720,9 @@ button {
   #btn-clear.rail-tool::after { content: "🗑"; font-size: 13px; }
   #btn-undo.rail-tool, #btn-clear.rail-tool { font-size: 0; } /* 文字隐藏,::after 图标顶替(必须显式给 ::after 字号,否则继承 0) */
 
-  /* ---- 黑板：占满主区，竖向画布 ---- */
-  #board-frame { flex: 1; min-height: 0; }
-  #board { border-radius: 8px; }
+  /* ---- 黑板：占满主区，竖向画布；木框收窄(手机省屏) ---- */
+  #board-frame { flex: 1; min-height: 0; padding: 7px; border-radius: 10px; }
+  #board { border-radius: 6px; }
 
   /* ---- 底部面板（输入素材 / AI 解答 / 讲义）：手机改底部工作表 ---- */
   #drawer, #answer-panel, #lecture-panel {

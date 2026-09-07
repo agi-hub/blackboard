@@ -2885,8 +2885,10 @@ function relayout() {
     for (const p of pages) p._laid = false;
   }
   const fr = $("#board-frame").getBoundingClientRect();
-  const availW = Math.max(100, fr.width - 32);
-  const availH = Math.max(100, fr.height - 32);
+  // 木框 padding 动态读取(竖屏 7px、横屏 16px),黑板贴框最大化
+  const pad = parseFloat(getComputedStyle($("#board-frame")).paddingLeft) || 16;
+  const availW = Math.max(100, fr.width - pad * 2);
+  const availH = Math.max(100, fr.height - pad * 2);
   const s = Math.min(availW / W, availH / H);
   boardEl.style.width = `${Math.floor(W * s)}px`;
   boardEl.style.height = `${Math.floor(H * s)}px`;
