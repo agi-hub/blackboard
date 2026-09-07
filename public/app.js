@@ -1325,7 +1325,7 @@ async function finishHoldTalk(mode = "materials") {
 // 按住说话:pointer 事件(鼠标+触摸统一);拖出按钮也算松开
 holdTalkBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
-  holdTalkBtn.setPointerCapture(e.pointerId);
+  try { holdTalkBtn.setPointerCapture(e.pointerId); } catch { /* 指针已释放等边缘情况 */ }
   startHoldTalk();
 });
 holdTalkBtn.addEventListener("pointerup", stopHoldTalk);

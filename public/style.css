@@ -800,18 +800,19 @@ button {
 }
 .crop-modal .drawer-actions { justify-content: flex-end; }
 
-/* ---------- 按住说话按钮（讲义区） ---------- */
+/* ---------- 按住说话按钮（输入素材抽屉） ---------- */
 #btn-holdtalk {
-  height: 44px;
-  border-radius: 22px;
-  font-size: 15px;
-  letter-spacing: 1px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
   color: var(--text);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--panel-edge);
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  white-space: nowrap;
 }
 #btn-holdtalk.recording {
   background: linear-gradient(160deg, #ff9e9e, #d95c5c);

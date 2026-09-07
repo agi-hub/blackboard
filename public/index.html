@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>敲黑板</title>
-  <link rel="stylesheet" href="style.css?v=27" />
+  <link rel="stylesheet" href="style.css?v=28" />
   <!-- CDN 开源楷体兜底（霞鹜文楷）：本地楷体名全部失效的环境（如 Safari 26 某些配置）自动启用，按需切片下载 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/style.css" />
@@ -105,6 +105,7 @@
       <div id="img-preview" class="hidden"><img id="img-thumb" alt="待识别图片" /><button id="btn-img-remove" class="tool-btn" title="移除图片">✕</button></div>
       <div class="drawer-actions">
         <button id="btn-image" class="tool-btn" title="拍照或从相册选图（选图后可裁剪），题目图片会自动附解题过程">上传图像</button>
+        <button id="btn-holdtalk" class="tool-btn" title="按住说话，松开后语音识别为文字填入素材文本框">🎤 按住说话</button>
         <button id="btn-generate" class="ai-btn primary">开始学习</button>
       </div>
     </aside>
@@ -145,7 +146,6 @@
         <button id="btn-lecture-close" class="tool-btn" title="收起讲义">✕</button>
       </div>
       <p class="drawer-tip">老师口述内容实时记录，念一句多一句；颜色跟随对应板书块。</p>
-      <button id="btn-holdtalk" title="按住说话，松开后语音识别为文字填入素材区">🎤 按住说话</button>
       <div id="lecture-body"></div>
     </aside>
   </main>
@@ -233,4 +233,4 @@
       }
     });
   </script>
-  <script src="app.js?v=27"></script>
+  <script src="app.js?v=28"></script>
