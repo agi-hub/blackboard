@@ -655,7 +655,8 @@ button {
   /* AI 按钮 + 设置：行 1 尾部同行（设置由 JS 移入此组） */
   .tb-group.spacer-right { order: 3; margin-left: 0; }
   .tb-group.spacer-right .ai-btn { height: 30px; font-size: 13px; padding: 0 7px; }
-  .tb-group.spacer-right .tool-btn { height: 30px; font-size: 13px; padding: 0 9px; }
+  .tb-group.spacer-right .tool-btn { height: 30px; font-size: 13px; padding: 0 9px; flex-shrink: 0; }
+  .tb-group.spacer-right { min-width: 0; }
   /* 工具组：行 2 单行均分（全屏/主题/截屏/保存/加载/隐藏粉笔/EN） */
   .tb-group:last-child { order: 4; width: 100%; display: flex; }
   .tb-group:last-child .tool-btn { flex: 1; height: 32px; font-size: 11.5px; padding: 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -663,6 +664,8 @@ button {
   #btn-rail { font-size: 0; padding: 0; }
   #btn-rail::after { content: "隐藏粉笔"; font-size: 11.5px; }
   #btn-rail.hidden-rail::after { content: "显示粉笔"; }
+  html[lang="en"] #btn-rail::after { content: "Hide"; }
+  html[lang="en"] #btn-rail.hidden-rail::after { content: "Show"; }
 
   /* ---- 主舞台：竖向堆叠（黑板主体 + 底部面板层） ---- */
   #stage {

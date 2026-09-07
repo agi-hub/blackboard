@@ -188,7 +188,7 @@ const tt = (zh, en) => (lang === "en" ? en : zh);
 
 // [selector, 中文, English, mode]  mode: text=textContent / first=首个文本节点(label 含输入控件) / ph=placeholder
 const UI_I18N = [
-  ["#btn-layout", "输入素材", "Materials", "text"],
+  ["#btn-layout", "输入素材", "Input", "text"],
   ["#btn-replay", "重播", "Replay", "text"],
   ["#btn-ask", "问问题", "Ask", "text"],
   ["#btn-fullscreen", "全屏", "Full Screen", "text"],
@@ -196,7 +196,7 @@ const UI_I18N = [
   ["#btn-export", "截屏", "Capture", "text"],
   ["#btn-save-course", "保存", "Save", "text"],
   ["#btn-load-course", "加载", "Load", "text"],
-  ["#btn-settings", "设置", "Settings", "text"],
+  ["#btn-settings", "设置", "Set", "text"],
   ["#drawer h2", "文本及图片 → 板书", "Text & Image → Board", "text"],
   ["#text-input", "粘贴文本…（可配合下方图片）", "Paste text… (images optional)", "ph"],
   ["#btn-image", "上传图像", "Upload Image", "text"],
