@@ -661,7 +661,8 @@ button {
   .tb-group:last-child .tool-btn { flex: 1; height: 32px; font-size: 11.5px; padding: 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* 「隐藏粉笔/显示粉笔」文字太长：竖屏显示短标签（JS 切换的 textContent 置零隐藏） */
   #btn-rail { font-size: 0; padding: 0; }
-  #btn-rail::after { content: "粉笔"; font-size: 11.5px; }
+  #btn-rail::after { content: "隐藏粉笔"; font-size: 11.5px; }
+  #btn-rail.hidden-rail::after { content: "显示粉笔"; }
 
   /* ---- 主舞台：竖向堆叠（黑板主体 + 底部面板层） ---- */
   #stage {
@@ -687,7 +688,6 @@ button {
     order: 2; /* stage 纵向流：黑板(1) → 粉笔条(2) */
     overflow-x: auto;
   }
-  #chalk-rail.rail-hidden { display: flex; } /* 竖屏常驻：横屏隐藏状态带入竖屏时强制恢复 */
   .rail-chalks, .rail-sizes { flex-direction: row; gap: 5px; }
   .rail-divider { display: none; } /* 竖屏删分隔线:省横向空间,按钮不再拥挤 */
   /* 圆形粉笔 */

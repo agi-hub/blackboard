@@ -1870,8 +1870,15 @@ boardEl.addEventListener("pointerdown", (e) => {
 
 async function toggleFullscreen() {
   try {
-    if (document.fullscreenElement) await document.exitFullscreen();
-    else await document.documentElement.requestFullscreen();
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      screen.orientation?.unlock?.(); // 退出全屏解除竖屏锁,交还系统自动旋转
+    } else {
+      await document.documentElement.requestFullscreen();
+      // 手机全屏常伴随手持姿势变化+系统自动旋转 → 误切横屏,竖版黑板布局(1000×1600)被打断。
+      // 全屏即锁竖屏(iOS 不支持 orientation.lock,静默忽略——iOS PWA 本身不受影响)。
+      await screen.orientation?.lock?.("portrait").catch(() => {});
+    }
   } catch {
     /* 浏览器拒绝时静默 */
   }
@@ -1884,6 +1891,7 @@ $("#btn-rail").addEventListener("click", () => {
   const rail = $("#chalk-rail");
   const hidden = rail.classList.toggle("rail-hidden");
   $("#btn-rail").textContent = hidden ? tt("显示粉笔", "Show Chalks") : tt("隐藏粉笔", "Hide Chalks");
+  $("#btn-rail").classList.toggle("hidden-rail", hidden); // 竖屏 ::after 短标签换文案
   toast(hidden ? tt("粉笔槽已隐藏", "Chalk rail hidden") : tt("粉笔槽已显示", "Chalk rail shown"), "");
 });
 
