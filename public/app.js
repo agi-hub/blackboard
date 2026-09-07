@@ -136,16 +136,25 @@ function invalidateFontArtifacts() {
 async function ensureFontsReady() {
   if (!document.fonts || !document.fonts.load) return;
   const seq = ++_fontGateSeq;
+  // 必须带中文样本：CDN 楷体按 unicode-range 切片，默认只预载拉丁切片，
+  // 中文切片不加载 → Safari canvas 不等 @font-face → 板书中文一直是 serif
+  const sample = "板书讲义敲黑板重点关键数据公式定理";
   try {
     await Promise.race([
-      Promise.all([document.fonts.load(`48px ${fontStack()}`), document.fonts.ready]),
-      new Promise((r) => setTimeout(r, 5000)), // CDN 不通最多等 5s，按本地回退字体渲染
+      Promise.all([document.fonts.load(`48px ${fontStack()}`, sample), document.fonts.ready]),
+      new Promise((r) => setTimeout(r, 5000)), // CDN 不通最多等 5s，先按回退字体渲染
     ]);
   } catch {
     /* 加载失败按当前字体渲染 */
   }
   if (seq !== _fontGateSeq) return; // 期间又切了字体，交给新一轮
   invalidateFontArtifacts();
+  // 超时兜底：5s 内 CDN 没到不永远放弃——webfont 真正就绪时再重排一次
+  if (document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      if (seq === _fontGateSeq) invalidateFontArtifacts();
+    });
+  }
 }
 
 // 切换字体：字粒缓存与排版全部失效，重排当前页。
@@ -162,24 +171,24 @@ const tt = (zh, en) => (lang === "en" ? en : zh);
 
 // [selector, 中文, English, mode]  mode: text=textContent / first=首个文本节点(label 含输入控件) / ph=placeholder
 const UI_I18N = [
-  ["#btn-layout", "✎ 输入素材", "✎ Materials", "text"],
-  ["#btn-replay", "↻ 重播", "↻ Replay", "text"],
-  ["#btn-ask", "🙋 问问题", "🙋 Ask", "text"],
-  ["#btn-fullscreen", "⛶ 全屏", "⛶ Full Screen", "text"],
-  ["#btn-theme", "◐ 主题", "◐ Theme", "text"],
-  ["#btn-export", "📷 截屏", "📷 Capture", "text"],
-  ["#btn-save-course", "💾 保存", "💾 Save", "text"],
-  ["#btn-load-course", "📂 加载", "📂 Load", "text"],
-  ["#btn-settings", "⚙ 设置", "⚙ Settings", "text"],
+  ["#btn-layout", "输入素材", "Materials", "text"],
+  ["#btn-replay", "重播", "Replay", "text"],
+  ["#btn-ask", "问问题", "Ask", "text"],
+  ["#btn-fullscreen", "全屏", "Full Screen", "text"],
+  ["#btn-theme", "主题", "Theme", "text"],
+  ["#btn-export", "截屏", "Capture", "text"],
+  ["#btn-save-course", "保存", "Save", "text"],
+  ["#btn-load-course", "加载", "Load", "text"],
+  ["#btn-settings", "设置", "Settings", "text"],
   ["#drawer h2", "文本及图片 → 板书", "Text & Image → Board", "text"],
   ["#text-input", "粘贴文本…（可配合下方图片）", "Paste text… (images optional)", "ph"],
-  ["#btn-image", "📷 上传图像", "📷 Upload Image", "text"],
+  ["#btn-image", "上传图像", "Upload Image", "text"],
   ["#btn-sample", "填入示例", "Sample", "text"],
-  ["#btn-generate", "🚀 开始学习", "🚀 Start", "text"],
+  ["#btn-generate", "开始学习", "Start", "text"],
   [".brand-name", "敲黑板", "ChalkTalk", "text"],
   ["#btn-undo", "撤销", "Undo", "text"],
   ["#btn-clear", "清屏", "Clear", "text"],
-  ["#answer-panel h2", "✦ AI 解答", "✦ AI Answer", "text"],
+  ["#answer-panel h2", "AI 解答", "AI Answer", "text"],
   ["#answer-panel .drawer-tip", "解答写在这块小黑板上，不影响左侧板书；点击可跳过书写。", "Answers appear on this side board without touching the main board; click to skip the writing.", "text"],
   ["#lecture-panel h2", "讲义", "Notes", "text"],
   ["#lecture-panel .drawer-tip", "老师口述内容实时记录，念一句多一句；颜色跟随对应板书块。", "The teacher's narration is transcribed live, one line at a time; colors follow the board blocks.", "text"],
@@ -239,8 +248,8 @@ function applyLangUI() {
   }
   setNarrateBtn();
   const rail = $("#chalk-rail");
-  if (rail) $("#btn-rail").textContent = rail.classList.contains("rail-hidden") ? tt("🖍 显示粉笔", "🖍 Show Chalks") : tt("🖍 隐藏粉笔", "🖍 Hide Chalks");
-  $("#btn-lang").textContent = lang === "en" ? "🌐 中文" : "🌐 EN";
+  if (rail) $("#btn-rail").textContent = rail.classList.contains("rail-hidden") ? tt("显示粉笔", "Show Chalks") : tt("隐藏粉笔", "Hide Chalks");
+  $("#btn-lang").textContent = lang === "en" ? "中文" : "EN";
   document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
   document.title = lang === "en" ? "ChalkTalk" : "敲黑板";
 }
@@ -248,7 +257,7 @@ function applyLangUI() {
 $("#btn-lang").addEventListener("click", () => {
   lang = lang === "en" ? "zh" : "en";
   applyLangUI();
-  fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lang }) }).catch(() => {});
+  fetch("api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lang }) }).catch(() => {});
   toast(lang === "en" ? "Switched to English — new boards & narration will be in English" : "已切换为中文", "ok");
 });
 
@@ -617,8 +626,29 @@ function layoutPage(page) {
     if (!byRegion.has(b.region)) byRegion.set(b.region, []);
     byRegion.get(b.region).push(b);
   }
-  // （已移除）前端强制独栏兜底：曾把图区文字迁往首个无图区，跨块重排在多页课程里
-  // 引发阅读顺序错乱（图/文字被挤到相邻页）。独栏交给服务端 Prompt 约束，前端不再干预。
+  // 图块尊重声明的 region（硬承诺）：Prompt 要求图独栏，LLM 把图分到哪个区就是哪个区，
+  // 不参与文字的贪心流动——否则图会被拉回文字区下方缩成小图（语音说"右图"却画在左栏文字下）。
+  // layFlow 内的 _figRegion 跳区逻辑负责实际入位。
+  for (const b of page.blocks) {
+    if (b.svg && b.region) b._figRegion = b.region;
+  }
+  // 违规兜底（与 9324580 旧方案的差异：只迁图、绝不迁文字——迁图不改变文字块的阅读顺序，
+  // 不会引发旧方案「文字跨区重排 → 图文错页」的问题）：图与文字混在同区且存在完全空置区时，
+  // 把图块移入空区。模型守规矩时（图已独栏）这里什么都不做。
+  const figBlocks = page.blocks.filter((b) => b.svg && b.region);
+  if (figBlocks.length) {
+    const usedIds = new Set(page.blocks.filter((b) => !b.svg && b.region).map((b) => b.region));
+    const emptyIds = page.regions.filter((r) => !usedIds.has(r.id)).map((r) => r.id);
+    const mixed = figBlocks.filter((b) => usedIds.has(b.region));
+    for (let i = 0; i < mixed.length && i < emptyIds.length; i++) {
+      const list = byRegion.get(mixed[i].region);
+      list.splice(list.indexOf(mixed[i]), 1);
+      mixed[i].region = emptyIds[i];
+      mixed[i]._figRegion = emptyIds[i]; // 强制 layFlow 直接送图入该区（图宽收敛按目标区宽度算）
+      if (!byRegion.has(emptyIds[i])) byRegion.set(emptyIds[i], []);
+      byRegion.get(emptyIds[i]).push(mixed[i]);
+    }
+  }
   const baseFonts = new Map(); // 每块原始字号（多轮收缩的基准）
   for (const b of page.blocks) baseFonts.set(b.uid, b.fontSize || 45);
 
@@ -668,6 +698,18 @@ function layoutPage(page) {
       let fits = false;
       let hops = 0; // 换区次数：文本最多 1 次；图可顺流到装得下的区（而非被硬性宽度顶出去）
       for (;;) {
+        // 图独栏兜底标记：图已被指定到空区 → 直接跳到目标区再排版（图宽按目标区宽度收敛）
+        if (b._figRegion && cur.r.id !== b._figRegion) {
+          const ti = flowOrder.findIndex((x) => x.id === b._figRegion);
+          if (ti >= 0) {
+            cur.contentH = cursorY;
+            ri = ti;
+            cur = outByRegion.get(b._figRegion);
+            b.region = cur.r.id;
+            b.x = cur.r.x + 24;
+            openRegion();
+          }
+        }
         const avail = regionH() - 6 - cursorY;
         if (b.svg) {
           const aspect = b._figure ? b._figure.aspect : 0.75;
@@ -1117,11 +1159,13 @@ const lectureBody = $("#lecture-body");
 let lectureQueue = []; // { text, at, color }
 let lecturePtr = 0;
 
+let lecturePanelHidden = false; // 用户显式关闭讲义后为 true：翻页/新页讲解不再强制弹出
+
 function lectureReset(show) {
   lectureQueue = [];
   lecturePtr = 0;
   lectureBody.innerHTML = "";
-  if (show) $("#lecture-panel").classList.remove("hidden");
+  if (show && !lecturePanelHidden) $("#lecture-panel").classList.remove("hidden");
 }
 
 // 时间线每帧调用：把到点的话句追加进讲义区
@@ -1152,7 +1196,10 @@ function pushLectureSay(b, windowStart, windowDur) {
   }
 }
 
-$("#btn-lecture-close").addEventListener("click", () => $("#lecture-panel").classList.add("hidden"));
+$("#btn-lecture-close").addEventListener("click", () => {
+  lecturePanelHidden = true;
+  $("#lecture-panel").classList.add("hidden");
+});
 
 const NARRATE_WRITE_MS = 80; // 讲解模式：快写节奏（教师写字不出声，写完再讲）
 
@@ -1163,7 +1210,7 @@ const narration = { playing: false, seq: 0, timers: [], audios: [] };
 function setNarrateBtn() {
   const b = $("#btn-narrate");
   if (b) {
-    b.textContent = narration.playing ? tt("⏹ 停止", "⏹ Stop") : tt("🔊 讲解", "🔊 Narrate");
+    b.textContent = narration.playing ? tt("停止", "Stop") : tt("讲解", "Narrate");
     b.classList.toggle("primary", !narration.playing);
   }
 }
@@ -1253,7 +1300,7 @@ async function fetchVoice(b) {
     return fallback;
   }
   try {
-    const res = await fetch("/api/tts", {
+    const res = await fetch("api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: say, voice: voiceId }),
@@ -1754,7 +1801,7 @@ $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
 $("#btn-rail").addEventListener("click", () => {
   const rail = $("#chalk-rail");
   const hidden = rail.classList.toggle("rail-hidden");
-  $("#btn-rail").textContent = hidden ? tt("🖍 显示粉笔", "🖍 Show Chalks") : tt("🖍 隐藏粉笔", "🖍 Hide Chalks");
+  $("#btn-rail").textContent = hidden ? tt("显示粉笔", "Show Chalks") : tt("隐藏粉笔", "Hide Chalks");
   toast(hidden ? tt("粉笔槽已隐藏", "Chalk rail hidden") : tt("粉笔槽已显示", "Chalk rail shown"), "");
 });
 
@@ -1923,6 +1970,7 @@ async function loadCourseFile(file) {
     stopApAnim(false);
     apPanel.classList.add("hidden");
     lectureReset(false);
+    lecturePanelHidden = false; // 新课程 = 新会话：重置用户对讲义面板的选择
     $("#lecture-panel").classList.add("hidden");
     const newPages = data.pages.map(normalizePage).filter((p) => p.titleBlock || p.blocks.length || p.summaryBlock);
     if (!newPages.length) throw new Error("课程文件里没有内容");
@@ -1970,7 +2018,7 @@ let askMode = false;
 function setAskMode(on) {
   askMode = on;
   const b = $("#btn-ask");
-  b.textContent = on ? tt("↩ 还原听课", "↩ Lesson") : tt("🙋 问问题", "🙋 Ask");
+  b.textContent = on ? tt("还原听课", "Lesson") : tt("问问题", "Ask");
   b.classList.toggle("primary", on);
   boardEl.classList.toggle("ask-mode", on);
   // 面板互斥：提问模式只看 AI 解答——隐藏讲义；还原听课时若讲解进行中则恢复讲义
@@ -1979,7 +2027,7 @@ function setAskMode(on) {
   } else {
     stopApAnim(false);
     apPanel.classList.add("hidden");
-    if (narration.playing || narration.pending) $("#lecture-panel").classList.remove("hidden");
+    if (!lecturePanelHidden && (narration.playing || narration.pending)) $("#lecture-panel").classList.remove("hidden");
   }
 }
 
@@ -2026,7 +2074,7 @@ async function handleAskClick(e) {
       .map((b) => b.text)
       .join("\n")
       .slice(0, 2000);
-    const res = await fetch("/api/ask", {
+    const res = await fetch("api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ line: hit.line, context, x: Math.round(pt.x), y: Math.round(pt.y), canvasW: W, canvasH: H, ...(lang === "en" ? { lang: "en" } : {}) }),
@@ -2110,7 +2158,7 @@ $("#board-image").addEventListener("change", async (e) => {
   if (!f) return;
   try {
     setImage(await fileToShrunkDataURL(f));
-    toast("图片已就绪，点「🚀 开始学习」一起生成", "ok");
+    toast("图片已就绪，点「开始学习」一起生成", "ok");
   } catch (err) {
     toast(err.message, "err");
   }
@@ -2123,7 +2171,7 @@ async function generateBoard() {
   if (!text && !pendingImage) return toast(tt("先粘贴文本或拍张照片", "Paste text or upload a photo first"), "err");
   thinking(true, tt("老师正在备课…", "Teacher is preparing the lesson…"));
   try {
-    const res = await fetch("/api/text2board", {
+    const res = await fetch("api/text2board", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2455,7 +2503,7 @@ for (const tab of document.querySelectorAll(".mtab")) {
 
 async function openSettings() {
   try {
-    const res = await fetch("/api/config");
+    const res = await fetch("api/config");
     const cfg = await res.json();
     $("#cfg-baseUrl").value = cfg.baseUrl || "";
     $("#cfg-apiKey").value = cfg.apiKeyMasked || "";
@@ -2496,7 +2544,7 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     grain: Number($("#cfg-grain").value),
   };
   try {
-    const res = await fetch("/api/config", {
+    const res = await fetch("api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -2536,11 +2584,11 @@ new ResizeObserver(relayout).observe($("#board-frame"));
 relayout();
 syncToolbar();
 syncPageNav();
-fetch("/api/config")
+fetch("api/config")
   .then((r) => r.json())
   .then((cfg) => {
     if (!cfg.hasKey) {
-      toast(tt("尚未配置 API Key，点「⚙ 设置」填写后即可使用 AI", "No API key yet — open ⚙ Settings to enable AI"), "err");
+      toast(tt("尚未配置 API Key，点「设置」填写后即可使用 AI", "No API key yet — open Settings to enable AI"), "err");
     }
     if (cfg.lang === "en") {
       lang = "en";
