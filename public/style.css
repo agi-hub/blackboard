@@ -633,3 +633,109 @@ button {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+
+/* ==================== 手机竖屏布局 ==================== */
+/* 触发条件与 app.js isPortrait() 保持一致：窄屏 + 竖向 */
+@media (max-width: 760px) and (orientation: portrait) {
+  :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+
+  /* ---- 顶部工具栏：紧凑两行，全宽按钮，适合拇指触达 ---- */
+  #toolbar {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 8px 10px calc(8px);
+  }
+  .tb-group { gap: 6px; }
+  .tb-group.brand { order: 1; margin-right: auto; }
+  .brand-name { font-size: 17px; letter-spacing: 2px; }
+  .brand-logo svg { width: 22px; height: 22px; }
+  /* 翻页组放品牌右侧 */
+  #page-nav { order: 2; margin-left: auto; }
+  #page-nav #page-indicator { font-size: 12px; min-width: 34px; text-align: center; }
+  /* AI 操作组独占第二行 */
+  .tb-group.spacer-right { order: 3; width: 100%; }
+  .tb-group.spacer-right .ai-btn { flex: 1; height: 40px; font-size: 15px; padding: 0 4px; }
+  /* 工具组收进第二行尾部/第三行，按钮等分 */
+  .tb-group:last-child { order: 4; width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .tb-group:last-child .tool-btn { height: 34px; font-size: 12px; padding: 0 2px; }
+  #btn-rail, #btn-lang { display: none; } /* 竖屏粉笔槽常驻无隐藏需求；语言切换低频，留给设置 */
+
+  /* ---- 主舞台：竖向堆叠（黑板主体 + 底部面板层） ---- */
+  #stage {
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* ---- 粉笔槽：左侧窄条（40px），方形粉笔块 ---- */
+  #chalk-rail {
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    margin: 0;
+    padding: 8px 0;
+    gap: 8px;
+    border-radius: 10px;
+    z-index: 5;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.06), inset 0 0 12px rgba(0,0,0,0.45), 0 6px 18px rgba(0,0,0,0.5);
+  }
+  #stage { position: relative; }
+  .rail-chalks, .rail-sizes { gap: 9px; }
+  .rail-divider { width: 24px; }
+  /* 方形粉笔（竖条短块，不保留横放粉笔造型） */
+  #chalk-rail.rail-hidden { display: flex; } /* 竖屏常驻：横屏隐藏状态带入竖屏时强制恢复 */
+  #chalk-rail .chalk-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+  }
+  #chalk-rail .chalk-dot::after { display: none; } /* 去掉磁铁贴片装饰 */
+  .size-btn { width: 30px; height: 30px; }
+  .size-btn .dot { width: 22px; height: 22px; }
+  .size-btn .dot.s, .size-btn .dot.m, .size-btn .dot.l { background-size: 8px 8px, 8px 8px, 100% 100%; }
+  #btn-eraser { width: 26px; height: 34px; }
+  #btn-eraser .felt { width: 14px; height: 22px; }
+  .rail-tool { font-size: 11px; padding: 5px 2px; width: 30px; }
+
+  /* ---- 黑板：占满主区，竖向画布 ---- */
+  #board-frame { flex: 1; min-height: 0; }
+  #board { border-radius: 8px; }
+
+  /* ---- 底部面板（输入素材 / AI 解答 / 讲义）：手机改底部工作表 ---- */
+  #drawer, #answer-panel, #lecture-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 52vh;
+    border-radius: 16px 16px 0 0;
+    padding: 12px 14px calc(12px + var(--safe-b));
+    z-index: 30;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+  }
+  .drawer-head h2 { font-size: 16px; }
+  #text-input { min-height: 96px; font-size: 15px; }
+  .drawer-actions { flex-wrap: wrap; justify-content: stretch; }
+  .drawer-actions .tool-btn, .drawer-actions .ai-btn { flex: 1 1 30%; height: 40px; }
+  #answer-panel { max-height: 58vh; }
+  #lecture-panel { max-height: 44vh; }
+  #lecture-body p { font-size: 14px; line-height: 1.7; }
+
+  /* ---- 设置弹窗：全屏化 ---- */
+  #settings-modal .modal {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    padding: 14px calc(14px + env(safe-area-inset-right, 0px)) calc(14px + var(--safe-b));
+  }
+  .modal-body { max-height: calc(100vh - 130px); }
+  .modal label, .modal input, .modal select { font-size: 15px; }
+
+  /* ---- 提示与思考遮罩 ---- */
+  #toast { max-width: calc(100vw - 32px); font-size: 14px; }
+  #thinking-text { font-size: 15px; letter-spacing: 2px; }
+}

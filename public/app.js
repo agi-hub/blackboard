@@ -7,8 +7,25 @@ window.__APP_VER = 3; // 缓存自检标记：index.html 内联脚本据此判�
 
 // ---------- 常量与状态 ----------
 
-const W = 1600;
-const H = 1000;
+// 逻辑画布尺寸：横屏 1600×1000；竖屏（手机）1000×1600——板书跟着屏幕方向走，
+// 生成板书时按当前方向请求对应画布，排版/导出/截图全链路读这两个值。
+let W = 1600;
+let H = 1000;
+
+// 竖屏模式检测：窄屏竖向（手机竖屏）。CSS 侧用同条件做布局切换（media query）。
+function isPortrait() {
+  return window.matchMedia("(max-width: 760px) and (orientation: portrait)").matches;
+}
+function applyOrientation() {
+  if (isPortrait()) {
+    if (W !== 1000) { W = 1000; H = 1600; return true; }
+  } else if (W !== 1600) {
+    W = 1600;
+    H = 1000;
+    return true;
+  }
+  return false;
+}
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -2233,7 +2250,7 @@ async function generateBoard() {
 const apPanel = $("#answer-panel");
 const apCanvas = $("#ap-canvas");
 const apCtx = apCanvas.getContext("2d");
-const AP_W = 560;
+const AP_W = 560; // 横屏解答面板逻辑宽（竖屏下 CSS 全宽显示，画布按容器缩放，逻辑宽高比仅影响排版密度）
 const AP_H = 1000;
 let apAnim = null; // { blocks, entries, marks, dur, startTs, tNow, audios, timers }
 let apSeq = 0;
@@ -2584,6 +2601,12 @@ $("#btn-cfg-save").addEventListener("click", async () => {
 // ---------- 尺寸自适应（等比 letterbox） ----------
 
 function relayout() {
+  // 方向切换（横竖屏旋转）：逻辑画布随之切换并整体重排（已有内容按新方向重新排版）
+  if (applyOrientation()) {
+    spriteCache.clear();
+    layouts.clear();
+    for (const p of pages) p._laid = false;
+  }
   const fr = $("#board-frame").getBoundingClientRect();
   const availW = Math.max(100, fr.width - 32);
   const availH = Math.max(100, fr.height - 32);
@@ -2597,6 +2620,7 @@ function relayout() {
 }
 
 new ResizeObserver(relayout).observe($("#board-frame"));
+window.matchMedia("(max-width: 760px) and (orientation: portrait)").addEventListener("change", relayout);
 
 // ---------- 启动 ----------
 
