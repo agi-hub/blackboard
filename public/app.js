@@ -1969,14 +1969,42 @@ async function toggleFullscreen() {
       screen.orientation?.unlock?.(); // 退出全屏解除竖屏锁,交还系统自动旋转
     } else {
       await document.documentElement.requestFullscreen();
-      // 手机全屏常伴随手持姿势变化+系统自动旋转 → 误切横屏,竖版黑板布局(1000×1600)被打断。
-      // 全屏即锁竖屏(iOS 不支持 orientation.lock,静默忽略——iOS PWA 本身不受影响)。
-      await screen.orientation?.lock?.("portrait").catch(() => {});
+      await lockPortraitWhileFullscreen();
     }
   } catch {
     /* 浏览器拒绝时静默 */
   }
 }
+
+// 全屏期间保持竖屏:进入即锁 + 旋转事件里反复纠正(部分引擎首次 lock 被忽略/竞态丢失)。
+// iOS 不支持 orientation.lock —— 无法 JS 强制,保持现状(系统旋转跟随设备)。
+async function lockPortraitWhileFullscreen() {
+  if (!document.fullscreenElement) return;
+  const doLock = async () => {
+    try {
+      await screen.orientation?.lock?.("portrait");
+    } catch {
+      /* 不支持则忽略 */
+    }
+  };
+  await doLock();
+  // 全屏切换动画期间首次 lock 可能被拒:动画完成后再锁一次(竞态兜底)
+  setTimeout(() => {
+    if (document.fullscreenElement && screen.orientation?.type?.startsWith("landscape")) doLock();
+  }, 350);
+}
+// 全屏中系统仍可能旋到横屏(锁被引擎释放/竞态):检测到就再锁回去
+screen.orientation?.addEventListener?.("change", () => {
+  if (document.fullscreenElement && screen.orientation.type?.startsWith("landscape")) {
+    lockPortraitWhileFullscreen();
+    toast(tt("已锁定竖屏", "Portrait locked"), "");
+  }
+});
+// 全屏状态变化:进入时锁,退出时解锁
+document.addEventListener("fullscreenchange", () => {
+  if (document.fullscreenElement) lockPortraitWhileFullscreen();
+  else screen.orientation?.unlock?.().catch?.(() => {});
+});
 
 $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
 
