@@ -138,7 +138,8 @@ html, body {
 }
 
 body {
-  font-family: "Chalkboard SE", "Kaiti SC", "STKaiti", "Kaiti TC", "楷体-简", "楷体", "KaiTi", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "LXGW WenKai", -apple-system, sans-serif;
+  /* 界面全部用系统默认字体；楷体只用于板书画布（app.js fontStack() 走 canvas） */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   background: radial-gradient(1200px 700px at 50% -10%, #26221d, var(--bg));
   color: var(--text);
   display: flex;
@@ -146,6 +147,7 @@ body {
 }
 
 button {
+  /* UI 控件用系统默认字体；楷体只留给板书画布（canvas fontStack） */
   font-family: inherit;
   cursor: pointer;
   border: none;
