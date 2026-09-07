@@ -273,14 +273,11 @@ function applyLangUI() {
 // 竖屏：设置按钮移入 AI 按钮行（行 1），避免工具行 8 按钮挤爆；横屏移回工具组
 const mqPortrait = window.matchMedia("(max-width: 760px) and (orientation: portrait)");
 function placeSettingsBtn() {
-  const btn = $("#btn-settings");
-  const target = mqPortrait.matches ? $(".tb-group.spacer-right") : btn.closest("#toolbar").lastElementChild;
-  if (btn.parentElement !== target) {
-    if (mqPortrait.matches) {
-      target.appendChild(btn); // 移到行 1 尾部
-    } else {
-      target.appendChild(btn); // 横屏放回工具组末尾
-    }
+  // 竖屏:设置+EN 移入 AI 按钮行(行1);横屏:放回工具组末尾
+  const btns = [$("#btn-settings"), $("#btn-lang")];
+  const target = mqPortrait.matches ? $(".tb-group.spacer-right") : document.querySelector("#toolbar").lastElementChild;
+  for (const btn of btns) {
+    if (btn && btn.parentElement !== target) target.appendChild(btn);
   }
 }
 mqPortrait.addEventListener("change", placeSettingsBtn);
@@ -637,16 +634,26 @@ function layoutPage(page) {
 
   // 分隔线在区域堆叠后基于最终几何计算（见下方）
 
-  // 页标题：居中大字
+  // 页标题：居中大字;长标题缩字号保证单行(手机窄画布标题曾溢出换行)
   if (page.titleBlock) {
     const t = page.titleBlock;
     t.fontSize = clampNum(t.fontSize || 72, 60, 88);
-    t.width = W - 200;
+    t.width = W - 120;
+    for (let tries = 0; tries < 12; tries++) {
+      computeLayout(t);
+      textCtx.font = fontString(t);
+      const lines = layouts.get(t.uid).lines;
+      let tw = 0;
+      for (const l of lines) tw = Math.max(tw, textCtx.measureText(l).width);
+      if (lines.length <= 1 && tw <= t.width) break;
+      if (t.fontSize <= 40) break;
+      t.fontSize = Math.max(40, Math.round(t.fontSize * 0.88));
+    }
     computeLayout(t);
     textCtx.font = fontString(t);
     let tw = 0;
     for (const l of layouts.get(t.uid).lines) tw = Math.max(tw, textCtx.measureText(l).width);
-    t.x = Math.max(40, (W - tw) / 2);
+    t.x = Math.max(30, (W - tw) / 2);
     t.y = 28;
   }
 
@@ -1204,6 +1211,24 @@ function runTimeline(entries, dividerMap, dur, onDone, onFrame) {
   animState.onDone = onDone;
 }
 
+// ---------- 屏幕常亮：讲解播放期间 Wake Lock(手机不自动熄屏) ----------
+let wakeLock = null;
+async function acquireWakeLock() {
+  try {
+    if ("wakeLock" in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    }
+  } catch { /* 不支持/被拒 → 忽略,系统默认行为 */ }
+}
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+}
+document.addEventListener("visibilitychange", () => {
+  // 页面回前台且仍在讲解 → 重新持有(系统在后台时会自动释放)
+  if (document.visibilityState === "visible" && (narration.playing || narration.pending)) acquireWakeLock();
+});
+
 // ---------- 讲义区：老师口述实时记录（念一句，多一句） ----------
 
 const lectureBody = $("#lecture-body");
@@ -1283,6 +1308,7 @@ function stopNarration() {
   narration.audios = [];
   lectureTick(Infinity); // 跳过讲解时讲义立即补全
   setNarrateBtn();
+  releaseWakeLock(); // 讲解结束恢复系统默认熄屏
 }
 
 // 讲解音色（SiliconFlow CosyVoice2 全部预置音色，性别为基音实测）
@@ -1502,6 +1528,7 @@ async function playNarration(page, blockList) {
   narration.playing = true;
   narration.pending = !blockList; // 整页讲解预取语音时画面空白；追加讲解保持现有板书
   setNarrateBtn();
+  acquireWakeLock(); // 讲解期间保持屏幕常亮
   await loadFigures(page); // 图先加载（结果不进 voices，曾因混入导致 voices 错位、时间线时长 NaN 秒完）
   const voices = await Promise.all(blocks.map(fetchVoice));
   // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
@@ -2500,6 +2527,7 @@ async function acceptStreamPage(pg, receivedPages, getStarted, setStarted) {
     redrawStrokes();
     page.animated = true;
     $("#drawer").classList.add("hidden");
+    thinking(false); // 首页开讲即撤遮罩:后续页在后台继续生成,不再挡住讲解画面
     toast(tt("第一页好了，先开讲（后续页备课中…）", "First page ready — starting (more pages coming…)"), "ok");
     playNarration(page); // 首页到达即开讲
   } else {

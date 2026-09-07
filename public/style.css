@@ -689,7 +689,7 @@ button {
   }
   #chalk-rail.rail-hidden { display: flex; } /* 竖屏常驻：横屏隐藏状态带入竖屏时强制恢复 */
   .rail-chalks, .rail-sizes { flex-direction: row; gap: 5px; }
-  .rail-divider { width: 2px; height: 22px; flex-shrink: 0; }
+  .rail-divider { display: none; } /* 竖屏删分隔线:省横向空间,按钮不再拥挤 */
   /* 圆形粉笔 */
   #chalk-rail .chalk-dot {
     width: 18px;
