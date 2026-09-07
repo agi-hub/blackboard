@@ -2338,9 +2338,11 @@ function positionCropBox() {
   const stage = $("#crop-stage");
   let startPt = null;
   const ptOf = (e) => {
+    // 相对图片归一化(非 stage——图片居中留白会把坐标算小、框画偏)
     const t = e.touches ? e.touches[0] : e;
-    const r = stage.getBoundingClientRect();
-    return { x: (t.clientX - r.left) / r.width, y: (t.clientY - r.top) / r.height };
+    const r = $("#crop-img").getBoundingClientRect();
+    const clamp01 = (v) => Math.min(1, Math.max(0, v));
+    return { x: clamp01((t.clientX - r.left) / r.width), y: clamp01((t.clientY - r.top) / r.height) };
   };
   const down = (e) => {
     if (!cropState.img) return;
