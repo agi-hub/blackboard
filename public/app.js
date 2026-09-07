@@ -2295,7 +2295,7 @@ async function askByVoice(question, e) {
     const blocks = [
       mkBlock({ text: data.text, say: data.text, x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }, "block", { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }),
     ].filter(Boolean);
-    apPlay(blocks, tt("语音提问", "Voice question"));
+    apPlay(blocks, "");
     toast(tt("AI 已解答", "AI answered"), "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
@@ -2335,7 +2335,7 @@ async function handleAskClick(e) {
     const blocks = [
       mkBlock({ text: data.text, say: data.text, x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }, "block", { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }),
     ].filter(Boolean);
-    apPlay(blocks, tt("课堂提问", "Question"));
+    apPlay(blocks, "");
     toast(tt("AI 已解答（新问题会覆盖前一问）", "AI answered (a new question replaces the previous)"), "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
@@ -2771,10 +2771,15 @@ function apBlockHeight(b) {
 
 // 面板排版：顶部“AI 解答”题头 → 图优先 → 逐块下排，高度自适应
 function apLayoutBlocks(blocks, title) {
-  const head = { uid: `ap${++uidSeq}`, kind: "header", text: title || "AI 解答", x: 40, y: 30, width: AP_W - 80, fontSize: 44, color: "#ffe066", emphasis: [] };
-  computeApLayout(head);
-  const out = [head];
-  let cursor = 30 + layouts.get(head.uid).lineH + 18;
+  // 题头可省(空标题直接排解答内容,不写「语音提问/AI 解答」字样)
+  const out = [];
+  let cursor = 30;
+  if (title) {
+    const head = { uid: `ap${++uidSeq}`, kind: "header", text: title, x: 40, y: 30, width: AP_W - 80, fontSize: 44, color: "#ffe066", emphasis: [] };
+    computeApLayout(head);
+    out.push(head);
+    cursor += layouts.get(head.uid).lineH + 18;
+  }
   const list = [...blocks.filter((b) => b.svg), ...blocks.filter((b) => !b.svg)];
   for (const b of list) {
     b.fontSize = clampNum(b.fontSize || 36, 26, 44);
