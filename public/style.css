@@ -799,3 +799,28 @@ button {
   z-index: 1;
 }
 .crop-modal .drawer-actions { justify-content: flex-end; }
+
+/* ---------- 按住说话按钮（讲义区） ---------- */
+#btn-holdtalk {
+  height: 44px;
+  border-radius: 22px;
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: var(--text);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--panel-edge);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+#btn-holdtalk.recording {
+  background: linear-gradient(160deg, #ff9e9e, #d95c5c);
+  border-color: #ffb1b1;
+  color: #2a0d0d;
+  font-weight: 700;
+  animation: holdtalk-pulse 1.2s ease-in-out infinite;
+}
+@keyframes holdtalk-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 120, 120, 0.5); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 120, 120, 0); }
+}

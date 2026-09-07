@@ -1256,6 +1256,75 @@ function lectureTick(t) {
   }
 }
 
+// ---------- 按住说话：录音 → ASR(SiliconFlow /audio/transcriptions) → 文字填入素材区 ----------
+const holdTalk = { rec: null, chunks: [], active: false, timer: 0 };
+const holdTalkBtn = $("#btn-holdtalk");
+
+async function startHoldTalk() {
+  if (holdTalk.active) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    holdTalk.rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "" });
+    holdTalk.chunks = [];
+    holdTalk.rec.ondataavailable = (e) => { if (e.data.size) holdTalk.chunks.push(e.data); };
+    holdTalk.rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop()); // 释放麦克风
+      finishHoldTalk();
+    };
+    holdTalk.active = true;
+    holdTalk.rec.start();
+    holdTalkBtn.classList.add("recording");
+    holdTalkBtn.textContent = "● 正在录音…松开结束";
+  } catch (e) {
+    toast(tt("麦克风不可用", "Microphone unavailable") + `: ${String(e.message || e).slice(0, 60)}`, "err");
+  }
+}
+
+function stopHoldTalk() {
+  if (!holdTalk.active) return;
+  holdTalk.active = false;
+  try { holdTalk.rec.stop(); } catch { /* 已停 */ }
+}
+
+async function finishHoldTalk() {
+  holdTalkBtn.classList.remove("recording");
+  holdTalkBtn.textContent = "🎤 按住说话";
+  const blob = new Blob(holdTalk.chunks, { type: holdTalk.rec.mimeType || "audio/webm" });
+  if (blob.size < 2000) return toast(tt("录音太短", "Recording too short"), "err");
+  holdTalkBtn.textContent = "识别中…";
+  try {
+    const form = new FormData();
+    form.append("model", "FunAudioLLM/SenseVoiceSmall");
+    form.append("file", blob, "speech.webm");
+    const res = await fetch("api/asr", { method: "POST", body: form });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    const text = (data.text || "").trim();
+    if (!text) throw new Error(tt("未识别到内容", "Nothing recognized"));
+    // 填入素材输入区(保留已有内容,追加)
+    const input = $("#text-input");
+    input.value = input.value ? input.value.replace(/\s*$/, "") + "\n" + text : text;
+    $("#drawer").classList.remove("hidden"); // 打开素材区展示结果
+    toast(tt("已识别并填入素材区", "Recognized into materials"), "ok");
+  } catch (e) {
+    toast(String(e.message || e).slice(0, 80), "err");
+  } finally {
+    holdTalkBtn.textContent = "🎤 按住说话";
+  }
+}
+
+// 按住说话:pointer 事件(鼠标+触摸统一);拖出按钮也算松开
+holdTalkBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  holdTalkBtn.setPointerCapture(e.pointerId);
+  startHoldTalk();
+});
+holdTalkBtn.addEventListener("pointerup", stopHoldTalk);
+holdTalkBtn.addEventListener("pointercancel", stopHoldTalk);
+// 键盘无障碍:空格按住
+holdTalkBtn.addEventListener("keydown", (e) => { if (e.code === "Space" && !e.repeat) { e.preventDefault(); startHoldTalk(); } });
+holdTalkBtn.addEventListener("keyup", (e) => { if (e.code === "Space") stopHoldTalk(); });
+
 // 把一段讲稿按句切分，按字符位置比例映射到语音时间窗
 function pushLectureSay(b, windowStart, windowDur) {
   const parsed = parseSay(b.say);

@@ -780,6 +780,38 @@ Bun.serve({
         return Response.json({ ok: true, text });
       }
 
+      // ---- 按住说话：语音识别（SiliconFlow /audio/transcriptions，密钥复用 TTS 配置） ----
+      if (path === "/api/asr" && req.method === "POST") {
+        const cfg = loadConfig();
+        if (!cfg.ttsApiKey) return jsonError("未配置 TTS/ASR API Key，请先在「设置」中填写", 400);
+        const form = await req.formData();
+        const file = form.get("file");
+        const model = form.get("model");
+        if (!(file instanceof File) || file.size === 0) return jsonError("音频文件缺失", 400);
+        if (file.size > 20_000_000) return jsonError("音频过大（上限 20MB）", 400);
+        const upstream = new FormData();
+        upstream.append("model", typeof model === "string" && /^[\w/.-]+$/.test(model) ? model : "FunAudioLLM/SenseVoiceSmall");
+        upstream.append("file", file, file.name || "speech.webm");
+        try {
+          const asrRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/audio/transcriptions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${cfg.ttsApiKey}` },
+            body: upstream,
+            signal: AbortSignal.timeout(120_000),
+          });
+          if (!asrRes.ok) {
+            const errText = (await asrRes.text()).slice(0, 300);
+            return jsonError(`ASR 服务返回 ${asrRes.status}: ${errText}`, 502);
+          }
+          const data: unknown = await asrRes.json();
+          const text = isRecord(data) && isStr(data.text) ? data.text : "";
+          return Response.json({ ok: true, text });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return jsonError(msg.slice(0, 400), 500);
+        }
+      }
+
       // ---- 讲稿配音（SiliconFlow 兼容 /audio/speech） ----
       if (path === "/api/tts" && req.method === "POST") {
         const body = await readJSONBody(req);
