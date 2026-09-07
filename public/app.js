@@ -1280,7 +1280,7 @@ async function startHoldTalk(mode = "materials") {
     holdTalk.rec.start();
     if (mode === "materials") {
       holdTalkBtn.classList.add("recording");
-      holdTalkBtn.textContent = "● 正在录音…松开结束";
+      holdTalkBtn.textContent = "● 录音中…再按停止";
     }
   } catch (e) {
     toast(tt("麦克风不可用", "Microphone unavailable") + `: ${String(e.message || e).slice(0, 60)}`, "err");
@@ -1343,17 +1343,11 @@ async function finishHoldTalk(mode = "materials") {
   toast(tt("已识别并填入素材区", "Recognized into materials"), "ok");
 }
 
-// 按住说话:pointer 事件(鼠标+触摸统一);拖出按钮也算松开
-holdTalkBtn.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  try { holdTalkBtn.setPointerCapture(e.pointerId); } catch { /* 指针已释放等边缘情况 */ }
-  startHoldTalk();
+// 按一下开始录音,再按一下停止并识别(切换式;长按曾与手机系统快捷手势冲突)
+holdTalkBtn.addEventListener("click", () => {
+  if (holdTalk.active) stopHoldTalk();
+  else startHoldTalk();
 });
-holdTalkBtn.addEventListener("pointerup", stopHoldTalk);
-holdTalkBtn.addEventListener("pointercancel", stopHoldTalk);
-// 键盘无障碍:空格按住
-holdTalkBtn.addEventListener("keydown", (e) => { if (e.code === "Space" && !e.repeat) { e.preventDefault(); startHoldTalk(); } });
-holdTalkBtn.addEventListener("keyup", (e) => { if (e.code === "Space") stopHoldTalk(); });
 
 // 把一段讲稿按句切分，按字符位置比例映射到语音时间窗
 function pushLectureSay(b, windowStart, windowDur) {
@@ -1923,45 +1917,13 @@ $("#btn-next-page").addEventListener("click", () => goToPage(curPage + 1));
 let current = null;
 let lastTap = null; // 手动双击检测（preventDefault 会抑制原生 dblclick）
 
-let askHold = { timer: 0, recording: false, downEvt: null };
+let askHold = { downEvt: null }; // 语音提问按钮记录(无位置上下文场景)
 boardEl.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   e.preventDefault();
-  // 提问模式：短按 = 指着某行文字向 AI 提问（原逻辑）；长按 500ms = 语音提问（录音→ASR→发问）
+  // 提问模式：点击 = 指着某行文字向 AI 提问（语音提问走工具栏独立按钮 🎤）
   if (askMode) {
-    // 短按 = 指行提问(原逻辑);长按 500ms = 语音提问(录音→ASR→发问),松开分流见 onUp
-    askHold.downEvt = e;
-    askHold.recording = false;
-    askHold.timer = setTimeout(async () => {
-      askHold.recording = true;
-      $("#ask-recording").classList.remove("hidden"); // 麦克风+波形浮层
-      await startHoldTalk("ask");
-    }, 500);
-    const clean = () => {
-      boardEl.removeEventListener("pointerup", onUp);
-      boardEl.removeEventListener("pointercancel", onCancel);
-    };
-    const onUp = (ev) => {
-      if (ev.pointerId !== e.pointerId) return;
-      clearTimeout(askHold.timer);
-      clean();
-      $("#ask-recording").classList.add("hidden");
-      if (askHold.recording) {
-        askHold.recording = false;
-        stopHoldTalk(); // onstop → finishHoldTalk("ask") → 语音文本发问
-      } else {
-        handleAskClick(e); // 短按(<500ms):原指行提问逻辑
-      }
-    };
-    const onCancel = (ev) => {
-      if (ev.pointerId !== e.pointerId) return;
-      clearTimeout(askHold.timer);
-      clean();
-      $("#ask-recording").classList.add("hidden");
-      if (askHold.recording) { stopHoldTalk(); askHold.recording = false; } // 取消=丢弃
-    };
-    boardEl.addEventListener("pointerup", onUp);
-    boardEl.addEventListener("pointercancel", onCancel);
+    handleAskClick(e);
     return;
   }
   // 书写动画中：左键单击 = 跳过动画，直接完整显示，且不留笔迹
@@ -2256,6 +2218,30 @@ function setAskMode(on) {
 }
 
 $("#btn-ask").addEventListener("click", () => setAskMode(!askMode));
+
+// 语音提问按钮(翻页右侧):按一下开始录音,再按一下停止并识别发问。
+// 不依赖提问模式——任何时刻可用;识别文本直接作为问题(无板书行上下文)。
+const voiceAskBtn = $("#btn-voice-ask");
+let voiceAskRecording = false;
+voiceAskBtn.addEventListener("click", async () => {
+  if (voiceAskRecording) {
+    voiceAskRecording = false;
+    voiceAskBtn.classList.remove("active");
+    $("#ask-recording").classList.add("hidden");
+    stopHoldTalk(); // onstop → finishHoldTalk("ask") → askByVoice
+    return;
+  }
+  voiceAskRecording = true;
+  voiceAskBtn.classList.add("active");
+  $("#ask-recording").classList.remove("hidden"); // 麦克风+波形浮层
+  await startHoldTalk("ask");
+  const label = $("#ask-recording .rec-label");
+  if (label) label.textContent = "正在录音…再按 🎤 结束并提问";
+});
+// 退出提问模式/页面切换时兜底收尾
+voiceAskBtn.addEventListener("pointercancel", () => {
+  if (voiceAskRecording) { voiceAskRecording = false; voiceAskBtn.classList.remove("active"); $("#ask-recording").classList.add("hidden"); stopHoldTalk(); }
+});
 
 // 找点击位置对应的板书行（横向命中的块优先，按行中心距离取最近）
 function findLineAt(page, pt) {
