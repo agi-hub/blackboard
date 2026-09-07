@@ -555,11 +555,15 @@ Bun.serve({
             const figRaw = extractJSON(figContent);
             const figList = Array.isArray(figRaw) ? figRaw : [figRaw];
             const target = pages.find((p) => p.regions.length > 0 && p.blocks.length > 0) ?? pages[0];
+            // 补图放入「无文字块的区域」（模型常漏画的整栏空区）；没有空区才退回 regions[0]（前端图独栏兜底会再处理）
+            const usedRegionIds = new Set(target.blocks.filter((b) => !b.svg).map((b) => b.region));
+            const emptyRegions = target.regions.filter((r) => !usedRegionIds.has(r.id));
             let n = 0;
             for (const f of figList) {
               if (!isRecord(f)) continue;
               const svg = sanitizeSvg(f.svg);
               if (!svg || n >= 2) continue;
+              const region = emptyRegions[n] ?? target.regions[0];
               target.blocks.push({
                 id: `figure${++n}`,
                 text: isStr(f.text) && f.text.trim() ? f.text.trim().slice(0, 24) : "图",
@@ -568,7 +572,7 @@ Bun.serve({
                 width: 640,
                 fontSize: 36,
                 color: "#f2f0e6",
-                ...(target.regions[0] ? { region: target.regions[0].id } : {}),
+                ...(region ? { region: region.id } : {}),
                 ...(isStr(f.say) && f.say.trim() ? { say: f.say.trim().slice(0, 400) } : {}),
                 svg,
               });
