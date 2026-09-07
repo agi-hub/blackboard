@@ -298,7 +298,7 @@ const THEMES = {
 let theme = "green"; // 默认护眼绿板
 let tool = "chalk";
 let color = "#f2f0e6";
-let brushSize = 5;
+let brushSize = 9;
 
 // 多页黑板：每页 = 区域 + 板书 + 用户手写
 let pages = [newPage()];

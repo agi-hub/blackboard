@@ -708,9 +708,9 @@ button {
     flex-shrink: 0;
   }
   #chalk-rail .size-btn .dot { border-radius: 50%; width: auto; height: auto; }
-  #chalk-rail .size-btn .dot.s { width: 6px; height: 6px; }
-  #chalk-rail .size-btn .dot.m { width: 10px; height: 10px; }
-  #chalk-rail .size-btn .dot.l { width: 14px; height: 14px; }
+  #chalk-rail .size-btn .dot.s { width: 7px; height: 7px; }
+  #chalk-rail .size-btn .dot.m { width: 11px; height: 11px; }
+  #chalk-rail .size-btn .dot.l { width: 16px; height: 16px; }
   #chalk-rail .rail-eraser { width: 20px; height: 24px; border-radius: 4px; flex-shrink: 0; }
   .rail-tool { font-size: 14px; padding: 0; width: 24px; height: 24px; line-height: 24px; border-radius: 6px; letter-spacing: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   #btn-undo.rail-tool::after { content: "↩"; font-size: 15px; }
