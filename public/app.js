@@ -1374,7 +1374,7 @@ const NARRATE_WRITE_MS = 80; // 讲解模式：快写节奏（教师写字不出
 
 // ---------- 配音讲解（讲写协同：讲什么写什么，讲完才写下一块） ----------
 
-const narration = { playing: false, seq: 0, timers: [], audios: [] };
+const narration = { playing: false, seq: 0, timers: [], audios: [], speakDone: [] };
 
 function setNarrateBtn() {
   const b = $("#btn-narrate");
@@ -1399,6 +1399,7 @@ function stopNarration() {
     }
   }
   narration.audios = [];
+  narration.speakDone = []; // 旧链作废：未触发的播放 promise 由 seq 失效自然短路
   lectureTick(Infinity); // 跳过讲解时讲义立即补全
   setNarrateBtn();
   releaseWakeLock(); // 讲解结束恢复系统默认熄屏
@@ -1459,12 +1460,55 @@ function ttsSpeech(parsed) {
     .join("");
 }
 
-// 取一块的语音（按当前教师音色缓存，讲稿剥离标记后送 TTS）：无讲稿/失败时返回静音降级
+// 读音频真实时长：loadedmetadata → 有限正值直接用；Safari 对 VBR mp3 常报 Infinity，
+// 经典解法是跳到极大时间逼出 durationchange 的真实时长，再归零。8s 内拿不到 → 0（退保守估算）。
+function readAudioDuration(el) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (v) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      el.removeEventListener("durationchange", onDur);
+      resolve(v);
+    };
+    const real = () => (Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0);
+    const onDur = () => {
+      const d = real();
+      if (d > 0) {
+        try { el.currentTime = 0; } catch { /* 未就绪时忽略 */ }
+        finish(d);
+      }
+    };
+    const timer = setTimeout(() => finish(0), 8000);
+    el.addEventListener("loadedmetadata", () => {
+      if (real() > 0) onDur();
+      else {
+        try { el.currentTime = 1e7; } catch { finish(0); } // Infinity → 跳末尾逼真实时长
+      }
+    }, { once: true });
+    el.addEventListener("durationchange", onDur);
+    el.addEventListener("error", () => finish(0), { once: true });
+    if (el.readyState >= 1) onDur();
+  });
+}
+
+// 保守估算语速（元数据缺失时的兜底）：中文 ≈0.26s/字、西文 ≈0.075s/字符，下限 2s。
+// 宁可高估多留白——低估会让下一块提前开播，出现两个声音同时说话。
+function estimateSpeech(s) {
+  const cjk = (String(s).match(/[\u4e00-\u9fff]/g) || []).length;
+  return Math.max(2, cjk * 0.26 + Math.max(0, s.length - cjk) * 0.075);
+}
+
+// 取一块的语音（按当前教师音色缓存 dataURL + 时长）：无讲稿/失败时返回静音降级。
+// 不缓存 Audio 元素——Safari 的媒体元素被打断（pause 中断）后复用常拒绝后续 play()，
+// 且拒绝被 .catch 吞掉就是整块静音；每次播放现场 new Audio(dataURL)，元素永远干净。
 async function fetchVoice(b) {
   if (b._voice && b._voice.voice === voiceId) return b._voice;
   const parsed = parseSay(b.say);
   const say = ttsSpeech(parsed).trim(); // 公式段直读，普通文本 - 读作"杠"
-  const fallback = { voice: voiceId, el: null, dur: Math.max(1.5, (say || b.text).length * 0.19) };
+  const est = estimateSpeech(say || b.text);
+  const fallback = { voice: voiceId, src: null, dur: est };
   if (!say) {
     b._voice = fallback;
     return fallback;
@@ -1477,20 +1521,12 @@ async function fetchVoice(b) {
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
-    const el = new Audio(data.audio);
-    el.preload = "auto";
-    // 时长由 loadedmetadata 提供（不再用 AudioContext.decodeAudioData：
-    // Safari 对未手势激活的 AudioContext 会挂起，曾导致整个配音链路静默失败）
-    let dur = 0;
-    await new Promise((resolve) => {
-      const done = () => resolve(undefined);
-      el.addEventListener("loadedmetadata", done, { once: true });
-      el.addEventListener("error", done, { once: true });
-      setTimeout(done, 8000);
-      if (el.readyState >= 1) done();
-    });
-    dur = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0;
-    b._voice = { voice: voiceId, el, dur: dur || fallback.dur };
+    const probe = new Audio(data.audio);
+    probe.preload = "auto";
+    // 真实时长优先（readAudioDuration 含 Safari Infinity 处理）；
+    // 拿不到时宁可高估（estimateSpeech）——低估会让下一块提前开播、两个声音重叠。
+    const dur = (await readAudioDuration(probe)) || est;
+    b._voice = { voice: voiceId, src: data.audio, dur };
   } catch (e) {
     b._voice = fallback;
     // TTS 不可用时明确告知（每次会话只提醒一次），避免误以为程序坏了
@@ -1500,6 +1536,11 @@ async function fetchVoice(b) {
     }
   }
   return b._voice;
+}
+
+// 由缓存的 dataURL 现场造一个干净的音频元素（null = 无语音）
+function spawnVoiceEl(v) {
+  return v && v.src ? new Audio(v.src) : null;
 }
 
 // 讲稿标记 → 板书定位 + 出现时刻（词起点占纯讲稿比例 × 语音时长）
@@ -1647,7 +1688,7 @@ async function playNarration(page, blockList) {
     const v = voices[i];
     const start = t + 200; // 起笔前小留白
     const per = NARRATE_WRITE_MS;
-    if (v.el) {
+    if (v.src) {
       // 有语音：教师习惯——写字不出声，快写完整块（80ms/字），写完再开口讲
       let charCount = 0;
       for (const line of lay.lines) charCount += line.length;
@@ -1662,17 +1703,33 @@ async function playNarration(page, blockList) {
         }
       }
       const speakAt = start + writeDur + 200;
-      narration.audios.push(v.el);
-      narration.timers.push(
-        setTimeout(() => {
-          if (seq !== narration.seq) return;
-          v.el.currentTime = 0;
-          v.el.play().catch(() => {});
-        }, speakAt),
-      );
+      // 串行播报链：现场造干净元素播放，真实 ended 之前不开播下一块。dur 只是时间线预算；
+      // 真实播放长于预算（元数据缺失/估算兜底）时链等到 ended 再继续，杜绝页尾两段语音重叠。
+      // 播报超时（预算×1.5+2s 无 ended）视为卡死，链自行推进；stopNarration 的 pause 同样终结本块。
+      const speakDone = new Promise((resolve) => {
+        narration.timers.push(
+          setTimeout(() => {
+            if (seq !== narration.seq) return;
+            const el = spawnVoiceEl(v);
+            if (!el) return resolve(undefined);
+            narration.audios.push(el);
+            const done = () => {
+              el.removeEventListener("ended", done);
+              el.removeEventListener("pause", done);
+              clearTimeout(guard);
+              resolve(undefined);
+            };
+            const guard = setTimeout(done, v.dur * 1000 * 1.5 + 2000);
+            el.addEventListener("ended", done);
+            el.addEventListener("pause", done);
+            el.play().catch(() => done()); // 播放被拒（如静音键锁定）→ 不阻塞链，按已播完处理
+          }, speakAt),
+        );
+      });
+      narration.speakDone.push(speakDone);
       pushSayMarks(page, b, start + writeDur + 200, v.dur * 1000, "speak");
       pushLectureSay(b, speakAt, v.dur * 1000); // 念到哪句，讲义多哪句
-      t = speakAt + v.dur * 1000 + 450; // 讲完、缓冲，才轮到写下一块
+      t = speakAt + v.dur * 1000 + 450; // 讲完、缓冲，才轮到写下一块（时间线预算）
     } else {
       // 无语音（未开配音/无讲稿）：不讲解；逐行快写，行尾按 5 字/秒 阅读速度停 1~3 秒
       let cursor = start;
@@ -1693,6 +1750,10 @@ async function playNarration(page, blockList) {
       t = cursor;
     }
   }
+  // 语音链全部落定（ended/被打断/超时兜底）才算整页讲完——自动翻页、续播判定都以此为准。
+  // 时间线本身仍按预算推进板书动画；预算 < 真实时长时这里自然多等，画面定格无害。
+  await Promise.all(narration.speakDone);
+  if (seq !== narration.seq) return;
   runTimeline(
     entries,
     dividerMap,
@@ -1732,8 +1793,9 @@ $("#btn-narrate").addEventListener("click", () => {
 let replayLastAt = 0;
 $("#btn-replay").addEventListener("click", () => {
   // 防抖：600ms 内重复点击忽略（快速双击曾造成预取竞态）
-  unlockAudio();
+  if (Date.now() - replayLastAt < 600) return;
   replayLastAt = Date.now();
+  unlockAudio();
   stopNarration();
   playNarration(pages[curPage]);
 });
@@ -2910,6 +2972,7 @@ async function apPlay(blocks, title) {
   fitApCanvas();
   const seq = apSeq;
   const voices = await Promise.all(blocks.map(fetchVoice));
+  if (seq !== apSeq) return; // 预取期间被关闭/被新问题覆盖 → 丢弃本次（曾致僵尸 rAF 互踩）
   lectureReset(false); // 提问互斥：解答期间讲义区隐藏（还原听课时由 setAskMode 恢复）
   const laid = apLayoutBlocks(blocks, title);
   const voiceMap = new Map(blocks.map((b, i) => [b, voices[i]]));
@@ -2917,10 +2980,11 @@ async function apPlay(blocks, title) {
   const marks = [];
   const audios = [];
   const timers = [];
+  const speakDone = [];
   let t = 300;
   const per = 70;
   for (const b of laid) {
-    const v = voiceMap.get(b) ?? { el: null, dur: 0.5 };
+    const v = voiceMap.get(b) ?? { src: null, dur: 0.5 };
     const start = t + 150;
     const figDur = b.svg ? 500 : 0;
     const lay = layouts.get(b.uid);
@@ -2934,14 +2998,28 @@ async function apPlay(blocks, title) {
     }
     const writeDur = figDur + Math.max(300, gi * per);
     const speakAt = start + writeDur + 200;
-    if (v.el) {
-      audios.push(v.el);
-      timers.push(
-        setTimeout(() => {
-          if (seq !== apSeq) return;
-          v.el.currentTime = 0;
-          v.el.play().catch(() => {});
-        }, speakAt),
+    const el = spawnVoiceEl(v);
+    if (el) {
+      audios.push(el);
+      // 与主讲解同款串行链：ended 前不开播下一块（面板多块解答时不再重叠）
+      speakDone.push(
+        new Promise((resolve) => {
+          timers.push(
+            setTimeout(() => {
+              if (seq !== apSeq) return resolve(undefined);
+              const done = () => {
+                el.removeEventListener("ended", done);
+                el.removeEventListener("pause", done);
+                clearTimeout(guard);
+                resolve(undefined);
+              };
+              const guard = setTimeout(done, v.dur * 1000 * 1.5 + 2000);
+              el.addEventListener("ended", done);
+              el.addEventListener("pause", done);
+              el.play().catch(() => done());
+            }, speakAt),
+          );
+        }),
       );
     }
     // say 标记 → 面板行内定位，随语音时刻圈/划
@@ -2969,6 +3047,14 @@ async function apPlay(blocks, title) {
     pushLectureSay(b, speakAt, v.dur * 1000); // 解答口述逐句进讲义
     t = speakAt + v.dur * 1000 + 350;
   }
+  // 语音链落定后再放行 rAF 收尾帧（预算 < 真实时长时面板定格等待，不再提前结束）。
+  // 注意 stopApAnim 会 clearTimeout(timers)，旧链的 resolve 由 seq 失效短路。
+  const finish = () => {
+    if (!apAnim || seq !== apSeq) return;
+    apAnim.entries = [];
+    apRender(Infinity);
+    lectureTick(Infinity);
+  };
   apAnim = { blocks: laid, entries, marks, dur: t + 200, startTs: 0, tNow: 0, audios, timers, title };
   const frame = (ts) => {
     if (!apAnim) return;
@@ -2979,9 +3065,7 @@ async function apPlay(blocks, title) {
     if (apAnim.tNow < apAnim.dur) apRaf = requestAnimationFrame(frame);
     else {
       apRaf = 0;
-      apAnim.entries = [];
-      apRender(Infinity);
-      lectureTick(Infinity);
+      Promise.all(speakDone).then(finish);
     }
   };
   apRaf = requestAnimationFrame(frame);
