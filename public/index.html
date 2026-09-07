@@ -7,10 +7,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="敲黑板" />
   <meta name="theme-color" content="#1c1813" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <title>敲黑板</title>
-  <link rel="stylesheet" href="/style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=7" />
   <!-- CDN 开源楷体兜底（霞鹜文楷）：本地楷体名全部失效的环境（如 Safari 26 某些配置）自动启用，按需切片下载 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/style.css" />
@@ -32,10 +32,10 @@
     </div>
 
     <div class="tb-group spacer-right">
-      <button id="btn-layout" class="ai-btn" title="输入文字素材或拍张照片，AI 精炼排版为板书">✎ 输入素材</button>
-      <button id="btn-narrate" class="ai-btn primary" title="停止/继续 配音讲解">🔊 讲解</button>
-      <button id="btn-replay" class="ai-btn" title="从本页开头重新讲解">↻ 重播</button>
-      <button id="btn-ask" class="ai-btn" title="进入提问模式：用鼠标指向黑板某行文字，AI 就地解释">🙋 问问题</button>
+      <button id="btn-layout" class="ai-btn" title="输入文字素材或拍张照片，AI 精炼排版为板书">输入素材</button>
+      <button id="btn-narrate" class="ai-btn primary" title="停止/继续 配音讲解">讲解</button>
+      <button id="btn-replay" class="ai-btn" title="从本页开头重新讲解">重播</button>
+      <button id="btn-ask" class="ai-btn" title="进入提问模式：用鼠标指向黑板某行文字，AI 就地解释">问问题</button>
     </div>
     <div class="tb-group" id="page-nav" title="黑板翻页（←/→）">
       <button id="btn-prev-page" class="tool-btn nav-btn" title="上一页 (←)">◀</button>
@@ -44,14 +44,14 @@
     </div>
 
     <div class="tb-group">
-      <button id="btn-fullscreen" class="tool-btn" title="全屏黑板（也可双击黑板）">⛶ 全屏</button>
-      <button id="btn-theme" class="tool-btn" title="切换黑板 / 绿板">◐ 主题</button>
-      <button id="btn-export" class="tool-btn" title="截屏当前黑板为高清 PNG">📷 截屏</button>
-      <button id="btn-save-course" class="tool-btn" title="保存课程（板书+讲稿，纯文本 JSON）">💾 保存</button>
-      <button id="btn-load-course" class="tool-btn" title="加载课程文件，恢复板书与讲解">📂 加载</button>
-      <button id="btn-settings" class="tool-btn" title="设置（模型/配音/外观）">⚙ 设置</button>
-      <button id="btn-rail" class="tool-btn" title="隐藏/显示左侧粉笔槽（投影时腾出更大黑板）">🖍 隐藏粉笔</button>
-      <button id="btn-lang" class="tool-btn" title="切换中文 / Switch to English">🌐 EN</button>
+      <button id="btn-fullscreen" class="tool-btn" title="全屏黑板（也可双击黑板）">全屏</button>
+      <button id="btn-theme" class="tool-btn" title="切换黑板 / 绿板">主题</button>
+      <button id="btn-export" class="tool-btn" title="截屏当前黑板为高清 PNG">截屏</button>
+      <button id="btn-save-course" class="tool-btn" title="保存课程（板书+讲稿，纯文本 JSON）">保存</button>
+      <button id="btn-load-course" class="tool-btn" title="加载课程文件，恢复板书与讲解">加载</button>
+      <button id="btn-settings" class="tool-btn" title="设置（模型/配音/外观）">设置</button>
+      <button id="btn-rail" class="tool-btn" title="隐藏/显示左侧粉笔槽（投影时腾出更大黑板）">隐藏粉笔</button>
+      <button id="btn-lang" class="tool-btn" title="切换中文 / Switch to English">EN</button>
     </div>
   </header>
   <input id="course-file" type="file" accept=".json,application/json" hidden />
@@ -103,16 +103,16 @@
       <textarea id="text-input" placeholder="粘贴文本…（可配合下方图片）"></textarea>
       <div id="img-preview" class="hidden"><img id="img-thumb" alt="待识别图片" /><button id="btn-img-remove" class="tool-btn" title="移除图片">✕</button></div>
       <div class="drawer-actions">
-        <button id="btn-image" class="tool-btn" title="拍照或从相册选图，题目图片会自动附解题过程">📷 上传图像</button>
+        <button id="btn-image" class="tool-btn" title="拍照或从相册选图，题目图片会自动附解题过程">上传图像</button>
         <button id="btn-sample" class="tool-btn">填入示例</button>
-        <button id="btn-generate" class="ai-btn primary">🚀 开始学习</button>
+        <button id="btn-generate" class="ai-btn primary">开始学习</button>
       </div>
     </aside>
 
     <!-- 右侧 AI 解答区（独立小黑板，不与板书混排） -->
     <aside id="answer-panel" class="hidden">
       <div class="drawer-head">
-        <h2>✦ AI 解答</h2>
+        <h2>AI 解答</h2>
         <button id="btn-answer-close" class="tool-btn" title="收起解答区">✕</button>
       </div>
       <p class="drawer-tip">解答写在这块小黑板上，不影响左侧板书；点击可跳过书写。</p>
@@ -213,4 +213,4 @@
       }
     });
   </script>
-  <script src="/app.js?v=3"></script>
+  <script src="app.js?v=7"></script>
