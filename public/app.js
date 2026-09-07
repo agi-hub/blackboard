@@ -2310,7 +2310,7 @@ async function askByVoice(question, e) {
       mkBlock({ text: data.text, say: data.text, x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }, "block", { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }),
     ].filter(Boolean);
     apPlay(blocks, tt("语音提问", "Voice question"));
-    toast(tt("AI 已解答（右侧）", "AI answered (right panel)"), "ok");
+    toast(tt("AI 已解答", "AI answered"), "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
   } finally {
@@ -2350,7 +2350,7 @@ async function handleAskClick(e) {
       mkBlock({ text: data.text, say: data.text, x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }, "block", { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }),
     ].filter(Boolean);
     apPlay(blocks, tt("课堂提问", "Question"));
-    toast(tt("AI 已解答（右侧，新问题会覆盖前一问）", "AI answered (right panel; a new question replaces the previous)"), "ok");
+    toast(tt("AI 已解答（新问题会覆盖前一问）", "AI answered (a new question replaces the previous)"), "ok");
   } catch (err) {
     toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
   } finally {
@@ -2879,6 +2879,9 @@ function stopApAnim(finish) {
 // 面板讲解：快写完一块 → 讲这块（say 标记随语音画圈/划线）→ 下一块
 async function apPlay(blocks, title) {
   stopApAnim(false);
+  // 显示解答面板(上游双语重构时丢失了此调用——面板从不弹出,只有 toast)
+  apPanel.classList.remove("hidden");
+  fitApCanvas();
   const seq = apSeq;
   const voices = await Promise.all(blocks.map(fetchVoice));
   lectureReset(false); // 提问互斥：解答期间讲义区隐藏（还原听课时由 setAskMode 恢复）
