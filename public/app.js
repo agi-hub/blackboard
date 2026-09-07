@@ -1265,7 +1265,11 @@ async function startHoldTalk(mode = "materials") {
   holdTalk.mode = mode;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
-    holdTalk.rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "" });
+    // mime 探测:Chrome/Android=webm;opus,Safari=iOS mp4/aac(扩展名必须匹配,否则上游按错格式解析失败)
+    const mimes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/aac", "audio/ogg;codecs=opus"];
+    const mime = mimes.find((m) => MediaRecorder.isTypeSupported(m)) || "";
+    holdTalk.rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    holdTalk.mime = mime;
     holdTalk.chunks = [];
     holdTalk.rec.ondataavailable = (e) => { if (e.data.size) holdTalk.chunks.push(e.data); };
     holdTalk.rec.onstop = () => {
@@ -1286,6 +1290,9 @@ async function startHoldTalk(mode = "materials") {
 function stopHoldTalk() {
   if (!holdTalk.active) return;
   holdTalk.active = false;
+  // stop() 异步(onstop 才走识别):先给即时视觉反馈,避免"松开无反应"的观感
+  holdTalkBtn.classList.remove("recording");
+  if (holdTalk.mode === "materials") holdTalkBtn.textContent = "识别中…";
   try { holdTalk.rec.stop(); } catch { /* 已停 */ }
 }
 
@@ -1300,9 +1307,19 @@ async function finishHoldTalk(mode = "materials") {
   try {
     const form = new FormData();
     form.append("model", "FunAudioLLM/SenseVoiceSmall");
-    form.append("file", blob, "speech.webm");
-    const res = await fetch("api/asr", { method: "POST", body: form });
-    const data = await res.json();
+    const ext = (holdTalk.mime || "").includes("mp4") || (holdTalk.mime || "").includes("aac") ? "m4a" : "webm";
+    form.append("file", blob, `speech.${ext}`);
+    // ASR 上游偶发断连(502 JSON 兜底)自动重试一次
+    let res = await fetch("api/asr", { method: "POST", body: form });
+    if (!res.ok) res = await fetch("api/asr", { method: "POST", body: form });
+    const raw = await res.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      // 网关/代理错误页(HTML)等非 JSON 响应——给出可读错误而非 Unexpected token
+      throw new Error(`识别服务异常 (HTTP ${res.status}: ${raw.slice(0, 60)})`);
+    }
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     text = (data.text || "").trim();
     if (!text) throw new Error(tt("未识别到内容", "Nothing recognized"));
