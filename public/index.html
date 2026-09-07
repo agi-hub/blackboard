@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>敲黑板</title>
-  <link rel="stylesheet" href="style.css?v=28" />
+  <link rel="stylesheet" href="style.css?v=29" />
   <!-- CDN 开源楷体兜底（霞鹜文楷）：本地楷体名全部失效的环境（如 Safari 26 某些配置）自动启用，按需切片下载 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/style.css" />
@@ -90,6 +90,14 @@
         <canvas id="stroke-canvas"></canvas>
         <canvas id="text-canvas"></canvas>
         <div id="eraser-cursor" hidden></div>
+        <!-- 提问模式提示条 + 长按录音浮层 -->
+        <div id="ask-hint" class="hidden"><span>👆 短按指行提问</span><span class="sep">·</span><span>🔊 长按说话提问</span></div>
+        <div id="ask-recording" class="hidden">
+          <div class="mic-badge"><span class="mic-icon">🎤</span>
+            <div class="wave"><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="rec-label">正在录音…松开发问</div>
+        </div>
         <!-- 粉笔槽 -->
         <div id="chalk-ledge"><span></span></div>
       </div>
@@ -233,4 +241,4 @@
       }
     });
   </script>
-  <script src="app.js?v=28"></script>
+  <script src="app.js?v=29"></script>

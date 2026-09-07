@@ -825,3 +825,64 @@ button {
   0%, 100% { box-shadow: 0 0 0 0 rgba(255, 120, 120, 0.5); }
   50% { box-shadow: 0 0 0 10px rgba(255, 120, 120, 0); }
 }
+
+/* ---------- 提问模式:提示条 + 录音浮层 ---------- */
+#ask-hint {
+  position: absolute;
+  top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 16px;
+  border-radius: 16px;
+  background: rgba(10, 8, 6, 0.82);
+  border: 1px solid rgba(255, 224, 102, 0.35);
+  font-size: 13px; letter-spacing: 0.5px;
+  color: #ffe9c0;
+  z-index: 8;
+  white-space: nowrap;
+  pointer-events: none;
+}
+#ask-hint.hidden { display: none; }
+#ask-hint .sep { opacity: 0.5; }
+
+#ask-recording {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  background: rgba(8, 6, 4, 0.55);
+  backdrop-filter: blur(1.5px);
+  z-index: 9;
+  pointer-events: none;
+}
+#ask-recording.hidden { display: none; }
+.mic-badge {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 22px;
+  border-radius: 28px;
+  background: rgba(217, 92, 92, 0.16);
+  border: 1px solid rgba(255, 158, 158, 0.55);
+}
+.mic-icon { font-size: 30px; animation: mic-bounce 1s ease-in-out infinite; }
+@keyframes mic-bounce { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+.wave { display: flex; align-items: center; gap: 4px; height: 34px; }
+.wave i {
+  width: 4px; border-radius: 2px;
+  background: #ff9e9e;
+  animation: wave-bar 0.9s ease-in-out infinite;
+}
+.wave i:nth-child(1) { height: 10px; animation-delay: 0s; }
+.wave i:nth-child(2) { height: 22px; animation-delay: 0.15s; }
+.wave i:nth-child(3) { height: 32px; animation-delay: 0.3s; }
+.wave i:nth-child(4) { height: 22px; animation-delay: 0.45s; }
+.wave i:nth-child(5) { height: 10px; animation-delay: 0.6s; }
+@keyframes wave-bar { 0%,100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+.rec-label { font-size: 15px; letter-spacing: 2px; color: #ffd9d9; }
+
+/* 提问模式按钮脉动 */
+#btn-ask.primary { animation: ask-pulse 1.6s ease-in-out infinite; }
+@keyframes ask-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 224, 102, 0.45); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 224, 102, 0); }
+}

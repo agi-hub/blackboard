@@ -1913,8 +1913,8 @@ boardEl.addEventListener("pointerdown", (e) => {
     askHold.recording = false;
     askHold.timer = setTimeout(async () => {
       askHold.recording = true;
+      $("#ask-recording").classList.remove("hidden"); // 麦克风+波形浮层
       await startHoldTalk("ask");
-      toast(tt("● 录音中…松开发问", "● Recording… release to ask"), "");
     }, 500);
     const clean = () => {
       boardEl.removeEventListener("pointerup", onUp);
@@ -1924,6 +1924,7 @@ boardEl.addEventListener("pointerdown", (e) => {
       if (ev.pointerId !== e.pointerId) return;
       clearTimeout(askHold.timer);
       clean();
+      $("#ask-recording").classList.add("hidden");
       if (askHold.recording) {
         askHold.recording = false;
         stopHoldTalk(); // onstop → finishHoldTalk("ask") → 语音文本发问
@@ -1935,6 +1936,7 @@ boardEl.addEventListener("pointerdown", (e) => {
       if (ev.pointerId !== e.pointerId) return;
       clearTimeout(askHold.timer);
       clean();
+      $("#ask-recording").classList.add("hidden");
       if (askHold.recording) { stopHoldTalk(); askHold.recording = false; } // 取消=丢弃
     };
     boardEl.addEventListener("pointerup", onUp);
@@ -2220,6 +2222,8 @@ function setAskMode(on) {
   b.textContent = on ? tt("还原听课", "Lesson") : tt("问问题", "Ask");
   b.classList.toggle("primary", on);
   boardEl.classList.toggle("ask-mode", on);
+  $("#ask-hint").classList.toggle("hidden", !on);
+  if (!on) $("#ask-recording").classList.add("hidden"); // 退出提问模式时收起录音浮层
   // 面板互斥：提问模式只看 AI 解答——隐藏讲义；还原听课时若讲解进行中则恢复讲义
   if (on) {
     $("#lecture-panel").classList.add("hidden");
