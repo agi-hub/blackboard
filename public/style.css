@@ -647,17 +647,17 @@ button {
   }
   .tb-group { gap: 6px; }
   .tb-group.brand { order: 1; margin-right: auto; }
-  .brand-name { font-size: 17px; letter-spacing: 2px; }
-  .brand-logo svg { width: 22px; height: 22px; }
-  /* 翻页组放品牌右侧 */
-  #page-nav { order: 2; margin-left: auto; }
+  .brand-name { font-size: 15px; letter-spacing: 1px; }
+  .brand-logo svg { width: 18px; height: 18px; }
+  /* 翻页组 + AI 按钮同行靠右 */
+  #page-nav { order: 2; margin-left: 0; }
   #page-nav #page-indicator { font-size: 12px; min-width: 34px; text-align: center; }
-  /* AI 操作组独占第二行 */
-  .tb-group.spacer-right { order: 3; width: 100%; }
-  .tb-group.spacer-right .ai-btn { flex: 1; height: 40px; font-size: 15px; padding: 0 4px; }
-  /* 工具组收进第二行尾部/第三行，按钮等分 */
-  .tb-group:last-child { order: 4; width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-  .tb-group:last-child .tool-btn { height: 34px; font-size: 12px; padding: 0 2px; }
+  /* AI 按钮：行 1 尾部，小号紧凑（不独占一行） */
+  .tb-group.spacer-right { order: 3; margin-left: 0; }
+  .tb-group.spacer-right .ai-btn { height: 30px; font-size: 13px; padding: 0 8px; }
+  /* 工具组：行 2 单行均分（全屏/主题/截屏/保存/加载/设置/隐藏粉笔/EN 同行） */
+  .tb-group:last-child { order: 4; width: 100%; display: flex; }
+  .tb-group:last-child .tool-btn { flex: 1; height: 32px; font-size: 11.5px; padding: 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* ---- 主舞台：竖向堆叠（黑板主体 + 底部面板层） ---- */
   #stage {
@@ -666,36 +666,48 @@ button {
     gap: 8px;
   }
 
-  /* ---- 粉笔槽：左侧窄条（40px），方形粉笔块 ---- */
+  /* ---- 粉笔槽：黑板下方横向工具条，所有元素一行排开 ---- */
   #chalk-rail {
-    position: absolute;
-    left: 2px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 40px;
+    position: static;
+    transform: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    width: auto;
+    height: 44px;
     margin: 0;
-    padding: 8px 0;
-    gap: 8px;
+    padding: 2px 6px;
+    gap: 5px;
     border-radius: 10px;
-    z-index: 5;
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.06), inset 0 0 12px rgba(0,0,0,0.45), 0 6px 18px rgba(0,0,0,0.5);
+    order: 2; /* stage 纵向流：黑板(1) → 粉笔条(2) */
+    overflow-x: auto;
   }
-  #stage { position: relative; }
-  .rail-chalks, .rail-sizes { gap: 9px; }
-  .rail-divider { width: 24px; }
-  /* 方形粉笔（竖条短块，不保留横放粉笔造型） */
   #chalk-rail.rail-hidden { display: flex; } /* 竖屏常驻：横屏隐藏状态带入竖屏时强制恢复 */
+  .rail-chalks, .rail-sizes { flex-direction: row; gap: 5px; }
+  .rail-divider { width: 2px; height: 22px; flex-shrink: 0; }
+  /* 圆形粉笔 */
   #chalk-rail .chalk-dot {
-    width: 22px;
-    height: 22px;
-    border-radius: 5px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
   #chalk-rail .chalk-dot::after { display: none; } /* 去掉磁铁贴片装饰 */
-  .size-btn { width: 30px; height: 30px; }
-  .size-btn .dot { width: 22px; height: 22px; }
-  .size-btn .dot.s, .size-btn .dot.m, .size-btn .dot.l { background-size: 8px 8px, 8px 8px, 100% 100%; }
-  #chalk-rail .rail-eraser { width: 20px; height: 24px; border-radius: 4px; }
-  .rail-tool { font-size: 14px; padding: 4px 0; width: 26px; height: 26px; border-radius: 6px; letter-spacing: 0; }
+  /* 粗细按钮：紧凑正方形，圆点按粗细分级 */
+  #chalk-rail .size-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  #chalk-rail .size-btn .dot { border-radius: 50%; width: auto; height: auto; }
+  #chalk-rail .size-btn .dot.s { width: 6px; height: 6px; }
+  #chalk-rail .size-btn .dot.m { width: 10px; height: 10px; }
+  #chalk-rail .size-btn .dot.l { width: 14px; height: 14px; }
+  #chalk-rail .rail-eraser { width: 20px; height: 24px; border-radius: 4px; flex-shrink: 0; }
+  .rail-tool { font-size: 14px; padding: 0; width: 24px; height: 24px; line-height: 24px; border-radius: 6px; letter-spacing: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   #btn-undo.rail-tool::after { content: "↩"; }
   #btn-clear.rail-tool::after { content: "🗑"; }
   #btn-undo.rail-tool, #btn-clear.rail-tool { font-size: 0; } /* 文字隐藏,::after 图标顶替 */
