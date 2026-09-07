@@ -1307,7 +1307,7 @@ async function finishHoldTalk(mode = "materials") {
   let text = "";
   try {
     const form = new FormData();
-    form.append("model", "FunAudioLLM/SenseVoiceSmall");
+    form.append("model", "Qwen/Qwen3-ASR-1.7B");
     const ext = (holdTalk.mime || "").includes("mp4") || (holdTalk.mime || "").includes("aac") ? "m4a" : "webm";
     form.append("file", blob, `speech.${ext}`);
     // ASR 上游偶发断连(502 JSON 兜底)自动重试一次

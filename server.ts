@@ -790,7 +790,8 @@ Bun.serve({
         if (!(file instanceof File) || file.size === 0) return jsonError("音频文件缺失", 400);
         if (file.size > 20_000_000) return jsonError("音频过大（上限 20MB）", 400);
         const upstream = new FormData();
-        upstream.append("model", typeof model === "string" && /^[\w/.-]+$/.test(model) ? model : "FunAudioLLM/SenseVoiceSmall");
+        // 默认 Qwen3-ASR:实测 0.6-1.4s(SenseVoiceSmall 4.9s 且偶发错字"勾→股"),快 8 倍更准
+        upstream.append("model", typeof model === "string" && /^[\w/.-]+$/.test(model) ? model : "Qwen/Qwen3-ASR-1.7B");
         upstream.append("file", file, file.name || "speech.webm");
         try {
           const asrRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/audio/transcriptions", {
