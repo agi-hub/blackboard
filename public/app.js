@@ -1299,8 +1299,9 @@ function stopHoldTalk() {
 async function finishHoldTalk(mode = "materials") {
   holdTalkBtn.classList.remove("recording");
   holdTalkBtn.textContent = "🎤 按住说话";
+  const resetBtn = () => { holdTalkBtn.textContent = "🎤 按住说话"; };
   const blob = new Blob(holdTalk.chunks, { type: holdTalk.rec.mimeType || "audio/webm" });
-  if (blob.size < 2000) return toast(tt("录音太短", "Recording too short"), "err");
+  if (blob.size < 2000) { resetBtn(); return toast(tt("录音太短", "Recording too short"), "err"); }
   if (mode === "materials") holdTalkBtn.textContent = "识别中…";
   else toast(tt("识别中…", "Recognizing…"), "");
   let text = "";
@@ -1324,10 +1325,12 @@ async function finishHoldTalk(mode = "materials") {
     text = (data.text || "").trim();
     if (!text) throw new Error(tt("未识别到内容", "Nothing recognized"));
   } catch (e) {
+    resetBtn();
     toast(String(e.message || e).slice(0, 80), "err");
     return;
   }
   if (mode === "ask") {
+    resetBtn();
     // 语音提问:文本 + 长按位置的板书上下文一起发
     askByVoice(text, askHold.downEvt);
     return;
@@ -1336,6 +1339,7 @@ async function finishHoldTalk(mode = "materials") {
   const input = $("#text-input");
   input.value = input.value ? input.value.replace(/\s*$/, "") + "\n" + text : text;
   $("#drawer").classList.remove("hidden"); // 打开素材区展示结果
+  resetBtn();
   toast(tt("已识别并填入素材区", "Recognized into materials"), "ok");
 }
 
