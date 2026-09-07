@@ -1257,11 +1257,12 @@ function lectureTick(t) {
 }
 
 // ---------- 按住说话：录音 → ASR(SiliconFlow /audio/transcriptions) → 文字填入素材区 ----------
-const holdTalk = { rec: null, chunks: [], active: false, timer: 0 };
+const holdTalk = { rec: null, chunks: [], active: false, timer: 0, mode: "materials" };
 const holdTalkBtn = $("#btn-holdtalk");
 
-async function startHoldTalk() {
+async function startHoldTalk(mode = "materials") {
   if (holdTalk.active) return;
+  holdTalk.mode = mode;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
     holdTalk.rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "" });
@@ -1269,12 +1270,14 @@ async function startHoldTalk() {
     holdTalk.rec.ondataavailable = (e) => { if (e.data.size) holdTalk.chunks.push(e.data); };
     holdTalk.rec.onstop = () => {
       stream.getTracks().forEach((t) => t.stop()); // 释放麦克风
-      finishHoldTalk();
+      finishHoldTalk(holdTalk.mode);
     };
     holdTalk.active = true;
     holdTalk.rec.start();
-    holdTalkBtn.classList.add("recording");
-    holdTalkBtn.textContent = "● 正在录音…松开结束";
+    if (mode === "materials") {
+      holdTalkBtn.classList.add("recording");
+      holdTalkBtn.textContent = "● 正在录音…松开结束";
+    }
   } catch (e) {
     toast(tt("麦克风不可用", "Microphone unavailable") + `: ${String(e.message || e).slice(0, 60)}`, "err");
   }
@@ -1286,12 +1289,14 @@ function stopHoldTalk() {
   try { holdTalk.rec.stop(); } catch { /* 已停 */ }
 }
 
-async function finishHoldTalk() {
+async function finishHoldTalk(mode = "materials") {
   holdTalkBtn.classList.remove("recording");
   holdTalkBtn.textContent = "🎤 按住说话";
   const blob = new Blob(holdTalk.chunks, { type: holdTalk.rec.mimeType || "audio/webm" });
   if (blob.size < 2000) return toast(tt("录音太短", "Recording too short"), "err");
-  holdTalkBtn.textContent = "识别中…";
+  if (mode === "materials") holdTalkBtn.textContent = "识别中…";
+  else toast(tt("识别中…", "Recognizing…"), "");
+  let text = "";
   try {
     const form = new FormData();
     form.append("model", "FunAudioLLM/SenseVoiceSmall");
@@ -1299,18 +1304,22 @@ async function finishHoldTalk() {
     const res = await fetch("api/asr", { method: "POST", body: form });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    const text = (data.text || "").trim();
+    text = (data.text || "").trim();
     if (!text) throw new Error(tt("未识别到内容", "Nothing recognized"));
-    // 填入素材输入区(保留已有内容,追加)
-    const input = $("#text-input");
-    input.value = input.value ? input.value.replace(/\s*$/, "") + "\n" + text : text;
-    $("#drawer").classList.remove("hidden"); // 打开素材区展示结果
-    toast(tt("已识别并填入素材区", "Recognized into materials"), "ok");
   } catch (e) {
     toast(String(e.message || e).slice(0, 80), "err");
-  } finally {
-    holdTalkBtn.textContent = "🎤 按住说话";
+    return;
   }
+  if (mode === "ask") {
+    // 语音提问:文本 + 长按位置的板书上下文一起发
+    askByVoice(text, askHold.downEvt);
+    return;
+  }
+  // 填入素材输入区(保留已有内容,追加)
+  const input = $("#text-input");
+  input.value = input.value ? input.value.replace(/\s*$/, "") + "\n" + text : text;
+  $("#drawer").classList.remove("hidden"); // 打开素材区展示结果
+  toast(tt("已识别并填入素材区", "Recognized into materials"), "ok");
 }
 
 // 按住说话:pointer 事件(鼠标+触摸统一);拖出按钮也算松开
@@ -1893,12 +1902,43 @@ $("#btn-next-page").addEventListener("click", () => goToPage(curPage + 1));
 let current = null;
 let lastTap = null; // 手动双击检测（preventDefault 会抑制原生 dblclick）
 
+let askHold = { timer: 0, recording: false, downEvt: null };
 boardEl.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   e.preventDefault();
-  // 提问模式：点击 = 指着某行文字向 AI 提问，不落笔
+  // 提问模式：短按 = 指着某行文字向 AI 提问（原逻辑）；长按 500ms = 语音提问（录音→ASR→发问）
   if (askMode) {
-    handleAskClick(e);
+    // 短按 = 指行提问(原逻辑);长按 500ms = 语音提问(录音→ASR→发问),松开分流见 onUp
+    askHold.downEvt = e;
+    askHold.recording = false;
+    askHold.timer = setTimeout(async () => {
+      askHold.recording = true;
+      await startHoldTalk("ask");
+      toast(tt("● 录音中…松开发问", "● Recording… release to ask"), "");
+    }, 500);
+    const clean = () => {
+      boardEl.removeEventListener("pointerup", onUp);
+      boardEl.removeEventListener("pointercancel", onCancel);
+    };
+    const onUp = (ev) => {
+      if (ev.pointerId !== e.pointerId) return;
+      clearTimeout(askHold.timer);
+      clean();
+      if (askHold.recording) {
+        askHold.recording = false;
+        stopHoldTalk(); // onstop → finishHoldTalk("ask") → 语音文本发问
+      } else {
+        handleAskClick(e); // 短按(<500ms):原指行提问逻辑
+      }
+    };
+    const onCancel = (ev) => {
+      if (ev.pointerId !== e.pointerId) return;
+      clearTimeout(askHold.timer);
+      clean();
+      if (askHold.recording) { stopHoldTalk(); askHold.recording = false; } // 取消=丢弃
+    };
+    boardEl.addEventListener("pointerup", onUp);
+    boardEl.addEventListener("pointercancel", onCancel);
     return;
   }
   // 书写动画中：左键单击 = 跳过动画，直接完整显示，且不留笔迹
@@ -2212,6 +2252,45 @@ function findLineAt(page, pt) {
     }
   }
   return bestD < 400 ? best : null;
+}
+
+// 语音提问:ASR 文本作为问题,长按位置命中的板书行并入上下文
+async function askByVoice(question, e) {
+  unlockAudio();
+  if (narration.playing || animState) {
+    stopNarration();
+    stopAnim();
+    renderText();
+  }
+  const page = pages[curPage];
+  layoutPage(page);
+  let context = page._drawOrder.map((b) => b.text).join("\n").slice(0, 1500);
+  let line = question;
+  if (e) {
+    const pt = toLogical(e);
+    const hit = findLineAt(page, pt);
+    if (hit) line = question; // 语音为主问题;命中行并入 context
+    if (hit) context = `所指板书行：${hit.line}\n${context}`;
+  }
+  thinking(true, tt("AI 正在解答语音问题…", "AI is answering your voice question…"));
+  try {
+    const res = await fetch("api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ line, context, x: 0, y: 0, canvasW: W, canvasH: H, ...(lang === "en" ? { lang: "en" } : {}) }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    const blocks = [
+      mkBlock({ text: data.text, say: data.text, x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }, "block", { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }),
+    ].filter(Boolean);
+    apPlay(blocks, tt("语音提问", "Voice question"));
+    toast(tt("AI 已解答（右侧）", "AI answered (right panel)"), "ok");
+  } catch (err) {
+    toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
+  } finally {
+    thinking(false);
+  }
 }
 
 async function handleAskClick(e) {
