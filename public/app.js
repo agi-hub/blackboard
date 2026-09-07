@@ -1136,8 +1136,11 @@ function runTimeline(entries, dividerMap, dur, onDone, onFrame) {
   animState = { entries, dividerMap, dur, startTs: 0, tNow: 0, onDone };
   const frame = (ts) => {
     if (!animState) return;
+    animState._lastFrame = performance.now();
     if (!animState.startTs) animState.startTs = ts;
-    animState.tNow = ts - animState.startTs;
+    // 时钟防护：部分引擎在最小化恢复的首帧给 rAF 回退的时间戳（或 freeze 期间的积压帧），
+    // tNow 倒退会让 quota 归零 → 板书瞬间清空。单调推进，永不低于上一帧。
+    animState.tNow = Math.max(animState.tNow, ts - animState.startTs);
     renderText(animState.tNow);
     if (onFrame) onFrame(animState.tNow);
     if (animState.tNow < animState.dur) {
@@ -1151,6 +1154,22 @@ function runTimeline(entries, dividerMap, dur, onDone, onFrame) {
     }
   };
   animRaf = requestAnimationFrame(frame);
+  // 自愈：页面隐藏（最小化/切后台/冻结）期间 rAF 停摆，部分引擎恢复后不重投递已排队帧，
+  // frame 链就此断裂——语音 setTimeout 照常触发而板书定格。恢复可见时强制续帧。
+  const selfHeal = () => {
+    if (!animState || !animRaf) return; // 已完结或已被打断
+    animRaf = requestAnimationFrame(frame);
+  };
+  document.addEventListener("visibilitychange", selfHeal);
+  // freeze 恢复（Safari 进程级挂起等场景）不触发 visibilitychange → 兜底轮询：
+  // 每 2s 检查一次 animState 是否还活着但没在推进（tNow 停滞且页面可见）
+  const watchdog = setInterval(() => {
+    if (!animState) { clearInterval(watchdog); document.removeEventListener("visibilitychange", selfHeal); return; }
+    if (document.visibilityState === "visible" && animRaf && performance.now() - (animState._lastFrame || 0) > 2500) selfHeal();
+  }, 2000);
+  const origOnDone = onDone;
+  onDone = () => { clearInterval(watchdog); document.removeEventListener("visibilitychange", selfHeal); if (origOnDone) origOnDone(); };
+  animState.onDone = onDone;
 }
 
 // ---------- 讲义区：老师口述实时记录（念一句，多一句） ----------
