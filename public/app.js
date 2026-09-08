@@ -1997,9 +1997,27 @@ async function fetchVoice(b) {
   return result;
 }
 
-// 由缓存的 dataURL 现场造一个干净的音频元素（null = 无语音）
+// 由缓存的 dataURL 现场造一个干净的音频元素（null = 无语音）。
+// TTS 人声偏小 → 接 Web Audio 增益放大 2 倍（el.volume 上限 1.0，翻倍只能走 GainNode）。
+// createMediaElementSource 一元素仅一次，重播每次新造元素所以安全；
+// audioCtx 顺带在用户手势里 resume（Safari 挂起策略）。
+const VOICE_GAIN = 2.0;
+let voiceAudioCtx = null;
 function spawnVoiceEl(v) {
-  return v && v.src ? new Audio(v.src) : null;
+  if (!v || !v.src) return null;
+  const el = new Audio(v.src);
+  try {
+    if (!voiceAudioCtx)
+      voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (voiceAudioCtx.state === "suspended") voiceAudioCtx.resume();
+    const src = voiceAudioCtx.createMediaElementSource(el);
+    const gain = voiceAudioCtx.createGain();
+    gain.gain.value = VOICE_GAIN;
+    src.connect(gain).connect(voiceAudioCtx.destination);
+  } catch {
+    /* Web Audio 不可用 → 原音量直放（Safari 旧版兜底） */
+  }
+  return el;
 }
 
 // 后台预热一页语音（不阻塞、不报错）：页到达即调，播放/重播时 fetchVoice 直接命中缓存。
@@ -2159,6 +2177,9 @@ function unlockAudio() {
   } catch {
     /* 解锁尽力而为 */
   }
+  // Web Audio 上下文也须在手势内 resume（增益放大依赖它出声）
+  if (voiceAudioCtx && voiceAudioCtx.state === "suspended")
+    voiceAudioCtx.resume().catch(() => {});
 }
 
 // 清空板书层（pending 结束→时间线首帧之间的空窗，避免 renderText 全量倾泻）
