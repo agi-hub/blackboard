@@ -854,7 +854,7 @@ function layoutPage(page) {
   // 竖屏 500 宽画布下 72px 占宽 14%（横屏仅 4.5%）视觉过大 → 按方向取档
   if (page.titleBlock) {
     const t = page.titleBlock;
-    const [tDef, tMin, tMax] = W < H ? [52, 38, 62] : [72, 60, 88];
+    const [tDef, tMin, tMax] = W < H ? [42, 32, 50] : [72, 60, 88];
     t.fontSize = clampNum(t.fontSize || tDef, tMin, tMax);
     t.width = W - Math.round(W / 13);
     for (let tries = 0; tries < 12; tries++) {
@@ -912,7 +912,10 @@ function layoutPage(page) {
     }
   }
   const baseFonts = new Map(); // 每块原始字号（多轮收缩的基准）
-  for (const b of page.blocks) baseFonts.set(b.uid, b.fontSize || 45);
+  // 竖屏基准字号降 20%（v47 画布减半后 45px 物理偏大）；横屏原样
+  const orientScale = W < H ? 0.8 : 1;
+  for (const b of page.blocks)
+    baseFonts.set(b.uid, Math.round((b.fontSize || 45) * orientScale));
 
   // 贪心流式装填：块按阅读顺序流动——当前区装不下（含图宽换算/文字缩字号到 30）就流入下一区，
   // 区用尽才整体收缩一档重来。彻底消除"单区爆满、邻区空闲"与溢出。
@@ -974,9 +977,20 @@ function layoutPage(page) {
         }
         b.region = r;
       }
+      // 竖屏锁区：cursor 切到块声明的区域（不再顺流挤进前区——曾致 r2 区头丢失、
+      // r1/r2 内容连成一条）。仅当声明区存在且不同于当前区时切换。
+      if (W < H && b.region && b.region !== cur.r.id) {
+        const ti = flowOrder.findIndex((x) => x.id === b.region);
+        if (ti >= 0) {
+          cur.contentH = cursorY;
+          ri = ti;
+          cur = outByRegion.get(b.region);
+          openRegion();
+        }
+      }
       b.fontSize = clampNum(
         Math.round(baseFonts.get(b.uid) * fontScale),
-        30,
+        Math.round(30 * orientScale),
         63,
       );
       b.x = cur.r.x + 24;
@@ -1045,12 +1059,21 @@ function layoutPage(page) {
               fits = true;
               break;
             }
-            if (b.fontSize <= 30) break;
-            b.fontSize = Math.max(30, Math.round(b.fontSize * 0.88));
+            if (b.fontSize <= Math.round(30 * orientScale)) break;
+            b.fontSize = Math.max(
+              Math.round(30 * orientScale),
+              Math.round(b.fontSize * 0.88),
+            );
             computeLayout(b);
           }
         }
         if (fits) break;
+        // 竖屏不跨区流动：块锁定在声明区域（曾发生 r1 文字全窜到 r2 区头下，
+        // r1 只剩区头空栏）；放不下就在区内向下生长（regionH 含 cursorY 兜底）
+        if (W < H) {
+          overflow = true;
+          break;
+        }
         // 当前区放不下 → 开下一区
         if (ri < flowOrder.length - 1 && (hops < 1 || b.svg)) {
           cur.contentH = cursorY;
@@ -1135,8 +1158,12 @@ function layoutPage(page) {
     return bottom;
   };
 
+  // 总结条占位按实际行高算（clamp 后）：多行总结预留更大底界，正文不再压总结
+  const summaryReserve = page.summaryBlock
+    ? Math.round(H / 12.5) + page.summaryBlock.fontSize * 1.7 * 2.2 // 行高×行数上限(2)+缓冲
+    : Math.round(H / 16.7);
   const summaryTop = page.summaryBlock
-    ? H - Math.round(H / 6.7)
+    ? H - summaryReserve
     : H - Math.round(H / 16.7);
   const minTop = page.titleBlock ? Math.round(H / 6.25) : Math.round(H / 9); // 区域不得侵入标题带（随画布高缩放）
   // stackRegions 会改写 r.y/r.h —— 多轮必须每轮从原始几何重来
@@ -1152,28 +1179,34 @@ function layoutPage(page) {
   const SCALES = [1, 0.93, 0.87, 0.8, 0.74, 0.68, 0.62];
   // 两轮尝试：先带总结条；内容实在装不下 → 去掉总结条再试（绝不重叠优先于保留总结）
   for (const pass of [0, 1]) {
-    const sTop = page.summaryBlock
-      ? H - Math.round(H / 6.7)
-      : H - Math.round(H / 16.7);
+    const sTop = summaryTop;
     for (const s of SCALES) {
       resetGeom();
       const r = layFlow(s);
       laid = r.out;
       bottom = stackRegions(laid, minTop);
-      if (!r.overflow && bottom <= sTop + TOL) break;
+      const fitsAll = !r.overflow && bottom <= sTop + TOL;
+      if (fitsAll) break;
+      // 竖屏：锁区后「区内放不下」是常态（overflow 只代表区内生长）：
+      // - bottom 没超界 → 直接接受（总结保留）
+      // - bottom 超界 → 继续缩字号，0.68 档为下限（26px 物理≈19px 仍可读；
+      //   重叠比小字更糟）；到下限仍超才接受（正文/总结已按行数尽力避让）
+      if (W < H) {
+        if (bottom <= sTop + TOL) break;
+        if (s <= 0.68) break;
+      }
     }
     if (bottom <= sTop + TOL) break;
+    if (W < H) break; // 竖屏不丢总结条重试
     if (pass === 0 && page.summaryBlock) {
       page.summaryBlock = null; // 牺牲总结条换空间
       continue;
     }
   }
-  if (
-    bottom >
-    (page.summaryBlock ? H - Math.round(H / 6.7) : H - Math.round(H / 16.7)) +
-      TOL
-  ) {
-    // 仍放不下（极端内容量）：整体上移（以最小区域顶算，绝不侵入标题带）
+  // 竖屏不整体上移（上移曾把总结压进正文/把正文顶过界）：
+  // 内容超界时保持原位堆叠，宁可向下留白由总结条上移换行吸收（总结 y 按行数算已安全）。
+  // 横屏保留原整体上移逻辑（两栏布局时 lift 有正面价值）。
+  if (W >= H && bottom > summaryTop + TOL) {
     const lift = Math.max(
       0,
       Math.min(
@@ -1228,15 +1261,45 @@ function layoutPage(page) {
     if (!layouts.has(b.uid)) computeLayout(b);
   }
 
-  // 总结句：置底换色
+  // 总结句：置底换色。竖屏字号同步降档；底界按实际行数算（曾按 1 行定 y，
+  // 总结换 2 行时向上溢进正文区压字）
   if (page.summaryBlock) {
     const s = page.summaryBlock;
-    s.fontSize = clampNum(s.fontSize || 48, 42, 56);
+    const [sDef, sMin, sMax] = W < H ? [38, 32, 46] : [48, 42, 56];
+    s.fontSize = clampNum(s.fontSize || sDef, sMin, sMax);
     s.x = Math.round(W / 20);
     s.width = W - Math.round(W / 10);
     computeLayout(s);
     const lay = layouts.get(s.uid);
-    s.y = H - Math.round(H / 12.5) - lay.lines.length * lay.lineH;
+    // 总结贴底；正文实际底更低时总结紧跟正文之下（不重叠）。跟出画布底 →
+    // 缩字号到下限重排塞回画布（仍塞不下才贴底容忍）
+    const bodyBottomAll = Math.max(
+      ...page.blocks.map((b) => b.y + blockHeight(b)),
+      0,
+    );
+    let y = H - Math.round(H / 12.5) - lay.lines.length * lay.lineH;
+    // 正文自身已顶到画布底（极端内容量）：总结无处安放 → 丢弃（重叠比缺总结更糟）
+    if (bodyBottomAll > H - 40) {
+      page.summaryBlock = null;
+    } else
+      // 正文底更低 → 总结需要下移避让；下移后出画布 → 先缩字号重排再算
+      if (y < bodyBottomAll + 24) {
+        const fits = (fontSize) => {
+          const l = layouts.get(s.uid);
+          return bodyBottomAll + 24 + l.lines.length * l.lineH <= H - 12;
+        };
+        if (!fits(s.fontSize) && s.fontSize > sMin) {
+          s.fontSize = sMin;
+          computeLayout(s);
+        }
+        const l2 = layouts.get(s.uid);
+        y = Math.max(
+          H - Math.round(H / 12.5) - l2.lines.length * l2.lineH,
+          bodyBottomAll + 24,
+        );
+        y = Math.min(y, H - 12 - l2.lines.length * l2.lineH); // 无论如何不出画布
+      }
+    s.y = Math.max(24, y);
   }
 
   // 动画/绘制顺序：标题 → (逐区域按装填顺序：区头+块) → 其余绝对块 → 总结
