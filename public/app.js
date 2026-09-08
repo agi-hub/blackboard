@@ -2733,23 +2733,23 @@ async function toggleFullscreen() {
   try {
     if (document.fullscreenElement) {
       await document.exitFullscreen();
-      screen.orientation?.unlock?.(); // 退出全屏解除竖屏锁,交还系统自动旋转
+      screen.orientation?.unlock?.(); // 退出全屏解除横屏锁,交还系统自动旋转
     } else {
       await document.documentElement.requestFullscreen();
-      await lockPortraitWhileFullscreen();
+      await lockLandscapeWhileFullscreen();
     }
   } catch {
     /* 浏览器拒绝时静默 */
   }
 }
 
-// 全屏期间保持竖屏:进入即锁 + 旋转事件里反复纠正(部分引擎首次 lock 被忽略/竞态丢失)。
+// 全屏期间保持横屏（演示/投影是横版黑板）:进入即锁 + 旋转事件里反复纠正(部分引擎首次 lock 被忽略/竞态丢失)。
 // iOS 不支持 orientation.lock —— 无法 JS 强制,保持现状(系统旋转跟随设备)。
-async function lockPortraitWhileFullscreen() {
+async function lockLandscapeWhileFullscreen() {
   if (!document.fullscreenElement) return;
   const doLock = async () => {
     try {
-      await screen.orientation?.lock?.("portrait");
+      await screen.orientation?.lock?.("landscape");
     } catch {
       /* 不支持则忽略 */
     }
@@ -2759,24 +2759,24 @@ async function lockPortraitWhileFullscreen() {
   setTimeout(() => {
     if (
       document.fullscreenElement &&
-      screen.orientation?.type?.startsWith("landscape")
+      screen.orientation?.type?.startsWith("portrait")
     )
       doLock();
   }, 350);
 }
-// 全屏中系统仍可能旋到横屏(锁被引擎释放/竞态):检测到就再锁回去
+// 全屏中系统仍可能旋回竖屏(锁被引擎释放/竞态):检测到就再锁回去
 screen.orientation?.addEventListener?.("change", () => {
   if (
     document.fullscreenElement &&
-    screen.orientation.type?.startsWith("landscape")
+    screen.orientation.type?.startsWith("portrait")
   ) {
-    lockPortraitWhileFullscreen();
-    toast(tt("已锁定竖屏", "Portrait locked"), "");
+    lockLandscapeWhileFullscreen();
+    toast(tt("已锁定横屏", "Landscape locked"), "");
   }
 });
-// 全屏状态变化:进入时锁,退出时解锁
+// 全屏状态变化:进入时锁横屏,退出时解锁交还系统旋转
 document.addEventListener("fullscreenchange", () => {
-  if (document.fullscreenElement) lockPortraitWhileFullscreen();
+  if (document.fullscreenElement) lockLandscapeWhileFullscreen();
   else screen.orientation?.unlock?.().catch?.(() => {});
 });
 
