@@ -3,7 +3,7 @@ window.__APP_VER = 3; // 缓存自检标记：index.html 内联脚本据此判�
 // 架构：LLM 只输出分区语义（regions + 归属块），前端做确定性排版 → 根治坐标乱
 // 动画：时间线调度，分隔线先画 → 逐字渐现（每字透明度爬升）→ 重点圈/划
 
-"use strict";
+("use strict");
 
 // ---------- 常量与状态 ----------
 
@@ -14,11 +14,16 @@ let H = 1000;
 
 // 竖屏模式检测：窄屏竖向（手机竖屏）。CSS 侧用同条件做布局切换（media query）。
 function isPortrait() {
-  return window.matchMedia("(max-width: 760px) and (orientation: portrait)").matches;
+  return window.matchMedia("(max-width: 760px) and (orientation: portrait)")
+    .matches;
 }
 function applyOrientation() {
   if (isPortrait()) {
-    if (W !== 1000) { W = 1000; H = 1600; return true; }
+    if (W !== 1000) {
+      W = 1000;
+      H = 1600;
+      return true;
+    }
   } else if (W !== 1600) {
     W = 1600;
     H = 1000;
@@ -49,25 +54,60 @@ const FONT_PRESETS = [
     id: "kaiti",
     label: "楷体",
     stack: `"Kaiti SC","STKaiti","Kaiti TC","楷体-简","楷体","KaiTi","BiauKai","AR PL UKai CN","LXGW WenKai","Noto Serif CJK SC",serif`,
-    names: ["Kaiti SC", "STKaiti", "Kaiti TC", "楷体-简", "楷体", "KaiTi", "BiauKai", "AR PL UKai CN"],
+    names: [
+      "Kaiti SC",
+      "STKaiti",
+      "Kaiti TC",
+      "楷体-简",
+      "楷体",
+      "KaiTi",
+      "BiauKai",
+      "AR PL UKai CN",
+    ],
   },
   {
     id: "xingkai",
     label: "行楷（手写风）",
     stack: `"Xingkai SC","STXingkai","行楷","Kaiti SC","Kaiti TC","楷体-简","KaiTi","BiauKai","LXGW WenKai Lite","Noto Serif CJK SC",serif`,
-    names: ["Xingkai SC", "STXingkai", "行楷", "Kaiti SC", "Kaiti TC", "楷体-简", "KaiTi", "BiauKai"],
+    names: [
+      "Xingkai SC",
+      "STXingkai",
+      "行楷",
+      "Kaiti SC",
+      "Kaiti TC",
+      "楷体-简",
+      "KaiTi",
+      "BiauKai",
+    ],
   },
   {
     id: "songti",
     label: "宋体",
     stack: `"Songti SC","STSong","宋体","SimSun","NSimSun","Noto Serif CJK SC","Source Han Serif SC",serif`,
-    names: ["Songti SC", "STSong", "宋体", "SimSun", "NSimSun", "Noto Serif CJK SC", "Source Han Serif SC"],
+    names: [
+      "Songti SC",
+      "STSong",
+      "宋体",
+      "SimSun",
+      "NSimSun",
+      "Noto Serif CJK SC",
+      "Source Han Serif SC",
+    ],
   },
   {
     id: "heiti",
     label: "黑体",
     stack: `"PingFang SC","Heiti SC","Microsoft YaHei","微软雅黑","SimHei","黑体","Noto Sans CJK SC","Source Han Sans SC",sans-serif`,
-    names: ["PingFang SC", "Heiti SC", "Microsoft YaHei", "微软雅黑", "SimHei", "黑体", "Noto Sans CJK SC", "Source Han Sans SC"],
+    names: [
+      "PingFang SC",
+      "Heiti SC",
+      "Microsoft YaHei",
+      "微软雅黑",
+      "SimHei",
+      "黑体",
+      "Noto Sans CJK SC",
+      "Source Han Sans SC",
+    ],
   },
   {
     id: "yuanti",
@@ -98,12 +138,16 @@ function fontAvailability() {
       return Math.round(g.measureText(probeText).width * 100);
     };
     const ref = new Map();
-    for (const base of ["serif", "sans-serif", "monospace"]) ref.set(base, widthOf(base));
+    for (const base of ["serif", "sans-serif", "monospace"])
+      ref.set(base, widthOf(base));
     const available = (name) => {
       const q = JSON.stringify(name);
-      return ["serif", "sans-serif", "monospace"].some((base) => widthOf(`${q},${base}`) !== ref.get(base));
+      return ["serif", "sans-serif", "monospace"].some(
+        (base) => widthOf(`${q},${base}`) !== ref.get(base),
+      );
     };
-    for (const p of FONT_PRESETS) for (const n of p.names) if (available(n)) avail.add(n);
+    for (const p of FONT_PRESETS)
+      for (const n of p.names) if (available(n)) avail.add(n);
   } catch {
     /* 检测失败 → 全部视为可用，行为与不检测一致 */
   }
@@ -128,13 +172,16 @@ function initFontChoice(saved) {
 }
 
 function applyGrain(v) {
-  chalkGrain = Number.isFinite(Number(v)) ? Math.max(0, Math.min(2.5, Number(v))) : 1.3;
+  chalkGrain = Number.isFinite(Number(v))
+    ? Math.max(0, Math.min(2.5, Number(v)))
+    : 1.3;
   spriteCache.clear(); // 字粒缓存含强度键，直接清空重生成
   relayout();
 }
 
 function fontStack() {
-  return (FONT_PRESETS.find((f) => f.id === fontChoice) ?? FONT_PRESETS[0]).stack;
+  return (FONT_PRESETS.find((f) => f.id === fontChoice) ?? FONT_PRESETS[0])
+    .stack;
 }
 
 // webfont 就绪闸门：Safari 的 canvas 不会等待 @font-face 加载完成——字体未就绪时
@@ -146,9 +193,15 @@ function invalidateFontArtifacts() {
   layouts.clear();
   for (const p of pages) p._laid = false;
   const figBlocks = [];
-  for (const p of pages) for (const b of p.blocks) if (b.svg) { b._figure = null; figBlocks.push(b); }
+  for (const p of pages)
+    for (const b of p.blocks)
+      if (b.svg) {
+        b._figure = null;
+        figBlocks.push(b);
+      }
   relayout();
-  if (figBlocks.length) Promise.all(figBlocks.map(loadFigure)).then(() => relayout());
+  if (figBlocks.length)
+    Promise.all(figBlocks.map(loadFigure)).then(() => relayout());
 }
 async function ensureFontsReady() {
   if (!document.fonts || !document.fonts.load) return;
@@ -158,7 +211,10 @@ async function ensureFontsReady() {
   const sample = "板书讲义敲黑板重点关键数据公式定理";
   try {
     await Promise.race([
-      Promise.all([document.fonts.load(`48px ${fontStack()}`, sample), document.fonts.ready]),
+      Promise.all([
+        document.fonts.load(`48px ${fontStack()}`, sample),
+        document.fonts.ready,
+      ]),
       new Promise((r) => setTimeout(r, 5000)), // CDN 不通最多等 5s，先按回退字体渲染
     ]);
   } catch {
@@ -177,7 +233,9 @@ async function ensureFontsReady() {
 // 切换字体：字粒缓存与排版全部失效，重排当前页。
 // 用户显式选择的 id 永远生效（引擎按栈逐名回退）；未知 id 回落 kaiti。
 function applyFont(id) {
-  fontChoice = FONT_PRESETS.some((f) => f.id === id) ? id : initFontChoice(undefined);
+  fontChoice = FONT_PRESETS.some((f) => f.id === id)
+    ? id
+    : initFontChoice(undefined);
   invalidateFontArtifacts();
   ensureFontsReady();
 }
@@ -198,55 +256,147 @@ const UI_I18N = [
   ["#btn-load-course", "加载", "Load", "text"],
   ["#btn-settings", "设置", "Set", "text"],
   ["#drawer h2", "文本及图片 → 板书", "Text & Image → Board", "text"],
-  ["#text-input", "粘贴文本…（可配合下方图片）", "Paste text… (images optional)", "ph"],
+  [
+    "#text-input",
+    "粘贴文本…（可配合下方图片）",
+    "Paste text… (images optional)",
+    "ph",
+  ],
   ["#btn-image", "上传图像", "Upload Image", "text"],
   ["#btn-generate", "开始学习", "Start", "text"],
   [".brand-name", "敲黑板", "ChalkTalk", "text"],
   ["#btn-undo", "撤销", "Undo", "text"],
   ["#btn-clear", "清屏", "Clear", "text"],
   ["#answer-panel h2", "AI 解答", "AI Answer", "text"],
-  ["#answer-panel .drawer-tip", "解答写在这块小黑板上，不影响左侧板书；点击可跳过书写。", "Answers appear on this side board without touching the main board; click to skip the writing.", "text"],
+  [
+    "#answer-panel .drawer-tip",
+    "解答写在这块小黑板上，不影响左侧板书；点击可跳过书写。",
+    "Answers appear on this side board without touching the main board; click to skip the writing.",
+    "text",
+  ],
   ["#lecture-panel h2", "讲义", "Notes", "text"],
-  ["#lecture-panel .drawer-tip", "老师口述内容实时记录，念一句多一句；颜色跟随对应板书块。", "The teacher's narration is transcribed live, one line at a time; colors follow the board blocks.", "text"],
+  [
+    "#lecture-panel .drawer-tip",
+    "老师口述内容实时记录，念一句多一句；颜色跟随对应板书块。",
+    "The teacher's narration is transcribed live, one line at a time; colors follow the board blocks.",
+    "text",
+  ],
   ["#settings-modal h2", "设置", "Settings", "text"],
   ['.mtab[data-tab="tab-llm"]', "模型服务", "Model Service", "text"],
   ['.mtab[data-tab="tab-tts"]', "配音 TTS", "TTS Voice", "text"],
   ['.mtab[data-tab="tab-look"]', "外观", "Appearance", "text"],
-  ["#tab-llm label:nth-of-type(1)", "接口地址 baseUrl（OpenAI 兼容 /chat/completions）", "API base URL (OpenAI-compatible /chat/completions)", "first"],
-  ["#tab-llm label:nth-of-type(2)", "API Key（留打码值表示不修改）", "API Key (keep masked value as-is)", "first"],
-  ["#tab-llm label:nth-of-type(3)", "文本模型（板书排版）", "Text model (board layout)", "first"],
-  ["#tab-llm label:nth-of-type(4)", "限流（次/分钟）", "Rate limit (req/min)", "first"],
-  ["#tab-llm label:nth-of-type(5)", "禁用深度思考（大幅提速，模型不支持时自动忽略）", "Disable deep thinking (much faster; ignored if unsupported)", "first"],
-  ["#tab-tts label:nth-of-type(1)", "接口地址（SiliconFlow 兼容 /audio/speech）", "Base URL (SiliconFlow-compatible /audio/speech)", "first"],
-  ["#tab-tts label:nth-of-type(2)", "API Key（留打码值表示不修改）", "API Key (keep masked value as-is)", "first"],
+  [
+    "#tab-llm label:nth-of-type(1)",
+    "接口地址 baseUrl（OpenAI 兼容 /chat/completions）",
+    "API base URL (OpenAI-compatible /chat/completions)",
+    "first",
+  ],
+  [
+    "#tab-llm label:nth-of-type(2)",
+    "API Key（留打码值表示不修改）",
+    "API Key (keep masked value as-is)",
+    "first",
+  ],
+  [
+    "#tab-llm label:nth-of-type(3)",
+    "文本模型（板书排版）",
+    "Text model (board layout)",
+    "first",
+  ],
+  [
+    "#tab-llm label:nth-of-type(4)",
+    "限流（次/分钟）",
+    "Rate limit (req/min)",
+    "first",
+  ],
+  [
+    "#tab-llm label:nth-of-type(5)",
+    "禁用深度思考（大幅提速，模型不支持时自动忽略）",
+    "Disable deep thinking (much faster; ignored if unsupported)",
+    "first",
+  ],
+  [
+    "#tab-tts label:nth-of-type(1)",
+    "接口地址（SiliconFlow 兼容 /audio/speech）",
+    "Base URL (SiliconFlow-compatible /audio/speech)",
+    "first",
+  ],
+  [
+    "#tab-tts label:nth-of-type(2)",
+    "API Key（留打码值表示不修改）",
+    "API Key (keep masked value as-is)",
+    "first",
+  ],
   ["#tab-tts label:nth-of-type(3)", "模型", "Model", "first"],
-  ["#tab-tts label:nth-of-type(4)", "讲解音色（男/女声预置）", "Narration voice (male/female presets)", "first"],
+  [
+    "#tab-tts label:nth-of-type(4)",
+    "讲解音色（男/女声预置）",
+    "Narration voice (male/female presets)",
+    "first",
+  ],
   ["#tab-look label:nth-of-type(1)", "板书字体", "Board font", "first"],
-  ["#tab-look label:nth-of-type(2)", "字体磨砂感（粉笔颗粒强度）", "Chalk grain (texture strength)", "first"],
+  [
+    "#tab-look label:nth-of-type(2)",
+    "字体磨砂感（粉笔颗粒强度）",
+    "Chalk grain (texture strength)",
+    "first",
+  ],
   ["#btn-cfg-save", "保存", "Save", "text"],
 ];
 // 悬停提示（title 属性）翻译
 const TITLE_I18N = [
-  ["#btn-layout", "输入文字素材或拍张照片，AI 精炼排版为板书", "Feed text or a photo; AI lays it out as board writing"],
+  [
+    "#btn-layout",
+    "输入文字素材或拍张照片，AI 精炼排版为板书",
+    "Feed text or a photo; AI lays it out as board writing",
+  ],
   ["#btn-narrate", "停止/继续 配音讲解", "Stop / resume narration"],
   ["#btn-replay", "从本页开头重新讲解", "Replay this page from the start"],
-  ["#btn-ask", "进入提问模式：用鼠标指向黑板某行文字，AI 就地解释", "Ask mode: point at a line of board text for an in-place explanation"],
+  [
+    "#btn-ask",
+    "进入提问模式：用鼠标指向黑板某行文字，AI 就地解释",
+    "Ask mode: point at a line of board text for an in-place explanation",
+  ],
   ["#page-nav", "黑板翻页（←/→）", "Turn pages (←/→)"],
   ["#btn-prev-page", "上一页 (←)", "Previous page (←)"],
   ["#btn-next-page", "下一页 (→)", "Next page (→)"],
-  ["#btn-fullscreen", "全屏黑板（也可双击黑板）", "Full screen (or double-click the board)"],
+  [
+    "#btn-fullscreen",
+    "全屏黑板（也可双击黑板）",
+    "Full screen (or double-click the board)",
+  ],
   ["#btn-theme", "切换黑板 / 绿板", "Toggle black / green board"],
   ["#btn-export", "截屏当前黑板为高清 PNG", "Capture the board as HD PNG"],
-  ["#btn-save-course", "保存课程（板书+讲稿，纯文本 JSON）", "Save course (board + script, plain JSON)"],
-  ["#btn-load-course", "加载课程文件，恢复板书与讲解", "Load a course file to restore board & narration"],
-  ["#btn-settings", "设置（模型/配音/外观）", "Settings (model / voice / appearance)"],
-  ["#btn-rail", "隐藏/显示左侧粉笔槽（投影时腾出更大黑板）", "Hide/show the chalk rail for a bigger board"],
+  [
+    "#btn-save-course",
+    "保存课程（板书+讲稿，纯文本 JSON）",
+    "Save course (board + script, plain JSON)",
+  ],
+  [
+    "#btn-load-course",
+    "加载课程文件，恢复板书与讲解",
+    "Load a course file to restore board & narration",
+  ],
+  [
+    "#btn-settings",
+    "设置（模型/配音/外观）",
+    "Settings (model / voice / appearance)",
+  ],
+  [
+    "#btn-rail",
+    "隐藏/显示左侧粉笔槽（投影时腾出更大黑板）",
+    "Hide/show the chalk rail for a bigger board",
+  ],
   ["#btn-lang", "切换中文 / Switch to English", "切换中文 / Switch to English"],
   ["#chalk-rail", "粉笔槽", "Chalk rail"],
   ["#btn-eraser", "橡皮擦（板擦）", "Eraser"],
   ["#btn-undo", "撤销 (Ctrl/Cmd+Z)", "Undo (Ctrl/Cmd+Z)"],
   ["#btn-clear", "清空黑板", "Clear the board"],
-  ["#btn-image", "拍照或从相册选图，题目图片会自动附解题过程", "Take a photo or pick one; problems get worked solutions"],
+  [
+    "#btn-image",
+    "拍照或从相册选图，题目图片会自动附解题过程",
+    "Take a photo or pick one; problems get worked solutions",
+  ],
 ];
 function applyLangUI() {
   for (const [sel, zh, en, mode] of UI_I18N) {
@@ -255,7 +405,8 @@ function applyLangUI() {
     const s = lang === "en" ? en : zh;
     if (mode === "ph") el.placeholder = s;
     else if (mode === "first") {
-      if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) el.firstChild.textContent = s;
+      if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE)
+        el.firstChild.textContent = s;
     } else el.textContent = s;
   }
   for (const [sel, zh, en] of TITLE_I18N) {
@@ -264,18 +415,25 @@ function applyLangUI() {
   }
   setNarrateBtn();
   const rail = $("#chalk-rail");
-  if (rail) $("#btn-rail").textContent = rail.classList.contains("rail-hidden") ? tt("收回", "Show") : tt("粉笔", "Chalk");
+  if (rail)
+    $("#btn-rail").textContent = rail.classList.contains("rail-hidden")
+      ? tt("收回", "Show")
+      : tt("粉笔", "Chalk");
   $("#btn-lang").textContent = lang === "en" ? "中文" : "EN";
   document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
   document.title = lang === "en" ? "ChalkTalk" : "敲黑板";
 }
 
 // 竖屏：设置按钮移入 AI 按钮行（行 1），避免工具行 8 按钮挤爆；横屏移回工具组
-const mqPortrait = window.matchMedia("(max-width: 760px) and (orientation: portrait)");
+const mqPortrait = window.matchMedia(
+  "(max-width: 760px) and (orientation: portrait)",
+);
 function placeSettingsBtn() {
   // 竖屏:设置+EN 移入 AI 按钮行(行1);横屏:放回工具组末尾
   const btns = [$("#btn-settings"), $("#btn-lang")];
-  const target = mqPortrait.matches ? $(".tb-group.spacer-right") : document.querySelector("#toolbar").lastElementChild;
+  const target = mqPortrait.matches
+    ? $(".tb-group.spacer-right")
+    : document.querySelector("#toolbar").lastElementChild;
   for (const btn of btns) {
     if (btn && btn.parentElement !== target) target.appendChild(btn);
   }
@@ -286,13 +444,28 @@ placeSettingsBtn();
 $("#btn-lang").addEventListener("click", () => {
   lang = lang === "en" ? "zh" : "en";
   applyLangUI();
-  fetch("api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lang }) }).catch(() => {});
-  toast(lang === "en" ? "Switched to English — new boards & narration will be in English" : "已切换为中文", "ok");
+  fetch("api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lang }),
+  }).catch(() => {});
+  toast(
+    lang === "en"
+      ? "Switched to English — new boards & narration will be in English"
+      : "已切换为中文",
+    "ok",
+  );
 });
 
 const THEMES = {
-  black: { base: "#20241f", frame: "linear-gradient(135deg,#6b4a2c,#4a3118 55%,#6b4a2c)" },
-  green: { base: "#2b4a3a", frame: "linear-gradient(135deg,#7a5a35,#503619 55%,#7a5a35)" },
+  black: {
+    base: "#20241f",
+    frame: "linear-gradient(135deg,#6b4a2c,#4a3118 55%,#6b4a2c)",
+  },
+  green: {
+    base: "#2b4a3a",
+    frame: "linear-gradient(135deg,#7a5a35,#503619 55%,#7a5a35)",
+  },
 };
 
 let theme = "green"; // 默认护眼绿板
@@ -426,14 +599,25 @@ function chalkSeg(ctx, x0, y0, x1, y1, chalkColor, size, rnd) {
       ctx.globalAlpha = 0.07 + rnd() * 0.15;
       ctx.lineWidth = Math.max(0.4, size * (0.28 + rnd() * 0.35));
       ctx.beginPath();
-      ctx.moveTo(x0 + dx * t0 + nx * off + (rnd() - 0.5) * 0.7, y0 + dy * t0 + ny * off + (rnd() - 0.5) * 0.7);
-      ctx.lineTo(x0 + dx * t1 + nx * off + (rnd() - 0.5) * 0.7, y0 + dy * t1 + ny * off + (rnd() - 0.5) * 0.7);
+      ctx.moveTo(
+        x0 + dx * t0 + nx * off + (rnd() - 0.5) * 0.7,
+        y0 + dy * t0 + ny * off + (rnd() - 0.5) * 0.7,
+      );
+      ctx.lineTo(
+        x0 + dx * t1 + nx * off + (rnd() - 0.5) * 0.7,
+        y0 + dy * t1 + ny * off + (rnd() - 0.5) * 0.7,
+      );
       ctx.stroke();
     }
     if (rnd() < 0.3) {
       ctx.globalAlpha = 0.1 + rnd() * 0.12;
       const d = Math.max(0.5, size * 0.14);
-      ctx.fillRect(x0 + dx * t0 + (rnd() - 0.5) * size * 1.6, y0 + dy * t0 + (rnd() - 0.5) * size * 1.6, d, d);
+      ctx.fillRect(
+        x0 + dx * t0 + (rnd() - 0.5) * size * 1.6,
+        y0 + dy * t0 + (rnd() - 0.5) * size * 1.6,
+        d,
+        d,
+      );
     }
   }
   ctx.globalAlpha = 1;
@@ -463,7 +647,16 @@ function drawStrokeSegment(stroke, i) {
   if (stroke.tool === "eraser") {
     eraserSeg(strokeCtx, a.x, a.y, b.x, b.y, stroke.size);
   } else {
-    chalkSeg(strokeCtx, a.x, a.y, b.x, b.y, stroke.color, eff, segRng(stroke.seed, i - 1));
+    chalkSeg(
+      strokeCtx,
+      a.x,
+      a.y,
+      b.x,
+      b.y,
+      stroke.color,
+      eff,
+      segRng(stroke.seed, i - 1),
+    );
   }
 }
 
@@ -512,10 +705,15 @@ function chalkSprite(ch, fontSize, chalkColor) {
   g.setTransform(1, 0, 0, 1, 0, 0); // 切设备坐标（pts 是设备像素；缩放坐标下会被再放大打偏）
   g.globalCompositeOperation = "destination-out";
   for (let i = 0; i < n && pts.length >= 4; i++) {
-    const k = (rnd() * (pts.length / 2) | 0) * 2;
+    const k = ((rnd() * (pts.length / 2)) | 0) * 2;
     g.globalAlpha = 0.2 + rnd() * 0.45;
     const s = (0.8 + rnd() * 1.4) * (0.7 + 0.3 * Math.min(2, chalkGrain));
-    g.fillRect(pts[k] + (rnd() - 0.5) * 2, pts[k + 1] + (rnd() - 0.5) * 2, s, s);
+    g.fillRect(
+      pts[k] + (rnd() - 0.5) * 2,
+      pts[k + 1] + (rnd() - 0.5) * 2,
+      s,
+      s,
+    );
   }
   g.globalCompositeOperation = "source-over";
   g.globalAlpha = 1;
@@ -538,7 +736,13 @@ function chalkChar(ctx, ch, x, y, b, rnd, alphaScale = 1, colorOverride) {
   if (colorOverride) {
     // 彩色重点词：偏移复描一遍 → 更粗更醒目
     ctx.globalAlpha = 0.4 * alphaScale;
-    ctx.drawImage(spr, -pad + 1, -pad - b.fontSize + (rnd() - 0.5) * 0.8, spr.width / 2, spr.height / 2);
+    ctx.drawImage(
+      spr,
+      -pad + 1,
+      -pad - b.fontSize + (rnd() - 0.5) * 0.8,
+      spr.width / 2,
+      spr.height / 2,
+    );
   }
   ctx.restore();
   ctx.globalAlpha = 1;
@@ -611,7 +815,17 @@ function blockHeight(b) {
 }
 
 function newPage() {
-  return { titleBlock: null, summaryBlock: null, regions: [], blocks: [], headers: [], animated: false, _laid: false, _dividers: [], _drawOrder: [] };
+  return {
+    titleBlock: null,
+    summaryBlock: null,
+    regions: [],
+    blocks: [],
+    headers: [],
+    animated: false,
+    _laid: false,
+    _dividers: [],
+    _drawOrder: [],
+  };
 }
 
 // 页面级确定性排版：区域钳制 → 分隔线 → 标题居中 → 区内流式 → 总结置底
@@ -652,7 +866,8 @@ function layoutPage(page) {
     computeLayout(t);
     textCtx.font = fontString(t);
     let tw = 0;
-    for (const l of layouts.get(t.uid).lines) tw = Math.max(tw, textCtx.measureText(l).width);
+    for (const l of layouts.get(t.uid).lines)
+      tw = Math.max(tw, textCtx.measureText(l).width);
     t.x = Math.max(30, (W - tw) / 2);
     t.y = 28;
   }
@@ -676,8 +891,12 @@ function layoutPage(page) {
   // 把图块移入空区。模型守规矩时（图已独栏）这里什么都不做。
   const figBlocks = page.blocks.filter((b) => b.svg && b.region);
   if (figBlocks.length) {
-    const usedIds = new Set(page.blocks.filter((b) => !b.svg && b.region).map((b) => b.region));
-    const emptyIds = page.regions.filter((r) => !usedIds.has(r.id)).map((r) => r.id);
+    const usedIds = new Set(
+      page.blocks.filter((b) => !b.svg && b.region).map((b) => b.region),
+    );
+    const emptyIds = page.regions
+      .filter((r) => !usedIds.has(r.id))
+      .map((r) => r.id);
     const mixed = figBlocks.filter((b) => usedIds.has(b.region));
     for (let i = 0; i < mixed.length && i < emptyIds.length; i++) {
       const list = byRegion.get(mixed[i].region);
@@ -698,9 +917,18 @@ function layoutPage(page) {
     if (!flowOrder.length) return { out: [], overflow: false }; // 无区域页：块走绝对定位分支
     const seq = [];
     const seen = new Set();
-    for (const r of flowOrder) for (const b of byRegion.get(r.id) || []) { seq.push(b); seen.add(b.uid); }
-    for (const b of page.blocks) if (b.region && !seen.has(b.uid)) { b.region = null; } // 引用不存在区域 → 绝对定位
-    const outByRegion = new Map(regs.map((r) => [r.id, { r, headerLay: null, placed: [], contentH: 0 }]));
+    for (const r of flowOrder)
+      for (const b of byRegion.get(r.id) || []) {
+        seq.push(b);
+        seen.add(b.uid);
+      }
+    for (const b of page.blocks)
+      if (b.region && !seen.has(b.uid)) {
+        b.region = null;
+      } // 引用不存在区域 → 绝对定位
+    const outByRegion = new Map(
+      regs.map((r) => [r.id, { r, headerLay: null, placed: [], contentH: 0 }]),
+    );
     let ri = 0;
     let cur = outByRegion.get(flowOrder[0].id);
     let cursorY = 0;
@@ -708,7 +936,17 @@ function layoutPage(page) {
       const r = cur.r;
       cursorY = 14;
       if (r.header) {
-        const hb = { uid: `h${++uidSeq}`, kind: "header", text: r.header, x: r.x + 24, y: 0, width: r.w - 48, fontSize: Math.max(30, Math.round(45 * fontScale)), color: "#ffe066", emphasis: [] };
+        const hb = {
+          uid: `h${++uidSeq}`,
+          kind: "header",
+          text: r.header,
+          x: r.x + 24,
+          y: 0,
+          width: r.w - 48,
+          fontSize: Math.max(30, Math.round(45 * fontScale)),
+          color: "#ffe066",
+          emphasis: [],
+        };
         computeLayout(hb);
         cur.headerLay = hb;
         cursorY += layouts.get(hb.uid).lineH + 12;
@@ -732,7 +970,11 @@ function layoutPage(page) {
         }
         b.region = r;
       }
-      b.fontSize = clampNum(Math.round(baseFonts.get(b.uid) * fontScale), 30, 63);
+      b.fontSize = clampNum(
+        Math.round(baseFonts.get(b.uid) * fontScale),
+        30,
+        63,
+      );
       b.x = cur.r.x + 24;
       let fits = false;
       let hops = 0; // 换区次数：文本最多 1 次；图可顺流到装得下的区（而非被硬性宽度顶出去）
@@ -752,11 +994,16 @@ function layoutPage(page) {
         const avail = regionH() - 6 - cursorY;
         if (b.svg) {
           const aspect = b._figure ? b._figure.aspect : 0.75;
-          const maxW = Math.round((cur.r.w - 48) * Math.min(1, fontScale + 0.35));
+          const maxW = Math.round(
+            (cur.r.w - 48) * Math.min(1, fontScale + 0.35),
+          );
           // 图内文字可读宽（有效字号≥20）只作软下限（取半）：曾用 Math.max 硬性顶回，
           // 图宽缩不下去 → fits 恒假 → 图被逐区外推到隔壁栏/尾区溢出
           const fig = b._figure;
-          const wReadable = fig && fig.minFont && fig.vbW ? Math.ceil((20 * fig.vbW) / fig.minFont) : maxW;
+          const wReadable =
+            fig && fig.minFont && fig.vbW
+              ? Math.ceil((20 * fig.vbW) / fig.minFont)
+              : maxW;
           const wMin = Math.min(Math.max(140, Math.round(wReadable / 2)), maxW);
           // 图宽收敛：宽变 → 图题换行数变 → 高度约束变。单次估算曾因再换行失效（图窜栏根因之二）
           let w = maxW;
@@ -766,7 +1013,11 @@ function layoutPage(page) {
             computeLayout(b);
             const lay = layouts.get(b.uid);
             capH = lay.lines.length ? lay.lines.length * lay.lineH + 10 : 0;
-            const wNext = clampNum(Math.floor((avail - capH) / aspect), wMin, maxW);
+            const wNext = clampNum(
+              Math.floor((avail - capH) / aspect),
+              wMin,
+              maxW,
+            );
             if (wNext === w) break;
             w = wNext;
           }
@@ -786,7 +1037,10 @@ function layoutPage(page) {
           b.width = cur.r.w - 48;
           computeLayout(b);
           for (let tries = 0; tries < 5; tries++) {
-            if (cursorY + blockHeight(b) <= regionH() - 6) { fits = true; break; }
+            if (cursorY + blockHeight(b) <= regionH() - 6) {
+              fits = true;
+              break;
+            }
             if (b.fontSize <= 30) break;
             b.fontSize = Math.max(30, Math.round(b.fontSize * 0.88));
             computeLayout(b);
@@ -820,11 +1074,19 @@ function layoutPage(page) {
           }
           {
             const l = layouts.get(b.uid);
-            if (b.width * aspect + (l.lines.length ? l.lines.length * l.lineH + 10 : 0) > room && l.lines.length) {
+            if (
+              b.width * aspect +
+                (l.lines.length ? l.lines.length * l.lineH + 10 : 0) >
+                room &&
+              l.lines.length
+            ) {
               b._noCap = true;
               computeLayout(b);
               room = regionH() - 6 - cursorY;
-              b.width = Math.max(140, Math.min(b.width, Math.floor(room / aspect)));
+              b.width = Math.max(
+                140,
+                Math.min(b.width, Math.floor(room / aspect)),
+              );
             }
           }
         }
@@ -836,7 +1098,8 @@ function layoutPage(page) {
     }
     cur.contentH = cursorY;
     // 未装填区域补零高
-    for (const it of outByRegion.values()) if (!it.contentH) it.contentH = it.headerLay ? 60 : 10;
+    for (const it of outByRegion.values())
+      if (!it.contentH) it.contentH = it.headerLay ? 60 : 10;
     const out = flowOrder.map((r) => outByRegion.get(r.id));
     return { out, overflow };
   };
@@ -850,13 +1113,18 @@ function layoutPage(page) {
       let top = Math.max(it.r.y, minTop);
       for (let j = 0; j < i; j++) {
         const prev = laid[j];
-        const xOverlap = Math.min(prev.r.x + prev.r.w, it.r.x + it.r.w) - Math.max(prev.r.x, it.r.x);
+        const xOverlap =
+          Math.min(prev.r.x + prev.r.w, it.r.x + it.r.w) -
+          Math.max(prev.r.x, it.r.x);
         if (xOverlap > 40) top = Math.max(top, prev.r.y + prev.contentH + 28); // 同列纵向避让
       }
       it.r.y = top;
       if (it.headerLay) it.headerLay.y = top + (it.headerLay.y ?? 0);
       // 区域贴合内容高度；但内容已流走（本区被路过）时保底原高的 1/3，避免缩成一条细带
-      it.r.h = Math.max(it.contentH + 10, origH.get(it.r.id) ? Math.round(origH.get(it.r.id) / 3) : 0);
+      it.r.h = Math.max(
+        it.contentH + 10,
+        origH.get(it.r.id) ? Math.round(origH.get(it.r.id) / 3) : 0,
+      );
       for (const p of it.placed) p.b.y = top + p.dy;
       bottom = Math.max(bottom, top + it.contentH);
     }
@@ -867,7 +1135,11 @@ function layoutPage(page) {
   const minTop = page.titleBlock ? 160 : 110; // 区域不得侵入标题带
   // stackRegions 会改写 r.y/r.h —— 多轮必须每轮从原始几何重来
   const origGeom = regs.map((r) => ({ y: r.y, h: r.h }));
-  const resetGeom = () => regs.forEach((r, i) => { r.y = origGeom[i].y; r.h = origGeom[i].h; });
+  const resetGeom = () =>
+    regs.forEach((r, i) => {
+      r.y = origGeom[i].y;
+      r.h = origGeom[i].h;
+    });
   let laid = null;
   let bottom = 0;
   const TOL = 24;
@@ -890,7 +1162,13 @@ function layoutPage(page) {
   }
   if (bottom > (page.summaryBlock ? H - 150 : H - 56) + TOL) {
     // 仍放不下（极端内容量）：整体上移（以最小区域顶算，绝不侵入标题带）
-    const lift = Math.max(0, Math.min(bottom - (H - 56), Math.min(...laid.map((it) => it.r.y)) - minTop));
+    const lift = Math.max(
+      0,
+      Math.min(
+        bottom - (H - 56),
+        Math.min(...laid.map((it) => it.r.y)) - minTop,
+      ),
+    );
     for (const it of laid) {
       it.r.y -= lift;
       if (it.headerLay) it.headerLay.y -= lift;
@@ -912,14 +1190,20 @@ function layoutPage(page) {
         const yBot = Math.min(A.y + A.h, B.y + B.h);
         if (yTop - yBot < 180) {
           const y = (yTop + yBot) / 2;
-          page._dividers.push({ a: { x: Math.max(A.x, B.x) + 10, y }, b: { x: Math.min(A.x + A.w, B.x + B.w) - 10, y } });
+          page._dividers.push({
+            a: { x: Math.max(A.x, B.x) + 10, y },
+            b: { x: Math.min(A.x + A.w, B.x + B.w) - 10, y },
+          });
         }
       } else if (ovY > Math.min(A.h, B.h) * 0.5 && ovX <= 0) {
         const xLeft = Math.max(A.x, B.x);
         const xRight = Math.min(A.x + A.w, B.x + B.w);
         if (xLeft - xRight < 180) {
           const x = (xLeft + xRight) / 2;
-          page._dividers.push({ a: { x, y: Math.max(A.y, B.y) + 10 }, b: { x, y: Math.min(A.y + A.h, B.y + B.h) - 10 } });
+          page._dividers.push({
+            a: { x, y: Math.max(A.y, B.y) + 10 },
+            b: { x, y: Math.min(A.y + A.h, B.y + B.h) - 10 },
+          });
         }
       }
     }
@@ -960,7 +1244,6 @@ function layoutPage(page) {
 function drawChalkUnderline(ctx, x0, y, x1, chalkColor, rnd) {
   chalkSeg(ctx, x0, y, x1, y, chalkColor, 2.6, rnd);
 }
-
 
 // allowed: 已完整写出的字符数；partial: {gi, alpha} 正在渐现的字
 function drawBlock(ctx, b, allowed, partial) {
@@ -1004,7 +1287,12 @@ function drawBlock(ctx, b, allowed, partial) {
           if (!t.content) continue;
           ctx.font = `${t.weight ? t.weight + " " : ""}${Math.max(8, Math.round(t.size * sc))}px ${fontStack()}`;
           ctx.fillStyle = t.fill;
-          ctx.textAlign = t.anchor === "middle" ? "center" : t.anchor === "end" ? "right" : "left";
+          ctx.textAlign =
+            t.anchor === "middle"
+              ? "center"
+              : t.anchor === "end"
+                ? "right"
+                : "left";
           ctx.fillText(t.content, b.x + t.x * sc, b.y + t.y * sc);
         }
       }
@@ -1027,7 +1315,8 @@ function drawBlock(ctx, b, allowed, partial) {
     for (const em of b.emphasis ?? []) {
       const idx = line.indexOf(em.text);
       if (idx >= 0) {
-        for (let k = idx; k < idx + em.text.length && k < line.length; k++) cover[k] = em.color;
+        for (let k = idx; k < idx + em.text.length && k < line.length; k++)
+          cover[k] = em.color;
       }
     }
     let x = b.x;
@@ -1036,23 +1325,52 @@ function drawBlock(ctx, b, allowed, partial) {
     for (const ch of line) {
       if (drawn >= allowed) {
         if (partial && partial.gi === drawn && partial.alpha > 0.02) {
-          chalkChar(ctx, ch, x, yBase, b, mulberry32(hashStr(b.uid) + drawn * 7919), partial.alpha, cover[ci]);
+          chalkChar(
+            ctx,
+            ch,
+            x,
+            yBase,
+            b,
+            mulberry32(hashStr(b.uid) + drawn * 7919),
+            partial.alpha,
+            cover[ci],
+          );
         }
         return;
       }
-      chalkChar(ctx, ch, x, yBase, b, mulberry32(hashStr(b.uid) + drawn * 7919), 1, cover[ci]);
+      chalkChar(
+        ctx,
+        ch,
+        x,
+        yBase,
+        b,
+        mulberry32(hashStr(b.uid) + drawn * 7919),
+        1,
+        cover[ci],
+      );
       x += ctx.measureText(ch).width;
       drawn++;
       ci++;
     }
   }
   // 标题/总结/区头写完 → 粉笔下划线
-  if (allowed >= b._chars && (b.kind === "title" || b.kind === "summary" || b.kind === "header") && lay.lines.length > 0) {
+  if (
+    allowed >= b._chars &&
+    (b.kind === "title" || b.kind === "summary" || b.kind === "header") &&
+    lay.lines.length > 0
+  ) {
     let wMax = 0;
     for (const l of lay.lines) wMax = Math.max(wMax, ctx.measureText(l).width);
     if (wMax > 30) {
       const uy = b.y + (lay.lines.length - 1) * lay.lineH + b.fontSize * 1.28;
-      drawChalkUnderline(ctx, b.x, uy, b.x + wMax, b.color, mulberry32(hashStr(b.uid + "__u")));
+      drawChalkUnderline(
+        ctx,
+        b.x,
+        uy,
+        b.x + wMax,
+        b.color,
+        mulberry32(hashStr(b.uid + "__u")),
+      );
     }
   }
 }
@@ -1086,8 +1404,19 @@ function renderText(t = Infinity) {
         if (frac <= 0) continue;
       }
     }
-    const rnd = mulberry32(hashStr(`${Math.round(d.a.x)},${Math.round(d.a.y)}`));
-    chalkSeg(textCtx, d.a.x, d.a.y, d.a.x + (d.b.x - d.a.x) * frac, d.a.y + (d.b.y - d.a.y) * frac, "#d8d5c8", 2.6, rnd);
+    const rnd = mulberry32(
+      hashStr(`${Math.round(d.a.x)},${Math.round(d.a.y)}`),
+    );
+    chalkSeg(
+      textCtx,
+      d.a.x,
+      d.a.y,
+      d.a.x + (d.b.x - d.a.x) * frac,
+      d.a.y + (d.b.y - d.a.y) * frac,
+      "#d8d5c8",
+      2.6,
+      rnd,
+    );
   }
 
   // 各块配额 = 已完整写出的字符数；正在写的字带渐现 alpha；图块单独按 figure 条目浮现
@@ -1107,7 +1436,11 @@ function renderText(t = Infinity) {
       const done = t >= e.t0 + e.cost;
       const inFlight = !done && t >= e.t0;
       if (done) quota.set(e.b.uid, quota.get(e.b.uid) + 1);
-      else if (inFlight) partials.set(e.b.uid, { gi: e.gi, alpha: Math.max(0.1, (t - e.t0) / e.cost) });
+      else if (inFlight)
+        partials.set(e.b.uid, {
+          gi: e.gi,
+          alpha: Math.max(0.1, (t - e.t0) / e.cost),
+        });
     }
   }
   for (const b of page._drawOrder) {
@@ -1117,7 +1450,10 @@ function renderText(t = Infinity) {
 
   // 讲解标记：讲到哪个词，就当场在板书上圈/划它（340ms 画完，保留）
   for (const mk of page._sayMarks || []) {
-    const frac = animState && t !== Infinity ? Math.min(1, Math.max(0, (t - mk.tAppear) / 340)) : 1;
+    const frac =
+      animState && t !== Infinity
+        ? Math.min(1, Math.max(0, (t - mk.tAppear) / 340))
+        : 1;
     if (frac <= 0) continue;
     drawSayMark(textCtx, mk, frac);
   }
@@ -1145,17 +1481,32 @@ function animateIn(page, blockList, withDividers) {
     if (b.svg) entries.push({ kind: "figure", b }); // 图示浮现（700ms 淡入）
     for (let li = 0; li < lay.lines.length; li++) {
       for (let ci = 0; ci < lay.lines[li].length; ci++) {
-        entries.push({ kind: "char", b, li, ci, gi: charCount, lineStart: ci === 0 });
+        entries.push({
+          kind: "char",
+          b,
+          li,
+          ci,
+          gi: charCount,
+          lineStart: ci === 0,
+        });
         charCount++;
       }
     }
     charCount = 0; // gi 为块内序号
   }
-  const charMs = entries.filter((e) => e.kind === "char").length > 220 ? CHAR_MS_FAST : CHAR_MS;
+  const charMs =
+    entries.filter((e) => e.kind === "char").length > 220
+      ? CHAR_MS_FAST
+      : CHAR_MS;
   let t = 0;
   for (const e of entries) {
     e.t0 = t;
-    e.cost = e.kind === "divider" ? DIVIDER_MS : e.kind === "figure" ? 700 : charMs + (e.lineStart && t > 0 ? LINE_PAUSE : 0);
+    e.cost =
+      e.kind === "divider"
+        ? DIVIDER_MS
+        : e.kind === "figure"
+          ? 700
+          : charMs + (e.lineStart && t > 0 ? LINE_PAUSE : 0);
     t += e.cost;
   }
   if (!entries.length) {
@@ -1203,11 +1554,24 @@ function runTimeline(entries, dividerMap, dur, onDone, onFrame) {
   // freeze 恢复（Safari 进程级挂起等场景）不触发 visibilitychange → 兜底轮询：
   // 每 2s 检查一次 animState 是否还活着但没在推进（tNow 停滞且页面可见）
   const watchdog = setInterval(() => {
-    if (!animState) { clearInterval(watchdog); document.removeEventListener("visibilitychange", selfHeal); return; }
-    if (document.visibilityState === "visible" && animRaf && performance.now() - (animState._lastFrame || 0) > 2500) selfHeal();
+    if (!animState) {
+      clearInterval(watchdog);
+      document.removeEventListener("visibilitychange", selfHeal);
+      return;
+    }
+    if (
+      document.visibilityState === "visible" &&
+      animRaf &&
+      performance.now() - (animState._lastFrame || 0) > 2500
+    )
+      selfHeal();
   }, 2000);
   const origOnDone = onDone;
-  onDone = () => { clearInterval(watchdog); document.removeEventListener("visibilitychange", selfHeal); if (origOnDone) origOnDone(); };
+  onDone = () => {
+    clearInterval(watchdog);
+    document.removeEventListener("visibilitychange", selfHeal);
+    if (origOnDone) origOnDone();
+  };
   animState.onDone = onDone;
 }
 
@@ -1217,16 +1581,27 @@ async function acquireWakeLock() {
   try {
     if ("wakeLock" in navigator && !wakeLock) {
       wakeLock = await navigator.wakeLock.request("screen");
-      wakeLock.addEventListener("release", () => { wakeLock = null; });
+      wakeLock.addEventListener("release", () => {
+        wakeLock = null;
+      });
     }
-  } catch { /* 不支持/被拒 → 忽略,系统默认行为 */ }
+  } catch {
+    /* 不支持/被拒 → 忽略,系统默认行为 */
+  }
 }
 function releaseWakeLock() {
-  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  if (wakeLock) {
+    wakeLock.release().catch(() => {});
+    wakeLock = null;
+  }
 }
 document.addEventListener("visibilitychange", () => {
   // 页面回前台且仍在讲解 → 重新持有(系统在后台时会自动释放)
-  if (document.visibilityState === "visible" && (narration.playing || narration.pending)) acquireWakeLock();
+  if (
+    document.visibilityState === "visible" &&
+    (narration.playing || narration.pending)
+  )
+    acquireWakeLock();
 });
 
 // ---------- 讲义区：老师口述实时记录（念一句，多一句） ----------
@@ -1241,7 +1616,8 @@ function lectureReset(show) {
   lectureQueue = [];
   lecturePtr = 0;
   lectureBody.innerHTML = "";
-  if (show && !lecturePanelHidden) $("#lecture-panel").classList.remove("hidden");
+  if (show && !lecturePanelHidden)
+    $("#lecture-panel").classList.remove("hidden");
 }
 
 // 时间线每帧调用：把到点的话句追加进讲义区
@@ -1257,21 +1633,44 @@ function lectureTick(t) {
 }
 
 // ---------- 按住说话：录音 → ASR(SiliconFlow /audio/transcriptions) → 文字填入素材区 ----------
-const holdTalk = { rec: null, chunks: [], active: false, timer: 0, mode: "materials" };
+const holdTalk = {
+  rec: null,
+  chunks: [],
+  active: false,
+  timer: 0,
+  mode: "materials",
+};
 const holdTalkBtn = $("#btn-holdtalk");
 
 async function startHoldTalk(mode = "materials") {
   if (holdTalk.active) return;
   holdTalk.mode = mode;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+    });
     // mime 探测:Chrome/Android=webm;opus,Safari=iOS mp4/aac(扩展名必须匹配,否则上游按错格式解析失败)
-    const mimes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/aac", "audio/ogg;codecs=opus"];
+    const mimes = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+      "audio/aac",
+      "audio/ogg;codecs=opus",
+    ];
     const mime = mimes.find((m) => MediaRecorder.isTypeSupported(m)) || "";
-    holdTalk.rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    holdTalk.rec = new MediaRecorder(
+      stream,
+      mime ? { mimeType: mime } : undefined,
+    );
     holdTalk.mime = mime;
     holdTalk.chunks = [];
-    holdTalk.rec.ondataavailable = (e) => { if (e.data.size) holdTalk.chunks.push(e.data); };
+    holdTalk.rec.ondataavailable = (e) => {
+      if (e.data.size) holdTalk.chunks.push(e.data);
+    };
     holdTalk.rec.onstop = () => {
       stream.getTracks().forEach((t) => t.stop()); // 释放麦克风
       finishHoldTalk(holdTalk.mode);
@@ -1283,7 +1682,11 @@ async function startHoldTalk(mode = "materials") {
       holdTalkBtn.textContent = "● 录音中…再按停止";
     }
   } catch (e) {
-    toast(tt("麦克风不可用", "Microphone unavailable") + `: ${String(e.message || e).slice(0, 60)}`, "err");
+    toast(
+      tt("麦克风不可用", "Microphone unavailable") +
+        `: ${String(e.message || e).slice(0, 60)}`,
+      "err",
+    );
   }
 }
 
@@ -1293,22 +1696,37 @@ function stopHoldTalk() {
   // stop() 异步(onstop 才走识别):先给即时视觉反馈,避免"松开无反应"的观感
   holdTalkBtn.classList.remove("recording");
   if (holdTalk.mode === "materials") holdTalkBtn.textContent = "识别中…";
-  try { holdTalk.rec.stop(); } catch { /* 已停 */ }
+  try {
+    holdTalk.rec.stop();
+  } catch {
+    /* 已停 */
+  }
 }
 
 async function finishHoldTalk(mode = "materials") {
   holdTalkBtn.classList.remove("recording");
   holdTalkBtn.textContent = "🎤 按住说话";
-  const resetBtn = () => { holdTalkBtn.textContent = "🎤 按住说话"; };
-  const blob = new Blob(holdTalk.chunks, { type: holdTalk.rec.mimeType || "audio/webm" });
-  if (blob.size < 2000) { resetBtn(); return toast(tt("录音太短", "Recording too short"), "err"); }
+  const resetBtn = () => {
+    holdTalkBtn.textContent = "🎤 按住说话";
+  };
+  const blob = new Blob(holdTalk.chunks, {
+    type: holdTalk.rec.mimeType || "audio/webm",
+  });
+  if (blob.size < 2000) {
+    resetBtn();
+    return toast(tt("录音太短", "Recording too short"), "err");
+  }
   if (mode === "materials") holdTalkBtn.textContent = "识别中…";
   else toast(tt("识别中…", "Recognizing…"), "");
   let text = "";
   try {
     const form = new FormData();
     form.append("model", "Qwen/Qwen3-ASR-1.7B");
-    const ext = (holdTalk.mime || "").includes("mp4") || (holdTalk.mime || "").includes("aac") ? "m4a" : "webm";
+    const ext =
+      (holdTalk.mime || "").includes("mp4") ||
+      (holdTalk.mime || "").includes("aac")
+        ? "m4a"
+        : "webm";
     form.append("file", blob, `speech.${ext}`);
     // ASR 上游偶发断连(502 JSON 兜底)自动重试一次
     let res = await fetch("api/asr", { method: "POST", body: form });
@@ -1337,7 +1755,9 @@ async function finishHoldTalk(mode = "materials") {
   }
   // 填入素材输入区(保留已有内容,追加)
   const input = $("#text-input");
-  input.value = input.value ? input.value.replace(/\s*$/, "") + "\n" + text : text;
+  input.value = input.value
+    ? input.value.replace(/\s*$/, "") + "\n" + text
+    : text;
   $("#drawer").classList.remove("hidden"); // 打开素材区展示结果
   resetBtn();
   toast(tt("已识别并填入素材区", "Recognized into materials"), "ok");
@@ -1361,7 +1781,12 @@ function pushLectureSay(b, windowStart, windowDur) {
     const start = pos;
     pos += s.length;
     const text = s.trim();
-    if (text) lectureQueue.push({ text, at: windowStart + (start / cleanLen) * windowDur, color: b.color });
+    if (text)
+      lectureQueue.push({
+        text,
+        at: windowStart + (start / cleanLen) * windowDur,
+        color: b.color,
+      });
   }
 }
 
@@ -1374,12 +1799,20 @@ const NARRATE_WRITE_MS = 80; // 讲解模式：快写节奏（教师写字不出
 
 // ---------- 配音讲解（讲写协同：讲什么写什么，讲完才写下一块） ----------
 
-const narration = { playing: false, seq: 0, timers: [], audios: [], speakDone: [] };
+const narration = {
+  playing: false,
+  seq: 0,
+  timers: [],
+  audios: [],
+  speakDone: [],
+};
 
 function setNarrateBtn() {
   const b = $("#btn-narrate");
   if (b) {
-    b.textContent = narration.playing ? tt("停止", "Stop") : tt("讲解", "Narrate");
+    b.textContent = narration.playing
+      ? tt("停止", "Stop")
+      : tt("讲解", "Narrate");
     b.classList.toggle("primary", !narration.playing);
   }
 }
@@ -1440,12 +1873,14 @@ function parseSay(say) {
   let last = 0;
   let m;
   while ((m = re.exec(src))) {
-    if (m.index > last) segs.push({ text: src.slice(last, m.index), isMath: false });
+    if (m.index > last)
+      segs.push({ text: src.slice(last, m.index), isMath: false });
     clean += src.slice(last, m.index);
     const start = clean.length;
     clean += m[2];
     segs.push({ text: m[2], isMath: m[1] === "math" });
-    if (m[2] && m[1] !== "math") marks.push({ type: m[1], text: m[2], start, end: clean.length });
+    if (m[2] && m[1] !== "math")
+      marks.push({ type: m[1], text: m[2], start, end: clean.length });
     last = re.lastIndex;
   }
   if (last < src.length) segs.push({ text: src.slice(last), isMath: false });
@@ -1472,21 +1907,34 @@ function readAudioDuration(el) {
       el.removeEventListener("durationchange", onDur);
       resolve(v);
     };
-    const real = () => (Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0);
+    const real = () =>
+      Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0;
     const onDur = () => {
       const d = real();
       if (d > 0) {
-        try { el.currentTime = 0; } catch { /* 未就绪时忽略 */ }
+        try {
+          el.currentTime = 0;
+        } catch {
+          /* 未就绪时忽略 */
+        }
         finish(d);
       }
     };
     const timer = setTimeout(() => finish(0), 8000);
-    el.addEventListener("loadedmetadata", () => {
-      if (real() > 0) onDur();
-      else {
-        try { el.currentTime = 1e7; } catch { finish(0); } // Infinity → 跳末尾逼真实时长
-      }
-    }, { once: true });
+    el.addEventListener(
+      "loadedmetadata",
+      () => {
+        if (real() > 0) onDur();
+        else {
+          try {
+            el.currentTime = 1e7;
+          } catch {
+            finish(0);
+          } // Infinity → 跳末尾逼真实时长
+        }
+      },
+      { once: true },
+    );
     el.addEventListener("durationchange", onDur);
     el.addEventListener("error", () => finish(0), { once: true });
     if (el.readyState >= 1) onDur();
@@ -1505,42 +1953,77 @@ function estimateSpeech(s) {
 // 且拒绝被 .catch 吞掉就是整块静音；每次播放现场 new Audio(dataURL)，元素永远干净。
 async function fetchVoice(b) {
   if (b._voice && b._voice.voice === voiceId) return b._voice;
-  const parsed = parseSay(b.say);
-  const say = ttsSpeech(parsed).trim(); // 公式段直读，普通文本 - 读作"杠"
-  const est = estimateSpeech(say || b.text);
-  const fallback = { voice: voiceId, src: null, dur: est };
-  if (!say) {
-    b._voice = fallback;
-    return fallback;
-  }
-  try {
-    const res = await fetch("api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: say, voice: voiceId }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error);
-    const probe = new Audio(data.audio);
-    probe.preload = "auto";
-    // 真实时长优先（readAudioDuration 含 Safari Infinity 处理）；
-    // 拿不到时宁可高估（estimateSpeech）——低估会让下一块提前开播、两个声音重叠。
-    const dur = (await readAudioDuration(probe)) || est;
-    b._voice = { voice: voiceId, src: data.audio, dur };
-  } catch (e) {
-    b._voice = fallback;
-    // TTS 不可用时明确告知（每次会话只提醒一次），避免误以为程序坏了
-    if (!fetchVoice._warned) {
-      fetchVoice._warned = true;
-      toast(`配音不可用（${String(e && e.message ? e.message : "TTS 服务异常").slice(0, 60)}），已切换无声模式`, "err");
+  if (b._voiceFetching) return b._voiceFetching; // 预热与正式播放并发打同一块 → 合并为一次请求
+  b._voiceFetching = (async () => {
+    const parsed = parseSay(b.say);
+    const say = ttsSpeech(parsed).trim(); // 公式段直读，普通文本 - 读作"杠"
+    const est = estimateSpeech(say || b.text);
+    const fallback = { voice: voiceId, src: null, dur: est };
+    if (!say) {
+      b._voice = fallback;
+      return fallback;
     }
-  }
-  return b._voice;
+    try {
+      const res = await fetch("api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: say, voice: voiceId }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      const probe = new Audio(data.audio);
+      probe.preload = "auto";
+      // 真实时长优先（readAudioDuration 含 Safari Infinity 处理）；
+      // 拿不到时宁可高估（estimateSpeech）——低估会让下一块提前开播、两个声音重叠。
+      const dur = (await readAudioDuration(probe)) || est;
+      b._voice = { voice: voiceId, src: data.audio, dur };
+    } catch (e) {
+      b._voice = fallback;
+      // TTS 不可用时明确告知（每次会话只提醒一次），避免误以为程序坏了
+      if (!fetchVoice._warned) {
+        fetchVoice._warned = true;
+        toast(
+          `配音不可用（${String(e && e.message ? e.message : "TTS 服务异常").slice(0, 60)}），已切换无声模式`,
+          "err",
+        );
+      }
+    }
+  })();
+  const result = await b._voiceFetching;
+  b._voiceFetching = null; // 完成即清：音色切换后可重新拉取
+  return result;
 }
 
 // 由缓存的 dataURL 现场造一个干净的音频元素（null = 无语音）
 function spawnVoiceEl(v) {
   return v && v.src ? new Audio(v.src) : null;
+}
+
+// 后台预热一页语音（不阻塞、不报错）：页到达即调，播放/重播时 fetchVoice 直接命中缓存。
+// TTS 有限流：并发全开会被 429 打爆 → 池化 3 路串行拉取。预热结果落在 b._voice，
+// 与正式播放共用同一缓存键（voiceId），音色一致即命中。
+let voiceWarmQueue = Promise.resolve();
+function warmPageVoices(page) {
+  if (!page || !page._drawOrder) return;
+  const targets = page._drawOrder.filter(
+    (b) =>
+      b.say && layouts.has(b.uid) && !(b._voice && b._voice.voice === voiceId),
+  );
+  if (!targets.length) return;
+  const CONC = 3;
+  let idx = 0;
+  for (let w = 0; w < CONC; w++) {
+    voiceWarmQueue = voiceWarmQueue.then(async () => {
+      while (idx < targets.length) {
+        const b = targets[idx++];
+        try {
+          await fetchVoice(b);
+        } catch {
+          /* 预热失败留给正式播放再报 */
+        }
+      }
+    });
+  }
 }
 
 // 讲稿标记 → 板书定位 + 出现时刻（词起点占纯讲稿比例 × 语音时长）
@@ -1550,7 +2033,12 @@ function pushSayMarks(page, b, windowStart, windowDur, mode) {
   for (const mk of parsed.marks) {
     const span = findMarkSpan(b, mk.text);
     if (!span) continue; // 板书上找不到该词 → 无法定位，跳过
-    page._sayMarks.push({ type: mk.type, text: mk.text, tAppear: windowStart + (mk.start / cleanLen) * windowDur, span });
+    page._sayMarks.push({
+      type: mk.type,
+      text: mk.text,
+      tAppear: windowStart + (mk.start / cleanLen) * windowDur,
+      span,
+    });
   }
 }
 
@@ -1559,14 +2047,22 @@ function findMarkSpan(b, text) {
   const lay = layouts.get(b.uid);
   if (!lay || !text) return null;
   textCtx.font = fontString(b);
-  const yOff = b.svg ? b.width * (b._figure ? b._figure.aspect : 0.75) + (lay.lines.length ? 10 : 0) : 0;
+  const yOff = b.svg
+    ? b.width * (b._figure ? b._figure.aspect : 0.75) +
+      (lay.lines.length ? 10 : 0)
+    : 0;
   for (let li = 0; li < lay.lines.length; li++) {
     const line = lay.lines[li];
     const idx = line.indexOf(text);
     if (idx < 0) continue;
     const x0 = b.x + textCtx.measureText(line.slice(0, idx)).width;
     const x1 = x0 + textCtx.measureText(text).width;
-    return { x0, x1, y: b.y + yOff + li * lay.lineH + b.fontSize * 0.9, fontSize: b.fontSize };
+    return {
+      x0,
+      x1,
+      y: b.y + yOff + li * lay.lineH + b.fontSize * 0.9,
+      fontSize: b.fontSize,
+    };
   }
   return null;
 }
@@ -1579,7 +2075,10 @@ function findLineAt(page, pt) {
     const lay = layouts.get(b.uid);
     if (!lay) continue;
     // 图块：文字行在图下方，行 y 加图高偏移（曾漏加 → 指行提问命中跑到图上）
-    const yOff = b.svg ? b.width * (b._figure ? b._figure.aspect : 0.75) + (lay.lines.length ? 10 : 0) : 0;
+    const yOff = b.svg
+      ? b.width * (b._figure ? b._figure.aspect : 0.75) +
+        (lay.lines.length ? 10 : 0)
+      : 0;
     const withinX = pt.x >= b.x - 60 && pt.x <= b.x + b.width + 120;
     for (let li = 0; li < lay.lines.length; li++) {
       if (!lay.lines[li].trim()) continue;
@@ -1631,7 +2130,14 @@ function drawSayMark(ctx, mk, frac) {
     );
   } else {
     const xEnd = mk.span.x0 + (mk.span.x1 - mk.span.x0) * frac; // 渐进划线
-    drawChalkUnderline(ctx, mk.span.x0, mk.span.y + mk.span.fontSize * 0.12, xEnd, "#ffe066", rnd);
+    drawChalkUnderline(
+      ctx,
+      mk.span.x0,
+      mk.span.y + mk.span.fontSize * 0.12,
+      xEnd,
+      "#ffe066",
+      rnd,
+    );
   }
 }
 
@@ -1644,7 +2150,9 @@ function unlockAudio() {
   try {
     const u = new Audio();
     u.muted = true;
-    u.play().then(() => u.pause()).catch(() => {});
+    u.play()
+      .then(() => u.pause())
+      .catch(() => {});
   } catch {
     /* 解锁尽力而为 */
   }
@@ -1657,12 +2165,21 @@ async function playNarration(page, blockList) {
   stopAnim();
   layoutPage(page);
   const seq = narration.seq;
-  const blocks = (blockList || page._drawOrder).filter((b) => layouts.has(b.uid));
+  const blocks = (blockList || page._drawOrder).filter((b) =>
+    layouts.has(b.uid),
+  );
   if (!blocks.length) return;
   narration.playing = true;
   narration.pending = !blockList; // 整页讲解预取语音时画面空白；追加讲解保持现有板书
   setNarrateBtn();
   acquireWakeLock(); // 讲解期间保持屏幕常亮
+  // 预取尚未命中（预热没跑完/重播冷页）→ 给轻提示，别让人对着空白黑板干等
+  const coldBlocks = blocks.filter(
+    (b) =>
+      b.say && !(b._voice && b._voice.voice === voiceId) && !b._voiceFetching,
+  );
+  if (narration.pending && coldBlocks.length)
+    toast(tt("老师正在润嗓…", "Teacher is warming up…"), "");
   await loadFigures(page); // 图先加载（结果不进 voices，曾因混入导致 voices 错位、时间线时长 NaN 秒完）
   const voices = await Promise.all(blocks.map(fetchVoice));
   // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
@@ -1698,7 +2215,15 @@ async function playNarration(page, blockList) {
       let gi = 0;
       for (let li = 0; li < lay.lines.length; li++) {
         for (let ci = 0; ci < lay.lines[li].length; ci++) {
-          entries.push({ kind: "char", b, li, ci, gi, t0: start + figDur + gi * per, cost: per });
+          entries.push({
+            kind: "char",
+            b,
+            li,
+            ci,
+            gi,
+            t0: start + figDur + gi * per,
+            cost: per,
+          });
           gi++;
         }
       }
@@ -1741,7 +2266,15 @@ async function playNarration(page, blockList) {
         const line = lay.lines[li];
         let gi = 0;
         for (let ci = 0; ci < line.length; ci++) {
-          entries.push({ kind: "char", b, li, ci, gi, t0: cursor + gi * per, cost: per });
+          entries.push({
+            kind: "char",
+            b,
+            li,
+            ci,
+            gi,
+            t0: cursor + gi * per,
+            cost: per,
+          });
           gi++;
         }
       }
@@ -1816,12 +2349,17 @@ function coerceEmphasisList(arr) {
 function sanitizeSvg(s) {
   if (typeof s !== "string") return null;
   const t = s.trim();
-  if (!t.startsWith("<svg") || !t.includes("</svg>") || t.length > 8000) return null;
+  if (!t.startsWith("<svg") || !t.includes("</svg>") || t.length > 8000)
+    return null;
   // 剥离 xmlns 命名空间声明后再查外链（w3.org 是 SVG 合法声明，不是外链）
-  const noNs = t.replace(/xmlns(:\w+)?="http:\/\/www\.w3\.org\/[^"]*"/g, "").replace(/xmlns(:\w+)?='http:\/\/www\.w3\.org\/[^']*'/g, "");
+  const noNs = t
+    .replace(/xmlns(:\w+)?="http:\/\/www\.w3\.org\/[^"]*"/g, "")
+    .replace(/xmlns(:\w+)?='http:\/\/www\.w3\.org\/[^']*'/g, "");
   if (/<script|on\w+\s*=|javascript:|https?:\/\//i.test(noNs)) return null;
   // 缺命名空间则补上（Blob 渲染需要）
-  return /xmlns=/.test(t) ? t : t.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+  return /xmlns=/.test(t)
+    ? t
+    : t.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
 }
 
 function mkBlock(el, kind, defs) {
@@ -1832,7 +2370,9 @@ function mkBlock(el, kind, defs) {
   return {
     uid: `u${++uidSeq}`,
     kind,
-    text: el.text ? String(el.text).replace(/^\s*[【\[（(]\s*图\s*[】\]）)]\s*/u, "") : "", // 图注不带"【图】"前缀（板书习惯）
+    text: el.text
+      ? String(el.text).replace(/^\s*[【\[（(]\s*图\s*[】\]）)]\s*/u, "")
+      : "", // 图注不带"【图】"前缀（板书习惯）
     x: typeof el.x === "number" ? el.x : defs.x,
     y: typeof el.y === "number" ? el.y : defs.y,
     width: typeof el.width === "number" ? el.width : defs.width,
@@ -1872,10 +2412,15 @@ async function loadFigure(b) {
   let vbW = 400;
   if (vb) {
     const p = vb[1].split(/[\s,]+/).map(Number);
-    if (p.length === 4 && p[2] > 0 && p[3] > 0) { aspect = p[3] / p[2]; vbW = p[2]; }
+    if (p.length === 4 && p[2] > 0 && p[3] > 0) {
+      aspect = p[3] / p[2];
+      vbW = p[2];
+    }
   }
   // 图内最小字号（无声明按提示词默认 16）——排版时据此保证文字实际显示尺寸
-  const sizes = [...b.svg.matchAll(/font-size=["'](\d+(?:\.\d+)?)["']/g)].map((m) => Number(m[1]));
+  const sizes = [...b.svg.matchAll(/font-size=["'](\d+(?:\.\d+)?)["']/g)].map(
+    (m) => Number(m[1]),
+  );
   const minFont = sizes.length ? Math.min(...sizes) : 16;
   b._figure = { aspect, vbW, minFont, img: null, texts: [] };
   try {
@@ -1886,21 +2431,27 @@ async function loadFigure(b) {
         const mm = attrs.match(re);
         return mm ? parseFloat(mm[1]) : d;
       };
-      const content = body.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      const content = body
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
       if (content) {
         b._figure.texts.push({
           x: num(/x=["']([-?\d.]+)["']/, 0),
           y: num(/y=["']([-?\d.]+)["']/, 0),
           fill: (attrs.match(/fill=["']([^"']+)["']/) || [])[1] || "#f2f0e6",
           size: num(/font-size=["']([-?\d.]+)["']/, 20),
-          anchor: (attrs.match(/text-anchor=["']([^"']+)["']/) || [])[1] || "start",
+          anchor:
+            (attrs.match(/text-anchor=["']([^"']+)["']/) || [])[1] || "start",
           weight: (attrs.match(/font-weight=["']([^"']+)["']/) || [])[1] || "",
           content,
         });
       }
       return "";
     });
-    const url = URL.createObjectURL(new Blob([s], { type: "image/svg+xml;charset=utf-8" }));
+    const url = URL.createObjectURL(
+      new Blob([s], { type: "image/svg+xml;charset=utf-8" }),
+    );
     const img = new Image();
     img.src = url;
     await img.decode();
@@ -1919,8 +2470,20 @@ function loadFigures(page) {
 function normalizePage(pg) {
   const page = newPage();
   if (!pg || typeof pg !== "object") return page;
-  page.titleBlock = mkBlock(pg.title, "title", { x: 80, y: 28, width: W - 200, fontSize: 72, color: "#ffe066" });
-  page.summaryBlock = mkBlock(pg.summary, "summary", { x: 80, y: H - 120, width: W - 160, fontSize: 48, color: "#ffe066" });
+  page.titleBlock = mkBlock(pg.title, "title", {
+    x: 80,
+    y: 28,
+    width: W - 200,
+    fontSize: 72,
+    color: "#ffe066",
+  });
+  page.summaryBlock = mkBlock(pg.summary, "summary", {
+    x: 80,
+    y: H - 120,
+    width: W - 160,
+    fontSize: 48,
+    color: "#ffe066",
+  });
   if (Array.isArray(pg.regions)) {
     page.regions = pg.regions
       .filter((r) => r && typeof r === "object")
@@ -1937,10 +2500,19 @@ function normalizePage(pg) {
   if (Array.isArray(pg.blocks)) {
     const ids = new Set(page.regions.map((r) => r.id));
     page.blocks = pg.blocks
-      .map((b) => mkBlock(b, "block", { x: 80, y: 300, width: 640, fontSize: 45, color: "#f2f0e6" }))
+      .map((b) =>
+        mkBlock(b, "block", {
+          x: 80,
+          y: 300,
+          width: 640,
+          fontSize: 45,
+          color: "#f2f0e6",
+        }),
+      )
       .filter(Boolean)
       .map((b) => {
-        if (b.region && !ids.has(b.region)) b.region = page.regions[0]?.id ?? null;
+        if (b.region && !ids.has(b.region))
+          b.region = page.regions[0]?.id ?? null;
         return b;
       });
   }
@@ -1962,7 +2534,6 @@ function goToPage(i) {
   renderText();
   curPage = i;
   syncPageNav();
-  redrawStrokes();
   const p = pages[i];
   if (p._drawOrder.length && !p.animated) {
     p.animated = true;
@@ -1970,8 +2541,8 @@ function goToPage(i) {
   } else {
     renderText();
   }
+  warmPageVoices(pages[Math.min(i + 1, pages.length - 1)]); // 手动翻页也预热下一页：向后翻时衔接零等待
 }
-
 $("#btn-prev-page").addEventListener("click", () => goToPage(curPage - 1));
 $("#btn-next-page").addEventListener("click", () => goToPage(curPage + 1));
 // ---------- 指针输入 ----------
@@ -1997,7 +2568,11 @@ boardEl.addEventListener("pointerdown", (e) => {
   }
   const now = performance.now();
   // 双击黑板（500ms 内同位置两击）= 全屏：撤掉第一击的点，第二击不落笔
-  if (lastTap && now - lastTap.t < 500 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 15) {
+  if (
+    lastTap &&
+    now - lastTap.t < 500 &&
+    Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 15
+  ) {
     lastTap = null;
     const s = strokesByPage[curPage];
     if (s.length && now - (s[s.length - 1]._t ?? 0) < 700) {
@@ -2052,12 +2627,19 @@ async function lockPortraitWhileFullscreen() {
   await doLock();
   // 全屏切换动画期间首次 lock 可能被拒:动画完成后再锁一次(竞态兜底)
   setTimeout(() => {
-    if (document.fullscreenElement && screen.orientation?.type?.startsWith("landscape")) doLock();
+    if (
+      document.fullscreenElement &&
+      screen.orientation?.type?.startsWith("landscape")
+    )
+      doLock();
   }, 350);
 }
 // 全屏中系统仍可能旋到横屏(锁被引擎释放/竞态):检测到就再锁回去
 screen.orientation?.addEventListener?.("change", () => {
-  if (document.fullscreenElement && screen.orientation.type?.startsWith("landscape")) {
+  if (
+    document.fullscreenElement &&
+    screen.orientation.type?.startsWith("landscape")
+  ) {
     lockPortraitWhileFullscreen();
     toast(tt("已锁定竖屏", "Portrait locked"), "");
   }
@@ -2074,9 +2656,16 @@ $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
 $("#btn-rail").addEventListener("click", () => {
   const rail = $("#chalk-rail");
   const hidden = rail.classList.toggle("rail-hidden");
-  $("#btn-rail").textContent = hidden ? tt("收回", "Show") : tt("粉笔", "Chalk");
+  $("#btn-rail").textContent = hidden
+    ? tt("收回", "Show")
+    : tt("粉笔", "Chalk");
   $("#btn-rail").classList.toggle("hidden-rail", hidden); // 竖屏 ::after 短标签换文案
-  toast(hidden ? tt("粉笔槽已隐藏", "Chalk rail hidden") : tt("粉笔槽已显示", "Chalk rail shown"), "");
+  toast(
+    hidden
+      ? tt("粉笔槽已隐藏", "Chalk rail hidden")
+      : tt("粉笔槽已显示", "Chalk rail shown"),
+    "",
+  );
 });
 
 boardEl.addEventListener("pointermove", (e) => {
@@ -2153,8 +2742,10 @@ function clearAll() {
 }
 
 function syncToolbar() {
-  for (const d of document.querySelectorAll(".chalk-dot")) d.classList.toggle("active", tool === "chalk" && d.dataset.color === color);
-  for (const b of document.querySelectorAll(".size-btn")) b.classList.toggle("active", Number(b.dataset.size) === brushSize);
+  for (const d of document.querySelectorAll(".chalk-dot"))
+    d.classList.toggle("active", tool === "chalk" && d.dataset.color === color);
+  for (const b of document.querySelectorAll(".size-btn"))
+    b.classList.toggle("active", Number(b.dataset.size) === brushSize);
   $("#btn-eraser").classList.toggle("active", tool === "eraser");
   boardEl.classList.toggle("eraser-mode", tool === "eraser");
   if (tool !== "eraser") eraserCursorEl.hidden = true;
@@ -2162,9 +2753,13 @@ function syncToolbar() {
 
 function applyTheme() {
   $("#board-frame").style.background = THEMES[theme].frame;
-  document.documentElement.style.setProperty("--bg", theme === "green" ? "#101b13" : "#12100e");
+  document.documentElement.style.setProperty(
+    "--bg",
+    theme === "green" ? "#101b13" : "#12100e",
+  );
   paintBoard(bgCtx, bgC.width, bgC.height, theme);
-  if (!apPanel.classList.contains("hidden") && apCanvas.width > 1) apPaintStatic(apAnim ? Infinity : undefined);
+  if (!apPanel.classList.contains("hidden") && apCanvas.width > 1)
+    apPaintStatic(apAnim ? Infinity : undefined);
 }
 
 $("#btn-theme").addEventListener("click", () => {
@@ -2211,7 +2806,8 @@ function courseBlockToJSON(b) {
 }
 
 function saveCourse() {
-  if (!pages.length || !pages.some((p) => p._drawOrder.length)) return toast("当前没有可保存的课程", "err");
+  if (!pages.length || !pages.some((p) => p._drawOrder.length))
+    return toast("当前没有可保存的课程", "err");
   const data = {
     app: "敲黑板",
     version: 1,
@@ -2220,7 +2816,13 @@ function saveCourse() {
       title: p.titleBlock ? courseBlockToJSON(p.titleBlock) : null,
       summary: p.summaryBlock ? courseBlockToJSON(p.summaryBlock) : null,
       regions: p.regions.map((r) => {
-        const o = { id: r.id, x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
+        const o = {
+          id: r.id,
+          x: Math.round(r.x),
+          y: Math.round(r.y),
+          width: Math.round(r.width),
+          height: Math.round(r.height),
+        };
         if (r.header) o.header = r.header;
         return o;
       }),
@@ -2231,7 +2833,9 @@ function saveCourse() {
   const ts = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
   const name = (pages[0].titleBlock?.text || "课程").slice(0, 12);
   a.download = `敲黑板-${name}-${ts}.json`;
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  a.href = URL.createObjectURL(
+    new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+  );
   a.click();
   toast(`课程已保存（${pages.length} 页，纯文本）`, "ok");
 }
@@ -2239,14 +2843,17 @@ function saveCourse() {
 async function loadCourseFile(file) {
   try {
     const data = JSON.parse(await file.text());
-    if (!data || !Array.isArray(data.pages) || !data.pages.length) throw new Error("不是有效的课程文件");
+    if (!data || !Array.isArray(data.pages) || !data.pages.length)
+      throw new Error("不是有效的课程文件");
     stopNarration();
     stopApAnim(false);
     apPanel.classList.add("hidden");
     lectureReset(false);
     lecturePanelHidden = false; // 新课程 = 新会话：重置用户对讲义面板的选择
     $("#lecture-panel").classList.add("hidden");
-    const newPages = data.pages.map(normalizePage).filter((p) => p.titleBlock || p.blocks.length || p.summaryBlock);
+    const newPages = data.pages
+      .map(normalizePage)
+      .filter((p) => p.titleBlock || p.blocks.length || p.summaryBlock);
     if (!newPages.length) throw new Error("课程文件里没有内容");
     await Promise.all(newPages.map(loadFigures)); // SVG 图示重新解析成图像
     for (const p of newPages) layoutPage(p);
@@ -2256,6 +2863,7 @@ async function loadCourseFile(file) {
     syncPageNav();
     redrawStrokes();
     pages[0].animated = true;
+    warmPageVoices(pages[0]); // 加载课程即预热首页语音（课程文件不含音频，必冷）
     playNarration(pages[0]); // 语音按需重新合成（课程文件不含音频）
     toast(`课程已加载（${pages.length} 页），开始上课`, "ok");
   } catch (e) {
@@ -2303,7 +2911,8 @@ function setAskMode(on) {
   } else {
     stopApAnim(false);
     apPanel.classList.add("hidden");
-    if (!lecturePanelHidden && (narration.playing || narration.pending)) $("#lecture-panel").classList.remove("hidden");
+    if (!lecturePanelHidden && (narration.playing || narration.pending))
+      $("#lecture-panel").classList.remove("hidden");
   }
 }
 
@@ -2330,7 +2939,12 @@ voiceAskBtn.addEventListener("click", async () => {
 });
 // 退出提问模式/页面切换时兜底收尾
 voiceAskBtn.addEventListener("pointercancel", () => {
-  if (voiceAskRecording) { voiceAskRecording = false; voiceAskBtn.classList.remove("active"); $("#ask-recording").classList.add("hidden"); stopHoldTalk(); }
+  if (voiceAskRecording) {
+    voiceAskRecording = false;
+    voiceAskBtn.classList.remove("active");
+    $("#ask-recording").classList.add("hidden");
+    stopHoldTalk();
+  }
 });
 
 // 找点击位置对应的板书行（横向命中的块优先，按行中心距离取最近）
@@ -2365,7 +2979,10 @@ async function askByVoice(question, e) {
   }
   const page = pages[curPage];
   layoutPage(page);
-  let context = page._drawOrder.map((b) => b.text).join("\n").slice(0, 1500);
+  let context = page._drawOrder
+    .map((b) => b.text)
+    .join("\n")
+    .slice(0, 1500);
   let line = question;
   if (e) {
     const pt = toLogical(e);
@@ -2373,22 +2990,50 @@ async function askByVoice(question, e) {
     if (hit) line = question; // 语音为主问题;命中行并入 context
     if (hit) context = `所指板书行：${hit.line}\n${context}`;
   }
-  thinking(true, tt("AI 正在解答语音问题…", "AI is answering your voice question…"));
+  thinking(
+    true,
+    tt("AI 正在解答语音问题…", "AI is answering your voice question…"),
+  );
   try {
     const res = await fetch("api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ line, context, x: 0, y: 0, canvasW: W, canvasH: H, ...(lang === "en" ? { lang: "en" } : {}) }),
+      body: JSON.stringify({
+        line,
+        context,
+        x: 0,
+        y: 0,
+        canvasW: W,
+        canvasH: H,
+        ...(lang === "en" ? { lang: "en" } : {}),
+      }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     const blocks = [
-      mkBlock({ text: data.text, say: data.text, x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }, "block", { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }),
+      mkBlock(
+        {
+          text: data.text,
+          say: data.text,
+          x: 40,
+          y: 200,
+          width: 480,
+          fontSize: 34,
+          color: "#ffe066",
+        },
+        "block",
+        { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" },
+      ),
     ].filter(Boolean);
     apPlay(blocks, "");
     toast(tt("AI 已解答", "AI answered"), "ok");
   } catch (err) {
-    toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
+    toast(
+      err.message.includes("Failed to fetch")
+        ? tt("无法连接本地服务", "Cannot reach the local server")
+        : err.message,
+      "err",
+    );
   } finally {
     thinking(false);
   }
@@ -2405,7 +3050,14 @@ async function handleAskClick(e) {
   const page = pages[curPage];
   layoutPage(page);
   const hit = findLineAt(page, pt);
-  if (!hit) return toast(tt("没指到板书内容，请点在某行文字附近", "Click near a line of board text"), "err");
+  if (!hit)
+    return toast(
+      tt(
+        "没指到板书内容，请点在某行文字附近",
+        "Click near a line of board text",
+      ),
+      "err",
+    );
 
   thinking(true, tt("AI 正在解答你指的问题…", "AI is answering…"));
   try {
@@ -2416,19 +3068,50 @@ async function handleAskClick(e) {
     const res = await fetch("api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ line: hit.line, context, x: Math.round(pt.x), y: Math.round(pt.y), canvasW: W, canvasH: H, ...(lang === "en" ? { lang: "en" } : {}) }),
+      body: JSON.stringify({
+        line: hit.line,
+        context,
+        x: Math.round(pt.x),
+        y: Math.round(pt.y),
+        canvasW: W,
+        canvasH: H,
+        ...(lang === "en" ? { lang: "en" } : {}),
+      }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     // 答案写入右侧解答面板（新一问覆盖前一问）
     const blocks = [
-      mkBlock({ text: data.text, say: data.text, x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }, "block", { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" }),
+      mkBlock(
+        {
+          text: data.text,
+          say: data.text,
+          x: 40,
+          y: 200,
+          width: 480,
+          fontSize: 34,
+          color: "#ffe066",
+        },
+        "block",
+        { x: 40, y: 200, width: 480, fontSize: 34, color: "#ffe066" },
+      ),
     ].filter(Boolean);
     apPlay(blocks, "");
-    toast(tt("AI 已解答（新问题会覆盖前一问）", "AI answered (a new question replaces the previous)"), "ok");
+    toast(
+      tt(
+        "AI 已解答（新问题会覆盖前一问）",
+        "AI answered (a new question replaces the previous)",
+      ),
+      "ok",
+    );
   } catch (err) {
-    toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
+    toast(
+      err.message.includes("Failed to fetch")
+        ? tt("无法连接本地服务", "Cannot reach the local server")
+        : err.message,
+      "err",
+    );
   } finally {
     thinking(false);
   }
@@ -2439,7 +3122,9 @@ async function handleAskClick(e) {
 function thinking(on, text) {
   const el = $("#thinking");
   el.classList.toggle("hidden", !on);
-  if (on) $("#thinking-text").textContent = text || tt("AI 正在思考…", "AI is thinking…");
+  if (on)
+    $("#thinking-text").textContent =
+      text || tt("AI 正在思考…", "AI is thinking…");
   for (const id of ["btn-generate"]) {
     const b = document.getElementById(id);
     if (b) b.disabled = !!on;
@@ -2469,7 +3154,13 @@ function setImage(dataUrl) {
   $("#img-preview").classList.toggle("hidden", !dataUrl);
   // Safari 偶发不触发重排:显式等解码完成后强制刷新一次布局尺寸
   if (dataUrl && img.decode) {
-    img.decode().catch(() => {}).then(() => { if (img.naturalWidth) img.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight; });
+    img
+      .decode()
+      .catch(() => {})
+      .then(() => {
+        if (img.naturalWidth)
+          img.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight;
+      });
   }
 }
 
@@ -2571,15 +3262,20 @@ function renderCrop() {
   const stage = $("#crop-stage");
   const im = $("#crop-img");
   const st = stage.getBoundingClientRect();
-  const iw = cropState.img.naturalWidth, ih = cropState.img.naturalHeight;
+  const iw = cropState.img.naturalWidth,
+    ih = cropState.img.naturalHeight;
   const fit = Math.min(st.width / iw, st.height / ih, 1);
   im.style.width = Math.round(iw * fit) + "px";
   im.style.height = Math.round(ih * fit) + "px";
   if (cropState.box) positionCropBox();
 }
 function positionCropBox() {
-  const box = $("#crop-box"), im = $("#crop-img");
-  if (!cropState.box) { box.style.display = "none"; return; }
+  const box = $("#crop-box"),
+    im = $("#crop-img");
+  if (!cropState.box) {
+    box.style.display = "none";
+    return;
+  }
   const r = im.getBoundingClientRect();
   const b = cropState.box; // 归一化 0~1（相对当前显示图）
   box.style.display = "block";
@@ -2596,7 +3292,10 @@ function positionCropBox() {
     const t = e.touches ? e.touches[0] : e;
     const r = $("#crop-img").getBoundingClientRect();
     const clamp01 = (v) => Math.min(1, Math.max(0, v));
-    return { x: clamp01((t.clientX - r.left) / r.width), y: clamp01((t.clientY - r.top) / r.height) };
+    return {
+      x: clamp01((t.clientX - r.left) / r.width),
+      y: clamp01((t.clientY - r.top) / r.height),
+    };
   };
   const down = (e) => {
     if (!cropState.img) return;
@@ -2608,20 +3307,29 @@ function positionCropBox() {
     if (!cropState.dragging || !startPt) return;
     const p = ptOf(e);
     cropState.box = {
-      x: Math.min(startPt.x, p.x), y: Math.min(startPt.y, p.y),
-      w: Math.abs(p.x - startPt.x), h: Math.abs(p.y - startPt.y),
+      x: Math.min(startPt.x, p.x),
+      y: Math.min(startPt.y, p.y),
+      w: Math.abs(p.x - startPt.x),
+      h: Math.abs(p.y - startPt.y),
     };
     positionCropBox();
     e.preventDefault();
   };
-  const up = () => { cropState.dragging = false; };
+  const up = () => {
+    cropState.dragging = false;
+  };
   stage.addEventListener("pointerdown", down);
   stage.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
 })();
-$("#btn-crop-reset").addEventListener("click", () => { cropState.box = null; positionCropBox(); });
+$("#btn-crop-reset").addEventListener("click", () => {
+  cropState.box = null;
+  positionCropBox();
+});
 $("#btn-crop-rotate").addEventListener("click", rotateCropImage);
-$("#btn-crop-cancel").addEventListener("click", () => $("#crop-modal").classList.add("hidden"));
+$("#btn-crop-cancel").addEventListener("click", () =>
+  $("#crop-modal").classList.add("hidden"),
+);
 $("#btn-crop-ok").addEventListener("click", () => {
   const im = cropState.img;
   if (!im) return;
@@ -2629,10 +3337,10 @@ $("#btn-crop-ok").addEventListener("click", () => {
   const b = cropState.box || { x: 0, y: 0, w: 1, h: 1 };
   // 显示坐标 → 原图坐标(显示图无旋转,纯缩放)
   const scale = disp.width / im.naturalWidth;
-  const ox = Math.max(0, Math.round(b.x * disp.width / scale));
-  const oy = Math.max(0, Math.round(b.y * disp.height / scale));
-  const ow = Math.max(1, Math.round(b.w * disp.width / scale));
-  const oh = Math.max(1, Math.round(b.h * disp.height / scale));
+  const ox = Math.max(0, Math.round((b.x * disp.width) / scale));
+  const oy = Math.max(0, Math.round((b.y * disp.height) / scale));
+  const ow = Math.max(1, Math.round((b.w * disp.width) / scale));
+  const oh = Math.max(1, Math.round((b.h * disp.height) / scale));
   const c = document.createElement("canvas");
   const MAX = 1600;
   const s = Math.min(1, MAX / Math.max(ow, oh));
@@ -2643,7 +3351,9 @@ $("#btn-crop-ok").addEventListener("click", () => {
   $("#crop-modal").classList.add("hidden");
   toast("图片已就绪，点「开始学习」一起生成", "ok");
 });
-window.addEventListener("resize", () => { if (!$("#crop-modal").classList.contains("hidden")) renderCrop(); });
+window.addEventListener("resize", () => {
+  if (!$("#crop-modal").classList.contains("hidden")) renderCrop();
+});
 
 // 文件选中(相册/相机共用):先进裁剪器
 async function onImagePicked(e) {
@@ -2672,14 +3382,17 @@ $("#board-image").addEventListener("change", onImagePicked);
 $("#board-camera").addEventListener("change", onImagePicked);
 $("#btn-img-remove").addEventListener("click", () => setImage(null));
 
-
 let generatingBoard = false; // 备课中：防重复点击；讲解翻页逻辑感知
 let awaitingNextPage = false; // 讲完当前页但下一页还在生成 → 自动连播等待
 
 async function generateBoard() {
   if (generatingBoard) return;
   const text = $("#text-input").value.trim();
-  if (!text && !pendingImage) return toast(tt("先粘贴文本或拍张照片", "Paste text or upload a photo first"), "err");
+  if (!text && !pendingImage)
+    return toast(
+      tt("先粘贴文本或拍张照片", "Paste text or upload a photo first"),
+      "err",
+    );
   generatingBoard = true;
   thinking(true, tt("老师正在备课…", "Teacher is preparing the lesson…"));
   const receivedPages = [];
@@ -2702,8 +3415,20 @@ async function generateBoard() {
       // 服务端不支持流式 → 回退整包 JSON
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      for (const pg of data.pages || []) await acceptStreamPage(pg, receivedPages, () => started, (v) => (started = v));
-      if (!started) throw new Error(tt("模型没有生成有效板书，请重试", "Model returned no valid board, please retry"));
+      for (const pg of data.pages || [])
+        await acceptStreamPage(
+          pg,
+          receivedPages,
+          () => started,
+          (v) => (started = v),
+        );
+      if (!started)
+        throw new Error(
+          tt(
+            "模型没有生成有效板书，请重试",
+            "Model returned no valid board, please retry",
+          ),
+        );
       return;
     }
     // SSE：逐页接收。首页到达即开讲；后续页在讲解进行中静默追加
@@ -2723,7 +3448,8 @@ async function generateBoard() {
           const dataLines = [];
           for (const line of frame.split("\n")) {
             if (line.startsWith("event:")) evt = line.slice(6).trim();
-            else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+            else if (line.startsWith("data:"))
+              dataLines.push(line.slice(5).trim());
           }
           if (!dataLines.length) continue;
           let payload;
@@ -2734,7 +3460,12 @@ async function generateBoard() {
           }
           if (evt === "page") {
             try {
-              await acceptStreamPage(payload, receivedPages, () => started, (v) => (started = v));
+              await acceptStreamPage(
+                payload,
+                receivedPages,
+                () => started,
+                (v) => (started = v),
+              );
             } catch (e) {
               console.warn("页追加失败", e);
             }
@@ -2745,18 +3476,41 @@ async function generateBoard() {
           }
         }
       }
-      if (!streamDone && !receivedPages.length) throw new Error(tt("模型没有生成有效板书，请重试", "Model returned no valid board, please retry"));
+      if (!streamDone && !receivedPages.length)
+        throw new Error(
+          tt(
+            "模型没有生成有效板书，请重试",
+            "Model returned no valid board, please retry",
+          ),
+        );
       if (!streamDone && receivedPages.length) {
         // 流意外截断但已有页面：保留已到的，提示可能不完整
-        toast(tt("生成中断，仅获得部分页面", "Generation interrupted; partial pages kept"), "err");
+        toast(
+          tt(
+            "生成中断，仅获得部分页面",
+            "Generation interrupted; partial pages kept",
+          ),
+          "err",
+        );
       }
     };
     await pump();
-    if (!started) throw new Error(tt("模型没有生成有效板书，请重试", "Model returned no valid board, please retry"));
+    if (!started)
+      throw new Error(
+        tt(
+          "模型没有生成有效板书，请重试",
+          "Model returned no valid board, please retry",
+        ),
+      );
     // 全部页到齐且当前页已讲完 → 若处于等待态立即续播
     if (awaitingNextPage) tryAdvancePending();
   } catch (err) {
-    toast(err.message.includes("Failed to fetch") ? tt("无法连接本地服务", "Cannot reach the local server") : err.message, "err");
+    toast(
+      err.message.includes("Failed to fetch")
+        ? tt("无法连接本地服务", "Cannot reach the local server")
+        : err.message,
+      "err",
+    );
     if (!started && !receivedPages.length) {
       // 完全失败：恢复原状态
     }
@@ -2766,7 +3520,12 @@ async function generateBoard() {
     if (awaitingNextPage && !narration.playing && curPage < pages.length - 1) {
       awaitingNextPage = false;
       goToPage(curPage + 1);
-    } else if (awaitingNextPage && !generatingBoard && !narration.playing && curPage >= pages.length - 1) {
+    } else if (
+      awaitingNextPage &&
+      !generatingBoard &&
+      !narration.playing &&
+      curPage >= pages.length - 1
+    ) {
       awaitingNextPage = false;
     }
     thinking(false);
@@ -2776,16 +3535,23 @@ async function generateBoard() {
 // 接收流式页：首页替换板面并开讲；后续页排版好静默入列（讲解翻页自然衔接）
 async function acceptStreamPage(pg, receivedPages, getStarted, setStarted) {
   const page = normalizePage(pg);
-  if (!(page._drawOrder.length > 0 || page.titleBlock || page.blocks.length || page.summaryBlock)) return;
+  if (!(
+    page._drawOrder.length > 0 ||
+    page.titleBlock ||
+    page.blocks.length ||
+    page.summaryBlock
+  ))
+    return;
   await loadFigures(page); // SVG 图示先解析（排版需要宽高比）
   layoutPage(page);
   if (page._drawOrder.length === 0) return; // 纯装饰页丢弃
   receivedPages.push(page);
+  warmPageVoices(page); // 页一到达就后台预热语音：正式开讲时 fetchVoice 命中缓存，无声窗口趋零
   if (!getStarted()) {
     setStarted(true);
     stopAnim();
     pages = [page];
-    strokesByPage = [ [] ];
+    strokesByPage = [[]];
     curPage = 0;
     syncPageNav();
     redrawStrokes();
@@ -2855,7 +3621,10 @@ function computeApLayout(b) {
 
 function apBlockHeight(b) {
   const lay = layouts.get(b.uid);
-  const figH = b.svg && b._figure ? b.width * b._figure.aspect + (lay && lay.lines.length ? 10 : 0) : 0;
+  const figH =
+    b.svg && b._figure
+      ? b.width * b._figure.aspect + (lay && lay.lines.length ? 10 : 0)
+      : 0;
   return figH + (lay ? lay.lines.length * lay.lineH : 0);
 }
 
@@ -2865,12 +3634,25 @@ function apLayoutBlocks(blocks, title) {
   const out = [];
   let cursor = 30;
   if (title) {
-    const head = { uid: `ap${++uidSeq}`, kind: "header", text: title, x: 40, y: 30, width: AP_W - 80, fontSize: 44, color: "#ffe066", emphasis: [] };
+    const head = {
+      uid: `ap${++uidSeq}`,
+      kind: "header",
+      text: title,
+      x: 40,
+      y: 30,
+      width: AP_W - 80,
+      fontSize: 44,
+      color: "#ffe066",
+      emphasis: [],
+    };
     computeApLayout(head);
     out.push(head);
     cursor += layouts.get(head.uid).lineH + 18;
   }
-  const list = [...blocks.filter((b) => b.svg), ...blocks.filter((b) => !b.svg)];
+  const list = [
+    ...blocks.filter((b) => b.svg),
+    ...blocks.filter((b) => !b.svg),
+  ];
   for (const b of list) {
     b.fontSize = clampNum(b.fontSize || 36, 26, 44);
     b.x = 40;
@@ -2879,12 +3661,19 @@ function apLayoutBlocks(blocks, title) {
       const aspect = b._figure ? b._figure.aspect : 0.75;
       let wFloorAP = 160;
       const fig = b._figure;
-      if (fig && fig.minFont && fig.vbW) wFloorAP = Math.min(AP_W - 80, Math.ceil((22 * fig.vbW) / fig.minFont));
+      if (fig && fig.minFont && fig.vbW)
+        wFloorAP = Math.min(AP_W - 80, Math.ceil((22 * fig.vbW) / fig.minFont));
       for (let w = AP_W - 80; w >= wFloorAP; w -= 40) {
         b.width = w;
         computeApLayout(b);
         const lay = layouts.get(b.uid);
-        if (w * aspect + (lay.lines.length ? 10 : 0) + lay.lines.length * lay.lineH <= avail) break;
+        if (
+          w * aspect +
+            (lay.lines.length ? 10 : 0) +
+            lay.lines.length * lay.lineH <=
+          avail
+        )
+          break;
       }
       b.width = Math.max(b.width, wFloorAP); // 有效字号 ≥ 22 下限优先于高度
     } else {
@@ -2928,7 +3717,11 @@ function apRender(t) {
       if (!quota.has(e.b.uid)) quota.set(e.b.uid, 0);
       const done = t >= e.t0 + e.cost;
       if (done) quota.set(e.b.uid, quota.get(e.b.uid) + 1);
-      else if (t >= e.t0) partials.set(e.b.uid, { gi: e.gi, alpha: Math.max(0.1, (t - e.t0) / e.cost) });
+      else if (t >= e.t0)
+        partials.set(e.b.uid, {
+          gi: e.gi,
+          alpha: Math.max(0.1, (t - e.t0) / e.cost),
+        });
     }
   }
   for (const b of apAnim.blocks) {
@@ -2936,7 +3729,8 @@ function apRender(t) {
     drawBlock(apCtx, b, allowed, partials.get(b.uid));
   }
   for (const mk of apAnim.marks || []) {
-    const frac = t !== Infinity ? Math.min(1, Math.max(0, (t - mk.tAppear) / 340)) : 1;
+    const frac =
+      t !== Infinity ? Math.min(1, Math.max(0, (t - mk.tAppear) / 340)) : 1;
     if (frac <= 0) continue;
     drawSayMark(apCtx, mk, frac);
   }
@@ -2992,7 +3786,15 @@ async function apPlay(blocks, title) {
     let gi = 0;
     for (let li = 0; li < lay.lines.length; li++) {
       for (let ci = 0; ci < lay.lines[li].length; ci++) {
-        entries.push({ kind: "char", b, li, ci, gi, t0: start + figDur + gi * per, cost: per });
+        entries.push({
+          kind: "char",
+          b,
+          li,
+          ci,
+          gi,
+          t0: start + figDur + gi * per,
+          cost: per,
+        });
         gi++;
       }
     }
@@ -3027,7 +3829,10 @@ async function apPlay(blocks, title) {
     const cleanLen = Math.max(1, parsed.clean.length);
     if (parsed.marks.length) {
       apCtx.font = fontString(b);
-      const yOff = b.svg ? apBlockHeight(b) - (lay.lines.length ? lay.lines.length * lay.lineH : 0) : 0;
+      const yOff = b.svg
+        ? apBlockHeight(b) -
+          (lay.lines.length ? lay.lines.length * lay.lineH : 0)
+        : 0;
       for (const mk of parsed.marks) {
         for (let li = 0; li < lay.lines.length; li++) {
           const idx = lay.lines[li].indexOf(mk.text);
@@ -3038,7 +3843,12 @@ async function apPlay(blocks, title) {
             type: mk.type,
             text: mk.text,
             tAppear: speakAt + (mk.start / cleanLen) * v.dur * 1000,
-            span: { x0, x1, y: b.y + yOff + li * lay.lineH + b.fontSize * 0.9, fontSize: b.fontSize },
+            span: {
+              x0,
+              x1,
+              y: b.y + yOff + li * lay.lineH + b.fontSize * 0.9,
+              fontSize: b.fontSize,
+            },
           });
           break;
         }
@@ -3055,7 +3865,17 @@ async function apPlay(blocks, title) {
     apRender(Infinity);
     lectureTick(Infinity);
   };
-  apAnim = { blocks: laid, entries, marks, dur: t + 200, startTs: 0, tNow: 0, audios, timers, title };
+  apAnim = {
+    blocks: laid,
+    entries,
+    marks,
+    dur: t + 200,
+    startTs: 0,
+    tNow: 0,
+    audios,
+    timers,
+    title,
+  };
   const frame = (ts) => {
     if (!apAnim) return;
     if (!apAnim.startTs) apAnim.startTs = ts;
@@ -3078,7 +3898,6 @@ $("#btn-answer-close").addEventListener("click", () => {
 $("#ap-board").addEventListener("pointerdown", () => stopApAnim(true)); // 点击跳过书写
 new ResizeObserver(() => fitApCanvas()).observe($("#ap-board"));
 
-
 $("#btn-generate").addEventListener("click", () => {
   unlockAudio(); // Safari：生成后自动开讲，须在点击手势内解锁
   generateBoard();
@@ -3089,21 +3908,30 @@ $("#btn-load-course").addEventListener("click", () => {
 });
 
 // 抽屉
-$("#btn-layout").addEventListener("click", () => $("#drawer").classList.toggle("hidden"));
-$("#btn-drawer-close").addEventListener("click", () => $("#drawer").classList.add("hidden"));
+$("#btn-layout").addEventListener("click", () =>
+  $("#drawer").classList.toggle("hidden"),
+);
+$("#btn-drawer-close").addEventListener("click", () =>
+  $("#drawer").classList.add("hidden"),
+);
 // ---------- 设置 ----------
 
 $("#btn-settings").addEventListener("click", openSettings);
-$("#btn-settings-close").addEventListener("click", () => $("#settings-modal").classList.add("hidden"));
+$("#btn-settings-close").addEventListener("click", () =>
+  $("#settings-modal").classList.add("hidden"),
+);
 $("#settings-modal").addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) $("#settings-modal").classList.add("hidden");
+  if (e.target === e.currentTarget)
+    $("#settings-modal").classList.add("hidden");
 });
 
 // 设置弹窗 Tab 切换
 for (const tab of document.querySelectorAll(".mtab")) {
   tab.addEventListener("click", () => {
-    for (const t of document.querySelectorAll(".mtab")) t.classList.toggle("active", t === tab);
-    for (const p of document.querySelectorAll(".tab-pane")) p.classList.toggle("active", p.id === tab.dataset.tab);
+    for (const t of document.querySelectorAll(".mtab"))
+      t.classList.toggle("active", t === tab);
+    for (const p of document.querySelectorAll(".tab-pane"))
+      p.classList.toggle("active", p.id === tab.dataset.tab);
   });
 }
 
@@ -3120,7 +3948,9 @@ async function openSettings() {
     $("#cfg-ttsApiKey").value = cfg.ttsApiKeyMasked || "";
     $("#cfg-ttsModel").value = cfg.ttsModel || "";
     buildSettingSelects();
-    $("#cfg-voice").value = VOICE_LIST.some((v) => v.id === voiceId) ? voiceId : VOICE_LIST[0].id;
+    $("#cfg-voice").value = VOICE_LIST.some((v) => v.id === voiceId)
+      ? voiceId
+      : VOICE_LIST[0].id;
     $("#cfg-font").value = fontChoice;
     $("#cfg-grain").value = String(chalkGrain);
     $("#cfg-status").textContent =
@@ -3192,7 +4022,9 @@ function relayout() {
 }
 
 new ResizeObserver(relayout).observe($("#board-frame"));
-window.matchMedia("(max-width: 760px) and (orientation: portrait)").addEventListener("change", relayout);
+window
+  .matchMedia("(max-width: 760px) and (orientation: portrait)")
+  .addEventListener("change", relayout);
 
 // ---------- 启动 ----------
 
@@ -3203,7 +4035,13 @@ fetch("api/config")
   .then((r) => r.json())
   .then((cfg) => {
     if (!cfg.hasKey) {
-      toast(tt("尚未配置 API Key，点「设置」填写后即可使用 AI", "No API key yet — open Settings to enable AI"), "err");
+      toast(
+        tt(
+          "尚未配置 API Key，点「设置」填写后即可使用 AI",
+          "No API key yet — open Settings to enable AI",
+        ),
+        "err",
+      );
     }
     if (cfg.lang === "en") {
       lang = "en";
@@ -3212,6 +4050,7 @@ fetch("api/config")
     // 持久化的字体与音色：先按本机可用性选定字体（偏好不可用则就近降级），再应用
     applyFont(initFontChoice(cfg.font));
     if (cfg.grain !== undefined) applyGrain(cfg.grain);
-    if (cfg.ttsVoice && VOICE_LIST.some((v) => v.id === cfg.ttsVoice)) voiceId = cfg.ttsVoice;
+    if (cfg.ttsVoice && VOICE_LIST.some((v) => v.id === cfg.ttsVoice))
+      voiceId = cfg.ttsVoice;
   })
   .catch(() => {});
