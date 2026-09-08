@@ -850,10 +850,12 @@ function layoutPage(page) {
 
   // 分隔线在区域堆叠后基于最终几何计算（见下方）
 
-  // 页标题：居中大字;长标题缩字号保证单行(手机窄画布标题曾溢出换行)
+  // 页标题：居中大字;长标题缩字号保证单行(手机窄画布标题曾溢出换行)。
+  // 竖屏 500 宽画布下 72px 占宽 14%（横屏仅 4.5%）视觉过大 → 按方向取档
   if (page.titleBlock) {
     const t = page.titleBlock;
-    t.fontSize = clampNum(t.fontSize || 72, 60, 88);
+    const [tDef, tMin, tMax] = W < H ? [52, 38, 62] : [72, 60, 88];
+    t.fontSize = clampNum(t.fontSize || tDef, tMin, tMax);
     t.width = W - Math.round(W / 13);
     for (let tries = 0; tries < 12; tries++) {
       computeLayout(t);
@@ -862,8 +864,8 @@ function layoutPage(page) {
       let tw = 0;
       for (const l of lines) tw = Math.max(tw, textCtx.measureText(l).width);
       if (lines.length <= 1 && tw <= t.width) break;
-      if (t.fontSize <= 40) break;
-      t.fontSize = Math.max(40, Math.round(t.fontSize * 0.88));
+      if (t.fontSize <= tMin) break;
+      t.fontSize = Math.max(tMin, Math.round(t.fontSize * 0.88));
     }
     computeLayout(t);
     textCtx.font = fontString(t);
