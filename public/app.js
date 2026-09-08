@@ -2190,8 +2190,25 @@ async function playNarration(page, blockList) {
   );
   if (narration.pending && coldBlocks.length)
     toast(tt("老师正在润嗓…", "Teacher is warming up…"), "");
-  await loadFigures(page); // 图先加载（结果不进 voices，曾因混入导致 voices 错位、时间线时长 NaN 秒完）
-  const voices = await Promise.all(blocks.map(fetchVoice));
+  loadFigures(page); // 图并行预载（不 await：decode 挂死不再阻塞开讲；排版早已按 aspect 完成）
+  // 预取看门狗：整页语音+图预取设硬上限。任一环节挂死（Safari decode 不 settle、
+  // TTS 网络黑洞、readAudioDuration 卡）都不许把讲解卡成空屏——到点强制开播，
+  // 没就绪的块自然走无声降级。总限 = 3s + 1.2s/块（正常一页 5 块 ≈ 9s 内必齐）。
+  const pf = Promise.all(blocks.map(fetchVoice));
+  const watchdog = new Promise((resolve) =>
+    setTimeout(resolve, 3000 + blocks.length * 1200),
+  );
+  const vf = await Promise.race([pf, watchdog]);
+  const voices =
+    vf ||
+    blocks.map(
+      (b) =>
+        b._voice || {
+          voice: voiceId,
+          src: null,
+          dur: estimateSpeech(ttsSpeech(parseSay(b.say || ""))),
+        },
+    );
   // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
   page._sayMarks = blockList ? page._sayMarks || [] : [];
 
@@ -2492,8 +2509,29 @@ async function loadFigure(b) {
     );
     const img = new Image();
     img.src = url;
-    await img.decode();
-    b._figure.img = img;
+    // Safari 偶发 img.decode() 永不 settle（讲解链 await loadFigures 挂死 →
+    // pending 永真 → 空屏无声，重讲一次又正常）→ onload 兜底竞速，
+    // 谁先到用谁；4s 都没到当失败（画占位），绝不让解码卡住开讲。
+    await new Promise((resolve) => {
+      let settled = false;
+      const ok = () => {
+        if (settled) return;
+        settled = true;
+        b._figure.img = img;
+        resolve();
+      };
+      const fail = () => {
+        if (settled) return;
+        settled = true;
+        b._figure.img = null; // 失败 → 画「[图]」占位
+        resolve();
+      };
+      img.onload = ok;
+      img.onerror = fail;
+      setTimeout(fail, 4000);
+      if (img.decode) img.decode().then(ok, fail);
+    });
+    URL.revokeObjectURL(url);
   } catch {
     b._figure.img = null; // 失败 → 画「[图]」占位
   }
