@@ -1991,6 +1991,7 @@ async function fetchVoice(b) {
       // 拿不到时宁可高估（estimateSpeech）——低估会让下一块提前开播、两个声音重叠。
       const dur = (await readAudioDuration(probe)) || est;
       b._voice = { voice: voiceId, src: data.audio, dur };
+      return b._voice;
     } catch (e) {
       b._voice = fallback;
       // TTS 不可用时明确告知（每次会话只提醒一次），避免误以为程序坏了
@@ -2001,9 +2002,10 @@ async function fetchVoice(b) {
           "err",
         );
       }
+      return fallback;
     }
   })();
-  const result = await b._voiceFetching;
+  const result = (await b._voiceFetching) || b._voice; // 双保险：inner 任何路径未显式返回都兜到缓存
   b._voiceFetching = null; // 完成即清：音色切换后可重新拉取
   return result;
 }
@@ -2201,202 +2203,222 @@ function clearTextCanvas() {
 
 // blocks 默认整页；逐块：块内写字均布在语音时长内，语音停 → 下一块才开写
 async function playNarration(page, blockList) {
-  unlockAudio();
-  stopNarration();
-  stopAnim();
-  layoutPage(page);
-  const seq = narration.seq;
-  const blocks = (blockList || page._drawOrder).filter((b) =>
-    layouts.has(b.uid),
-  );
-  if (!blocks.length) return;
-  narration.playing = true;
-  narration.pending = !blockList; // 整页讲解预取语音时画面空白；追加讲解保持现有板书
-  setNarrateBtn();
-  acquireWakeLock(); // 讲解期间保持屏幕常亮
-  // 预取尚未命中（预热没跑完/重播冷页）→ 给轻提示，别让人对着空白黑板干等
-  const coldBlocks = blocks.filter(
-    (b) =>
-      b.say && !(b._voice && b._voice.voice === voiceId) && !b._voiceFetching,
-  );
-  if (narration.pending && coldBlocks.length)
-    toast(tt("老师正在润嗓…", "Teacher is warming up…"), "");
-  loadFigures(page); // 图并行预载（不 await：decode 挂死不再阻塞开讲；排版早已按 aspect 完成）
-  // 预取看门狗：整页语音+图预取设硬上限。任一环节挂死（Safari decode 不 settle、
-  // TTS 网络黑洞、readAudioDuration 卡）都不许把讲解卡成空屏——到点强制开播，
-  // 没就绪的块自然走无声降级。总限 = 3s + 1.2s/块（正常一页 5 块 ≈ 9s 内必齐）。
-  const pf = Promise.all(blocks.map(fetchVoice));
-  const watchdog = new Promise((resolve) =>
-    setTimeout(resolve, 3000 + blocks.length * 1200),
-  );
-  const vf = await Promise.race([pf, watchdog]);
-  const voices =
-    vf ||
-    blocks.map(
-      (b) =>
-        b._voice || {
-          voice: voiceId,
-          src: null,
-          dur: estimateSpeech(ttsSpeech(parseSay(b.say || ""))),
-        },
-    );
-  // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
-  page._sayMarks = blockList ? page._sayMarks || [] : [];
-
-  if (seq !== narration.seq) return; // 等待期间被停止
-  narration.pending = false; // 预取完成，时间线即将启动
-  clearTextCanvas(); // 开讲前先清板（renderText(0) 在 animState 未建时会当 Infinity 全量倾泻文字）
-  lectureReset(true); // 讲义区清空并显示，随讲解逐句追加
-
-  const entries = [];
-  const dividerMap = new Map();
-  let t = 350;
-  for (const d of page._dividers) {
-    if (blockList) break; // 追加讲解不重画分隔线
-    const e = { kind: "divider", d, t0: t, cost: DIVIDER_MS };
-    entries.push(e);
-    dividerMap.set(d, e);
-    t += DIVIDER_MS + 150;
-  }
-  // 语音链真串行：每块开播前既等时间线预算到点、也等上一块 ended；
-  // timelineStart 供链对齐预算（性能时钟不受后台节流影响那么大）
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const timelineStart = performance.now();
-  let speakChain = Promise.resolve();
-  for (let i = 0; i < blocks.length; i++) {
-    const b = blocks[i];
-    const lay = layouts.get(b.uid);
-    const v = voices[i];
-    const start = t + 200; // 起笔前小留白
-    const per = NARRATE_WRITE_MS;
-    if (v.src) {
-      // 有语音：教师习惯——写字不出声，快写完整块（80ms/字），写完再开口讲
-      let charCount = 0;
-      for (const line of lay.lines) charCount += line.length;
-      const figDur = b.svg ? 700 : 0; // 图示先浮现 700ms
-      const writeDur = Math.max(500, charCount * per) + figDur;
-      if (b.svg) entries.push({ kind: "figure", b, t0: start, cost: 700 });
-      let gi = 0;
-      for (let li = 0; li < lay.lines.length; li++) {
-        for (let ci = 0; ci < lay.lines[li].length; ci++) {
-          entries.push({
-            kind: "char",
-            b,
-            li,
-            ci,
-            gi,
-            t0: start + figDur + gi * per,
-            cost: per,
-          });
-          gi++;
-        }
-      }
-      const speakAt = start + writeDur + 200;
-      // 真串行播报链：上一块真实 ended 之后才允许下一块开播（链式 await，非各块独立定时）。
-      // dur 只是时间线预算——Safari 对 VBR mp3 常低报时长，预算提前走完自动翻页时
-      // 旧页语音还在播 → 前后两页声音重叠（第 4 页开播撞上第 3 页尾巴）。
-      // 护栏放宽到 max(真实时长, 估算)*1.5+2s：ended 等不到（静音键/解码失败）才兜底推进。
-      const estDur = estimateSpeech(ttsSpeech(parseSay(b.say)));
-      const guardMs = Math.max(v.dur, estDur) * 1000 * 1.5 + 2000;
-      const speakDone = speakChain.then(async () => {
-        if (seq !== narration.seq) return;
-        // 对齐时间线预算：预算未到点不动（与旧 setTimeout(speakAt) 等效，但挂在串行链上）
-        const wait = speakAt - (performance.now() - timelineStart);
-        if (wait > 0) await sleep(wait);
-        if (seq !== narration.seq) return;
-        const el = spawnVoiceEl(v);
-        if (!el) return;
-        narration.audios.push(el);
-        await new Promise((resolve) => {
-          let done = false;
-          const fin = () => {
-            if (done) return;
-            done = true;
-            el.removeEventListener("ended", fin);
-            el.removeEventListener("pause", fin);
-            clearTimeout(guard);
-            resolve();
-          };
-          const guard = setTimeout(fin, guardMs);
-          el.addEventListener("ended", fin);
-          el.addEventListener("pause", fin);
-          // iPad 自动播放策略偶发拒首次 play()（手势语境在长时间备课后失效）；
-          // 立刻当"播完"跳过 = 整页无声。指数退避重试，彻底被拒才静默推进。
-          const tryPlay = async (attempt) => {
-            try {
-              await el.play();
-            } catch {
-              if (attempt < 3 && seq === narration.seq)
-                setTimeout(() => tryPlay(attempt + 1), 300 * (attempt + 1));
-              else fin();
-            }
-          };
-          tryPlay(0);
-        });
-      });
-      speakChain = speakChain.then(() => speakDone).catch(() => {});
-      narration.speakDone.push(speakDone);
-      pushSayMarks(page, b, start + writeDur + 200, v.dur * 1000, "speak");
-      pushLectureSay(b, speakAt, v.dur * 1000); // 念到哪句，讲义多哪句
-      t = speakAt + Math.max(v.dur, estDur) * 1000 + 450; // 预算按保守时长（宁多勿重叠）
-    } else {
-      // 无语音（未开配音/无讲稿）：不讲解；逐行快写，行尾按 5 字/秒 阅读速度停 1~3 秒
-      let cursor = start;
-      if (b.svg) {
-        entries.push({ kind: "figure", b, t0: cursor, cost: 700 });
-        cursor += 700;
-      }
-      for (let li = 0; li < lay.lines.length; li++) {
-        const line = lay.lines[li];
-        let gi = 0;
-        for (let ci = 0; ci < line.length; ci++) {
-          entries.push({
-            kind: "char",
-            b,
-            li,
-            ci,
-            gi,
-            t0: cursor + gi * per,
-            cost: per,
-          });
-          gi++;
-        }
-      }
-      pushSayMarks(page, b, start, cursor - start, "silent");
-      pushLectureSay(b, start, cursor - start); // 无语音时按阅读窗口逐句出
-      t = cursor;
+  const fail = (where, err) => {
+    // 讲解链任何异常都不许把 playing 卡死在「停止按钮却无字无声」的假死态
+    console.error(`[narrate] FAILED at ${where}:`, err);
+    if (narration.seq === seq) {
+      narration.playing = false;
+      narration.pending = false;
+      setNarrateBtn();
+      renderText();
     }
-  }
-  // 时间线先启动：板书动画与语音定时器并行推进（原 v39 把 await 放在 runTimeline 前，
-  // 导致语音全部播完才开始写字——画面空白、重播定格全量字，两 bug 同根）。
-  runTimeline(
-    entries,
-    dividerMap,
-    t + 250,
-    () => {
-      // 板书写完；语音链可能仍在播（预算短于真实时长）→ 等它落定才算整页讲完
-      Promise.all(narration.speakDone).then(() => {
-        if (seq !== narration.seq) return;
-        narration.playing = false;
-        setNarrateBtn();
-        // 整页讲完 → 1 秒后自动连播下一页（点击/翻页/停止可打断：计时器入 narration.timers）
-        if (!blockList && pages[curPage] === page) {
-          if (curPage < pages.length - 1) {
-            const seq2 = narration.seq;
-            narration.timers.push(
-              setTimeout(() => {
-                if (seq2 !== narration.seq) return;
-                goToPage(curPage + 1);
-              }, 1000),
-            );
-          } else if (tryAdvancePending()) {
-            // 已是最后一页但生成中 → 挂起等下一页（页到达由 acceptStreamPage 续播）
+  };
+  let seq;
+  try {
+    unlockAudio();
+    stopNarration();
+    seq = narration.seq;
+    stopAnim();
+    layoutPage(page);
+    const blocks = (blockList || page._drawOrder).filter((b) =>
+      layouts.has(b.uid),
+    );
+    if (!blocks.length) return;
+    narration.playing = true;
+    narration.pending = !blockList; // 整页讲解预取语音时画面空白；追加讲解保持现有板书
+    setNarrateBtn();
+    acquireWakeLock(); // 讲解期间保持屏幕常亮
+    // 预取尚未命中（预热没跑完/重播冷页）→ 给轻提示，别让人对着空白黑板干等
+    const coldBlocks = blocks.filter(
+      (b) =>
+        b.say && !(b._voice && b._voice.voice === voiceId) && !b._voiceFetching,
+    );
+    if (narration.pending && coldBlocks.length)
+      toast(tt("老师正在润嗓…", "Teacher is warming up…"), "");
+    loadFigures(page); // 图并行预载（不 await：decode 挂死不再阻塞开讲；排版早已按 aspect 完成）
+    // 预取看门狗：整页语音+图预取设硬上限。任一环节挂死（Safari decode 不 settle、
+    // TTS 网络黑洞、readAudioDuration 卡）都不许把讲解卡成空屏——到点强制开播，
+    // 没就绪的块自然走无声降级。总限 = 3s + 1.2s/块（正常一页 5 块 ≈ 9s 内必齐）。
+    const pf = Promise.all(blocks.map(fetchVoice));
+    const watchdog = new Promise((resolve) =>
+      setTimeout(resolve, 3000 + blocks.length * 1200),
+    );
+    const vf = await Promise.race([pf, watchdog]);
+    const voices =
+      vf ||
+      blocks.map(
+        (b) =>
+          b._voice || {
+            voice: voiceId,
+            src: null,
+            dur: estimateSpeech(ttsSpeech(parseSay(b.say || ""))),
+          },
+      );
+    // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
+    page._sayMarks = blockList ? page._sayMarks || [] : [];
+
+    if (seq !== narration.seq) return; // 等待期间被停止
+    narration.pending = false; // 预取完成，时间线即将启动
+    clearTextCanvas(); // 开讲前先清板（renderText(0) 在 animState 未建时会当 Infinity 全量倾泻文字）
+    lectureReset(true); // 讲义区清空并显示，随讲解逐句追加
+    // 讲解链诊断日志（Safari 远程控制台可见；纯观察无行为影响）
+    console.info(
+      `[narrate] timeline start seq=${seq} page=${pages.indexOf(page)} blocks=${blocks.length} ready=${voices.filter((v) => v && v.src).length}/${blocks.length}`,
+    );
+
+    const entries = [];
+    const dividerMap = new Map();
+    let t = 350;
+    for (const d of page._dividers) {
+      if (blockList) break; // 追加讲解不重画分隔线
+      const e = { kind: "divider", d, t0: t, cost: DIVIDER_MS };
+      entries.push(e);
+      dividerMap.set(d, e);
+      t += DIVIDER_MS + 150;
+    }
+    // 语音链真串行：每块开播前既等时间线预算到点、也等上一块 ended；
+    // timelineStart 供链对齐预算（性能时钟不受后台节流影响那么大）
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const timelineStart = performance.now();
+    let speakChain = Promise.resolve();
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      const lay = layouts.get(b.uid);
+      const v = voices[i];
+      const start = t + 200; // 起笔前小留白
+      const per = NARRATE_WRITE_MS;
+      if (v.src) {
+        // 有语音：教师习惯——写字不出声，快写完整块（80ms/字），写完再开口讲
+        let charCount = 0;
+        for (const line of lay.lines) charCount += line.length;
+        const figDur = b.svg ? 700 : 0; // 图示先浮现 700ms
+        const writeDur = Math.max(500, charCount * per) + figDur;
+        if (b.svg) entries.push({ kind: "figure", b, t0: start, cost: 700 });
+        let gi = 0;
+        for (let li = 0; li < lay.lines.length; li++) {
+          for (let ci = 0; ci < lay.lines[li].length; ci++) {
+            entries.push({
+              kind: "char",
+              b,
+              li,
+              ci,
+              gi,
+              t0: start + figDur + gi * per,
+              cost: per,
+            });
+            gi++;
           }
         }
-      });
-    },
-    lectureTick,
-  );
+        const speakAt = start + writeDur + 200;
+        // 真串行播报链：上一块真实 ended 之后才允许下一块开播（链式 await，非各块独立定时）。
+        // dur 只是时间线预算——Safari 对 VBR mp3 常低报时长，预算提前走完自动翻页时
+        // 旧页语音还在播 → 前后两页声音重叠（第 4 页开播撞上第 3 页尾巴）。
+        // 护栏放宽到 max(真实时长, 估算)*1.5+2s：ended 等不到（静音键/解码失败）才兜底推进。
+        const estDur = estimateSpeech(ttsSpeech(parseSay(b.say)));
+        const guardMs = Math.max(v.dur, estDur) * 1000 * 1.5 + 2000;
+        const speakDone = speakChain.then(async () => {
+          if (seq !== narration.seq) return;
+          // 对齐时间线预算：预算未到点不动（与旧 setTimeout(speakAt) 等效，但挂在串行链上）
+          const wait = speakAt - (performance.now() - timelineStart);
+          if (wait > 0) await sleep(wait);
+          if (seq !== narration.seq) return;
+          const el = spawnVoiceEl(v);
+          if (!el) return;
+          narration.audios.push(el);
+          await new Promise((resolve) => {
+            let done = false;
+            const fin = () => {
+              if (done) return;
+              done = true;
+              el.removeEventListener("ended", fin);
+              el.removeEventListener("pause", fin);
+              clearTimeout(guard);
+              resolve();
+            };
+            const guard = setTimeout(fin, guardMs);
+            el.addEventListener("ended", fin);
+            el.addEventListener("pause", fin);
+            // iPad 自动播放策略偶发拒首次 play()（手势语境在长时间备课后失效）；
+            // 立刻当"播完"跳过 = 整页无声。指数退避重试，彻底被拒才静默推进。
+            const tryPlay = async (attempt) => {
+              try {
+                await el.play();
+              } catch {
+                if (attempt < 3 && seq === narration.seq)
+                  setTimeout(() => tryPlay(attempt + 1), 300 * (attempt + 1));
+                else fin();
+              }
+            };
+            tryPlay(0);
+          });
+        });
+        speakChain = speakChain.then(() => speakDone).catch(() => {});
+        narration.speakDone.push(speakDone);
+        pushSayMarks(page, b, start + writeDur + 200, v.dur * 1000, "speak");
+        pushLectureSay(b, speakAt, v.dur * 1000); // 念到哪句，讲义多哪句
+        t = speakAt + Math.max(v.dur, estDur) * 1000 + 450; // 预算按保守时长（宁多勿重叠）
+      } else {
+        // 无语音（未开配音/无讲稿）：不讲解；逐行快写，行尾按 5 字/秒 阅读速度停 1~3 秒
+        let cursor = start;
+        if (b.svg) {
+          entries.push({ kind: "figure", b, t0: cursor, cost: 700 });
+          cursor += 700;
+        }
+        for (let li = 0; li < lay.lines.length; li++) {
+          const line = lay.lines[li];
+          let gi = 0;
+          for (let ci = 0; ci < line.length; ci++) {
+            entries.push({
+              kind: "char",
+              b,
+              li,
+              ci,
+              gi,
+              t0: cursor + gi * per,
+              cost: per,
+            });
+            gi++;
+          }
+        }
+        pushSayMarks(page, b, start, cursor - start, "silent");
+        pushLectureSay(b, start, cursor - start); // 无语音时按阅读窗口逐句出
+        t = cursor;
+      }
+    }
+    // 时间线先启动：板书动画与语音定时器并行推进（原 v39 把 await 放在 runTimeline 前，
+    // 导致语音全部播完才开始写字——画面空白、重播定格全量字，两 bug 同根）。
+    runTimeline(
+      entries,
+      dividerMap,
+      t + 250,
+      () => {
+        // 板书写完；语音链可能仍在播（预算短于真实时长）→ 等它落定才算整页讲完
+        Promise.all(narration.speakDone).then(() => {
+          if (seq !== narration.seq) return;
+          narration.playing = false;
+          setNarrateBtn();
+          // 整页讲完 → 1 秒后自动连播下一页（点击/翻页/停止可打断：计时器入 narration.timers）
+          if (!blockList && pages[curPage] === page) {
+            if (curPage < pages.length - 1) {
+              const seq2 = narration.seq;
+              narration.timers.push(
+                setTimeout(() => {
+                  if (seq2 !== narration.seq) return;
+                  console.info(`[narrate] auto-advance to page ${curPage + 1}`);
+                  goToPage(curPage + 1);
+                }, 1000),
+              );
+            } else if (tryAdvancePending()) {
+              // 已是最后一页但生成中 → 挂起等下一页（页到达由 acceptStreamPage 续播）
+            }
+          }
+        });
+      },
+      lectureTick,
+    );
+  } catch (err) {
+    fail("build", err);
+  }
 }
 
 $("#btn-narrate").addEventListener("click", () => {
