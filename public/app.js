@@ -2162,6 +2162,12 @@ function unlockAudio() {
   }
 }
 
+// 清空板书层（pending 结束→时间线首帧之间的空窗，避免 renderText 全量倾泻）
+function clearTextCanvas() {
+  textCtx.setTransform(1, 0, 0, 1, 0, 0);
+  textCtx.clearRect(0, 0, textC.width, textC.height);
+}
+
 // blocks 默认整页；逐块：块内写字均布在语音时长内，语音停 → 下一块才开写
 async function playNarration(page, blockList) {
   unlockAudio();
@@ -2191,7 +2197,7 @@ async function playNarration(page, blockList) {
 
   if (seq !== narration.seq) return; // 等待期间被停止
   narration.pending = false; // 预取完成，时间线即将启动
-  renderText(0); // 立即画空白帧（t=0：分隔线之前，无字）——pending 解除后不再留上一轮的定格画面
+  clearTextCanvas(); // 开讲前先清板（renderText(0) 在 animState 未建时会当 Infinity 全量倾泻文字）
   lectureReset(true); // 讲义区清空并显示，随讲解逐句追加
 
   const entries = [];
@@ -2266,7 +2272,18 @@ async function playNarration(page, blockList) {
           const guard = setTimeout(fin, guardMs);
           el.addEventListener("ended", fin);
           el.addEventListener("pause", fin);
-          el.play().catch(fin); // 播放被拒（静音键锁定）→ 不阻塞链
+          // iPad 自动播放策略偶发拒首次 play()（手势语境在长时间备课后失效）；
+          // 立刻当"播完"跳过 = 整页无声。指数退避重试，彻底被拒才静默推进。
+          const tryPlay = async (attempt) => {
+            try {
+              await el.play();
+            } catch {
+              if (attempt < 3 && seq === narration.seq)
+                setTimeout(() => tryPlay(attempt + 1), 300 * (attempt + 1));
+              else fin();
+            }
+          };
+          tryPlay(0);
         });
       });
       speakChain = speakChain.then(() => speakDone).catch(() => {});
@@ -2552,13 +2569,13 @@ function goToPage(i) {
   if (i < 0 || i >= pages.length || i === curPage) return;
   stopNarration();
   stopAnim();
-  renderText();
   curPage = i;
   syncPageNav();
+  redrawStrokes();
   const p = pages[i];
   if (p._drawOrder.length && !p.animated) {
     p.animated = true;
-    playNarration(p); // 每页首次观看 = 配音讲解 + 同步书写
+    playNarration(p); // 每页首次观看 = 配音讲解 + 同步书写（pending 态自动空白，勿先 renderText 倾泻全量字）
   } else {
     renderText();
   }
@@ -3852,7 +3869,17 @@ async function apPlay(blocks, title) {
         );
         el.addEventListener("ended", fin);
         el.addEventListener("pause", fin);
-        el.play().catch(fin);
+        // 同主链：iPad 自动播放被拒重试，勿立刻当"播完"（问答面板无声同根）
+        const tryPlay = async (attempt) => {
+          try {
+            await el.play();
+          } catch {
+            if (attempt < 3 && seq === apSeq)
+              setTimeout(() => tryPlay(attempt + 1), 300 * (attempt + 1));
+            else fin();
+          }
+        };
+        tryPlay(0);
       });
     });
     speakChain = speakChain.then(() => speakDoneEl).catch(() => {});
