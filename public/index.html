@@ -46,7 +46,6 @@
 
     <div class="tb-group">
       <button id="btn-fullscreen" class="tool-btn" title="全屏黑板（也可双击黑板）">全屏</button>
-      <button id="btn-theme" class="tool-btn" title="切换黑板 / 绿板">主题</button>
       <button id="btn-export" class="tool-btn" title="截屏当前黑板为高清 PNG">截屏</button>
       <button id="btn-save-course" class="tool-btn" title="保存课程（板书+讲稿，纯文本 JSON）">保存</button>
       <button id="btn-load-course" class="tool-btn" title="加载课程文件，恢复板书与讲解">加载</button>
@@ -204,6 +203,12 @@
           </label>
         </div>
         <div class="tab-pane" id="tab-look">
+          <label>板书主题
+            <select id="cfg-theme">
+              <option value="green">护眼绿板</option>
+              <option value="black">经典黑板</option>
+            </select>
+          </label>
           <label>板书字体
             <select id="cfg-font"></select>
           </label>
@@ -242,4 +247,4 @@
       }
     });
   </script>
-  <script src="app.js?v=44"></script>
+  <script src="app.js?v=45"></script>

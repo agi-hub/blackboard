@@ -250,7 +250,6 @@ const UI_I18N = [
   ["#btn-replay", "重播", "Replay", "text"],
   ["#btn-ask", "问问题", "Ask", "text"],
   ["#btn-fullscreen", "全屏", "Full Screen", "text"],
-  ["#btn-theme", "主题", "Theme", "text"],
   ["#btn-export", "截屏", "Capture", "text"],
   ["#btn-save-course", "保存", "Save", "text"],
   ["#btn-load-course", "加载", "Load", "text"],
@@ -334,9 +333,10 @@ const UI_I18N = [
     "Narration voice (male/female presets)",
     "first",
   ],
-  ["#tab-look label:nth-of-type(1)", "板书字体", "Board font", "first"],
+  ["#tab-look label:nth-of-type(1)", "板书主题", "Board theme", "first"],
+  ["#tab-look label:nth-of-type(2)", "板书字体", "Board font", "first"],
   [
-    "#tab-look label:nth-of-type(2)",
+    "#tab-look label:nth-of-type(3)",
     "字体磨砂感（粉笔颗粒强度）",
     "Chalk grain (texture strength)",
     "first",
@@ -365,7 +365,6 @@ const TITLE_I18N = [
     "全屏黑板（也可双击黑板）",
     "Full screen (or double-click the board)",
   ],
-  ["#btn-theme", "切换黑板 / 绿板", "Toggle black / green board"],
   ["#btn-export", "截屏当前黑板为高清 PNG", "Capture the board as HD PNG"],
   [
     "#btn-save-course",
@@ -2838,12 +2837,6 @@ function applyTheme() {
     apPaintStatic(apAnim ? Infinity : undefined);
 }
 
-$("#btn-theme").addEventListener("click", () => {
-  theme = theme === "black" ? "green" : "black";
-  applyTheme();
-  toast(theme === "black" ? "经典黑板" : "护眼绿板", "");
-});
-
 $("#btn-export").addEventListener("click", exportPNG);
 
 function exportPNG() {
@@ -4051,6 +4044,7 @@ async function openSettings() {
       : VOICE_LIST[0].id;
     $("#cfg-font").value = fontChoice;
     $("#cfg-grain").value = String(chalkGrain);
+    $("#cfg-theme").value = theme;
     $("#cfg-status").textContent =
       cfg.hasKey && cfg.hasTtsKey
         ? "已配置 LLM + TTS 密钥"
@@ -4076,6 +4070,7 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     ttsVoice: $("#cfg-voice").value, // 音色由下拉选择（持久化）
     font: $("#cfg-font").value,
     grain: Number($("#cfg-grain").value),
+    theme: $("#cfg-theme").value,
   };
   try {
     const res = await fetch("api/config", {
@@ -4087,6 +4082,11 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     voiceId = $("#cfg-voice").value; // 立即生效（语音按音色缓存，重讲即用新音色）
     applyFont($("#cfg-font").value);
+    const t = $("#cfg-theme").value;
+    if (t === "black" || t === "green") {
+      theme = t;
+      applyTheme();
+    }
     applyGrain($("#cfg-grain").value);
     $("#cfg-status").textContent = "已保存 ✓";
     toast("设置已保存", "ok");
@@ -4148,6 +4148,10 @@ fetch("api/config")
     // 持久化的字体与音色：先按本机可用性选定字体（偏好不可用则就近降级），再应用
     applyFont(initFontChoice(cfg.font));
     if (cfg.grain !== undefined) applyGrain(cfg.grain);
+    if (cfg.theme === "black" || cfg.theme === "green") {
+      theme = cfg.theme;
+      applyTheme();
+    }
     if (cfg.ttsVoice && VOICE_LIST.some((v) => v.id === cfg.ttsVoice))
       voiceId = cfg.ttsVoice;
   })
