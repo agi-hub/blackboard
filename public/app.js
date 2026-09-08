@@ -2187,6 +2187,7 @@ async function playNarration(page, blockList) {
 
   if (seq !== narration.seq) return; // 等待期间被停止
   narration.pending = false; // 预取完成，时间线即将启动
+  renderText(0); // 立即画空白帧（t=0：分隔线之前，无字）——pending 解除后不再留上一轮的定格画面
   lectureReset(true); // 讲义区清空并显示，随讲解逐句追加
 
   const entries = [];
@@ -2283,31 +2284,33 @@ async function playNarration(page, blockList) {
       t = cursor;
     }
   }
-  // 语音链全部落定（ended/被打断/超时兜底）才算整页讲完——自动翻页、续播判定都以此为准。
-  // 时间线本身仍按预算推进板书动画；预算 < 真实时长时这里自然多等，画面定格无害。
-  await Promise.all(narration.speakDone);
-  if (seq !== narration.seq) return;
+  // 时间线先启动：板书动画与语音定时器并行推进（原 v39 把 await 放在 runTimeline 前，
+  // 导致语音全部播完才开始写字——画面空白、重播定格全量字，两 bug 同根）。
   runTimeline(
     entries,
     dividerMap,
     t + 250,
     () => {
-      narration.playing = false;
-      setNarrateBtn();
-      // 整页讲完 → 1 秒后自动连播下一页（点击/翻页/停止可打断：计时器入 narration.timers）
-      if (!blockList && pages[curPage] === page) {
-        if (curPage < pages.length - 1) {
-          const seq = narration.seq;
-          narration.timers.push(
-            setTimeout(() => {
-              if (seq !== narration.seq) return;
-              goToPage(curPage + 1);
-            }, 1000),
-          );
-        } else if (tryAdvancePending()) {
-          // 已是最后一页但生成中 → 挂起等下一页（页到达由 acceptStreamPage 续播）
+      // 板书写完；语音链可能仍在播（预算短于真实时长）→ 等它落定才算整页讲完
+      Promise.all(narration.speakDone).then(() => {
+        if (seq !== narration.seq) return;
+        narration.playing = false;
+        setNarrateBtn();
+        // 整页讲完 → 1 秒后自动连播下一页（点击/翻页/停止可打断：计时器入 narration.timers）
+        if (!blockList && pages[curPage] === page) {
+          if (curPage < pages.length - 1) {
+            const seq2 = narration.seq;
+            narration.timers.push(
+              setTimeout(() => {
+                if (seq2 !== narration.seq) return;
+                goToPage(curPage + 1);
+              }, 1000),
+            );
+          } else if (tryAdvancePending()) {
+            // 已是最后一页但生成中 → 挂起等下一页（页到达由 acceptStreamPage 续播）
+          }
         }
-      }
+      });
     },
     lectureTick,
   );
