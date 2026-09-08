@@ -1761,7 +1761,7 @@ async function playNarration(page, blockList) {
     () => {
       narration.playing = false;
       setNarrateBtn();
-      // 整页讲完 → 3 秒后自动连播下一页（点击/翻页/停止可打断：计时器入 narration.timers）
+      // 整页讲完 → 1 秒后自动连播下一页（点击/翻页/停止可打断：计时器入 narration.timers）
       if (!blockList && pages[curPage] === page) {
         if (curPage < pages.length - 1) {
           const seq = narration.seq;
@@ -1769,7 +1769,7 @@ async function playNarration(page, blockList) {
             setTimeout(() => {
               if (seq !== narration.seq) return;
               goToPage(curPage + 1);
-            }, 3000),
+            }, 1000),
           );
         } else if (tryAdvancePending()) {
           // 已是最后一页但生成中 → 挂起等下一页（页到达由 acceptStreamPage 续播）
