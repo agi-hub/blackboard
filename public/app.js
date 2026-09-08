@@ -7,7 +7,8 @@ window.__APP_VER = 3; // 缓存自检标记：index.html 内联脚本据此判�
 
 // ---------- 常量与状态 ----------
 
-// 逻辑画布尺寸：横屏 1600×1000；竖屏（手机）1000×1600——板书跟着屏幕方向走，
+// 逻辑画布尺寸：横屏 1600×1000；竖屏（手机）500×800——竖屏分辨率减半 = 同样的字号
+// 提示（42~54px）在手机上的物理大小放大一倍。板书跟着屏幕方向走，
 // 生成板书时按当前方向请求对应画布，排版/导出/截图全链路读这两个值。
 let W = 1600;
 let H = 1000;
@@ -19,9 +20,9 @@ function isPortrait() {
 }
 function applyOrientation() {
   if (isPortrait()) {
-    if (W !== 1000) {
-      W = 1000;
-      H = 1600;
+    if (W !== 500) {
+      W = 500;
+      H = 800;
       return true;
     }
   } else if (W !== 1600) {
@@ -831,16 +832,18 @@ function newPage() {
 function layoutPage(page) {
   if (page._laid) return;
   page._laid = true;
+  // 钳制边界按画布比例缩放（竖屏 500×800 下固定值会上溢/下溢）
+  const pad = Math.round(W / 40); // 区域最小边距 ≈ 横屏 40 / 竖屏 13
   const regs = page.regions.map((r) => {
-    const x = clampNum(r.x, 40, W - 240);
-    const y = clampNum(r.y, 130, H - 220);
+    const x = clampNum(r.x, pad, W - pad * 6);
+    const y = clampNum(r.y, Math.round(H / 8), H - Math.round(H / 4.5));
     return {
       id: r.id,
       header: r.header,
       x,
       y,
-      w: clampNum(r.width, 200, W - 40 - x),
-      h: clampNum(r.height, 120, H - 40 - y),
+      w: clampNum(r.width, pad * 5, W - pad - x),
+      h: clampNum(r.height, Math.round(H / 8), H - pad - y),
     };
   });
   page._regions = regs;
@@ -851,7 +854,7 @@ function layoutPage(page) {
   if (page.titleBlock) {
     const t = page.titleBlock;
     t.fontSize = clampNum(t.fontSize || 72, 60, 88);
-    t.width = W - 120;
+    t.width = W - Math.round(W / 13);
     for (let tries = 0; tries < 12; tries++) {
       computeLayout(t);
       textCtx.font = fontString(t);
@@ -1130,8 +1133,10 @@ function layoutPage(page) {
     return bottom;
   };
 
-  const summaryTop = page.summaryBlock ? H - 150 : H - 60;
-  const minTop = page.titleBlock ? 160 : 110; // 区域不得侵入标题带
+  const summaryTop = page.summaryBlock
+    ? H - Math.round(H / 6.7)
+    : H - Math.round(H / 16.7);
+  const minTop = page.titleBlock ? Math.round(H / 6.25) : Math.round(H / 9); // 区域不得侵入标题带（随画布高缩放）
   // stackRegions 会改写 r.y/r.h —— 多轮必须每轮从原始几何重来
   const origGeom = regs.map((r) => ({ y: r.y, h: r.h }));
   const resetGeom = () =>
@@ -1145,7 +1150,9 @@ function layoutPage(page) {
   const SCALES = [1, 0.93, 0.87, 0.8, 0.74, 0.68, 0.62];
   // 两轮尝试：先带总结条；内容实在装不下 → 去掉总结条再试（绝不重叠优先于保留总结）
   for (const pass of [0, 1]) {
-    const sTop = page.summaryBlock ? H - 150 : H - 56;
+    const sTop = page.summaryBlock
+      ? H - Math.round(H / 6.7)
+      : H - Math.round(H / 16.7);
     for (const s of SCALES) {
       resetGeom();
       const r = layFlow(s);
@@ -1159,12 +1166,16 @@ function layoutPage(page) {
       continue;
     }
   }
-  if (bottom > (page.summaryBlock ? H - 150 : H - 56) + TOL) {
+  if (
+    bottom >
+    (page.summaryBlock ? H - Math.round(H / 6.7) : H - Math.round(H / 16.7)) +
+      TOL
+  ) {
     // 仍放不下（极端内容量）：整体上移（以最小区域顶算，绝不侵入标题带）
     const lift = Math.max(
       0,
       Math.min(
-        bottom - (H - 56),
+        bottom - (H - Math.round(H / 16.7)),
         Math.min(...laid.map((it) => it.r.y)) - minTop,
       ),
     );
@@ -1219,11 +1230,11 @@ function layoutPage(page) {
   if (page.summaryBlock) {
     const s = page.summaryBlock;
     s.fontSize = clampNum(s.fontSize || 48, 42, 56);
-    s.x = 80;
-    s.width = W - 160;
+    s.x = Math.round(W / 20);
+    s.width = W - Math.round(W / 10);
     computeLayout(s);
     const lay = layouts.get(s.uid);
-    s.y = H - 64 - lay.lines.length * lay.lineH;
+    s.y = H - Math.round(H / 12.5) - lay.lines.length * lay.lineH;
   }
 
   // 动画/绘制顺序：标题 → (逐区域按装填顺序：区头+块) → 其余绝对块 → 总结
@@ -2566,17 +2577,18 @@ function loadFigures(page) {
 function normalizePage(pg) {
   const page = newPage();
   if (!pg || typeof pg !== "object") return page;
+  const pad = Math.round(W / 20); // 标题/总结边距随画布（横屏 80 / 竖屏 25）
   page.titleBlock = mkBlock(pg.title, "title", {
-    x: 80,
+    x: pad,
     y: 28,
-    width: W - 200,
+    width: W - pad * 2.5,
     fontSize: 72,
     color: "#ffe066",
   });
   page.summaryBlock = mkBlock(pg.summary, "summary", {
-    x: 80,
-    y: H - 120,
-    width: W - 160,
+    x: pad,
+    y: H - Math.round(H / 6.7),
+    width: W - pad * 2,
     fontSize: 48,
     color: "#ffe066",
   });
