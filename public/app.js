@@ -1827,6 +1827,10 @@ function stopNarration() {
     try {
       a.pause();
       a.currentTime = 0;
+      // Safari：play() 尚未 resolve 时 pause() 会被忽略，解码完成后照样出声
+      // （翻页后旧页声音迟到重现的通道）→ 摘掉 src 再 load() 连根中止挂起的播放。
+      a.removeAttribute("src");
+      a.load();
     } catch {
       /* ignore */
     }
@@ -2200,6 +2204,11 @@ async function playNarration(page, blockList) {
     dividerMap.set(d, e);
     t += DIVIDER_MS + 150;
   }
+  // 语音链真串行：每块开播前既等时间线预算到点、也等上一块 ended；
+  // timelineStart 供链对齐预算（性能时钟不受后台节流影响那么大）
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const timelineStart = performance.now();
+  let speakChain = Promise.resolve();
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     const lay = layouts.get(b.uid);
@@ -2229,33 +2238,42 @@ async function playNarration(page, blockList) {
         }
       }
       const speakAt = start + writeDur + 200;
-      // 串行播报链：现场造干净元素播放，真实 ended 之前不开播下一块。dur 只是时间线预算；
-      // 真实播放长于预算（元数据缺失/估算兜底）时链等到 ended 再继续，杜绝页尾两段语音重叠。
-      // 播报超时（预算×1.5+2s 无 ended）视为卡死，链自行推进；stopNarration 的 pause 同样终结本块。
-      const speakDone = new Promise((resolve) => {
-        narration.timers.push(
-          setTimeout(() => {
-            if (seq !== narration.seq) return;
-            const el = spawnVoiceEl(v);
-            if (!el) return resolve(undefined);
-            narration.audios.push(el);
-            const done = () => {
-              el.removeEventListener("ended", done);
-              el.removeEventListener("pause", done);
-              clearTimeout(guard);
-              resolve(undefined);
-            };
-            const guard = setTimeout(done, v.dur * 1000 * 1.5 + 2000);
-            el.addEventListener("ended", done);
-            el.addEventListener("pause", done);
-            el.play().catch(() => done()); // 播放被拒（如静音键锁定）→ 不阻塞链，按已播完处理
-          }, speakAt),
-        );
+      // 真串行播报链：上一块真实 ended 之后才允许下一块开播（链式 await，非各块独立定时）。
+      // dur 只是时间线预算——Safari 对 VBR mp3 常低报时长，预算提前走完自动翻页时
+      // 旧页语音还在播 → 前后两页声音重叠（第 4 页开播撞上第 3 页尾巴）。
+      // 护栏放宽到 max(真实时长, 估算)*1.5+2s：ended 等不到（静音键/解码失败）才兜底推进。
+      const estDur = estimateSpeech(ttsSpeech(parseSay(b.say)));
+      const guardMs = Math.max(v.dur, estDur) * 1000 * 1.5 + 2000;
+      const speakDone = speakChain.then(async () => {
+        if (seq !== narration.seq) return;
+        // 对齐时间线预算：预算未到点不动（与旧 setTimeout(speakAt) 等效，但挂在串行链上）
+        const wait = speakAt - (performance.now() - timelineStart);
+        if (wait > 0) await sleep(wait);
+        if (seq !== narration.seq) return;
+        const el = spawnVoiceEl(v);
+        if (!el) return;
+        narration.audios.push(el);
+        await new Promise((resolve) => {
+          let done = false;
+          const fin = () => {
+            if (done) return;
+            done = true;
+            el.removeEventListener("ended", fin);
+            el.removeEventListener("pause", fin);
+            clearTimeout(guard);
+            resolve();
+          };
+          const guard = setTimeout(fin, guardMs);
+          el.addEventListener("ended", fin);
+          el.addEventListener("pause", fin);
+          el.play().catch(fin); // 播放被拒（静音键锁定）→ 不阻塞链
+        });
       });
+      speakChain = speakChain.then(() => speakDone).catch(() => {});
       narration.speakDone.push(speakDone);
       pushSayMarks(page, b, start + writeDur + 200, v.dur * 1000, "speak");
       pushLectureSay(b, speakAt, v.dur * 1000); // 念到哪句，讲义多哪句
-      t = speakAt + v.dur * 1000 + 450; // 讲完、缓冲，才轮到写下一块（时间线预算）
+      t = speakAt + Math.max(v.dur, estDur) * 1000 + 450; // 预算按保守时长（宁多勿重叠）
     } else {
       // 无语音（未开配音/无讲稿）：不讲解；逐行快写，行尾按 5 字/秒 阅读速度停 1~3 秒
       let cursor = start;
@@ -3750,6 +3768,8 @@ function stopApAnim(finish) {
     for (const au of a.audios) {
       try {
         au.pause();
+        au.removeAttribute("src"); // 同主链：中止 Safari 挂起的 play()，防止迟到的旧音频
+        au.load();
       } catch {
         /* ignore */
       }
@@ -3780,6 +3800,9 @@ async function apPlay(blocks, title) {
   const speakDone = [];
   let t = 300;
   const per = 70;
+  // 语音链真串行（同主链）：链头时钟在排版后、开播前归零
+  const timelineStart = performance.now();
+  let speakChain = Promise.resolve();
   for (const b of laid) {
     const v = voiceMap.get(b) ?? { src: null, dur: 0.5 };
     const start = t + 150;
@@ -3803,30 +3826,37 @@ async function apPlay(blocks, title) {
     }
     const writeDur = figDur + Math.max(300, gi * per);
     const speakAt = start + writeDur + 200;
-    const el = spawnVoiceEl(v);
-    if (el) {
+    const speakDoneEl = speakChain.then(async () => {
+      if (seq !== apSeq) return;
+      const wait = speakAt - (performance.now() - timelineStart);
+      if (wait > 0) await new Promise((r) => timers.push(setTimeout(r, wait)));
+      if (seq !== apSeq) return;
+      const el = spawnVoiceEl(v);
+      if (!el) return;
       audios.push(el);
-      // 与主讲解同款串行链：ended 前不开播下一块（面板多块解答时不再重叠）
-      speakDone.push(
-        new Promise((resolve) => {
-          timers.push(
-            setTimeout(() => {
-              if (seq !== apSeq) return resolve(undefined);
-              const done = () => {
-                el.removeEventListener("ended", done);
-                el.removeEventListener("pause", done);
-                clearTimeout(guard);
-                resolve(undefined);
-              };
-              const guard = setTimeout(done, v.dur * 1000 * 1.5 + 2000);
-              el.addEventListener("ended", done);
-              el.addEventListener("pause", done);
-              el.play().catch(() => done());
-            }, speakAt),
-          );
-        }),
-      );
-    }
+      // 与主讲解同款真串行链：上一块真实 ended 前不开播下一块（面板多块解答不重叠）
+      await new Promise((resolve) => {
+        let done = false;
+        const fin = () => {
+          if (done) return;
+          done = true;
+          el.removeEventListener("ended", fin);
+          el.removeEventListener("pause", fin);
+          clearTimeout(guard);
+          resolve();
+        };
+        const estDur = estimateSpeech(ttsSpeech(parseSay(b.say)));
+        const guard = setTimeout(
+          fin,
+          Math.max(v.dur, estDur) * 1000 * 1.5 + 2000,
+        );
+        el.addEventListener("ended", fin);
+        el.addEventListener("pause", fin);
+        el.play().catch(fin);
+      });
+    });
+    speakChain = speakChain.then(() => speakDoneEl).catch(() => {});
+    speakDone.push(speakDoneEl);
     // say 标记 → 面板行内定位，随语音时刻圈/划
     const parsed = parseSay(b.say);
     const cleanLen = Math.max(1, parsed.clean.length);
