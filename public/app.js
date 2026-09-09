@@ -1944,6 +1944,8 @@ function setNarrateBtn() {
 
 function stopNarration() {
   resetTimelineHold(); // 清缓冲挂起态（防残留 hold 让新时间线出生即冻结）
+  const w = document.getElementById("warming");
+  if (w) w.classList.add("hidden"); // 停止讲解：撤润嗓浮层
   narration.seq++; // 使旧闭包失效
   narration.playing = false;
   narration.pending = false;
@@ -2344,13 +2346,37 @@ async function playNarration(page, blockList) {
     narration.pending = !blockList; // 整页讲解预取语音时画面空白；追加讲解保持现有板书
     setNarrateBtn();
     acquireWakeLock(); // 讲解期间保持屏幕常亮
-    // 预取尚未命中（预热没跑完/重播冷页）→ 给轻提示，别让人对着空白黑板干等
+    // 预取尚未命中（预热没跑完/重播冷页）→ 持久浮层提示（toast 只活 2.6s 不够），
+    // 随就绪进度更新剩余块数，预取完成即隐
     const coldBlocks = blocks.filter(
       (b) =>
         b.say && !(b._voice && b._voice.voice === voiceId) && !b._voiceFetching,
     );
-    if (narration.pending && coldBlocks.length)
-      toast(tt("老师正在润嗓…", "Teacher is warming up…"), "");
+    const warmingEl = $("#warming");
+    const warmingText = $("#warming-text");
+    if (narration.pending && coldBlocks.length) {
+      const remain = () =>
+        blocks.filter((b) => b.say && !(b._voice && b._voice.voice === voiceId))
+          .length;
+      warmingText.textContent = tt(
+        `老师正在润嗓…（剩余 ${remain()}/${coldBlocks.length} 段）`,
+        `Teacher is warming up… (${remain()}/${coldBlocks.length} left)`,
+      );
+      warmingEl.classList.remove("hidden");
+      const tick = setInterval(() => {
+        if (seq !== narration.seq || !narration.pending) {
+          clearInterval(tick);
+          return;
+        }
+        const r = remain();
+        if (r === 0) return;
+        warmingText.textContent = tt(
+          `老师正在润嗓…（剩余 ${r}/${coldBlocks.length} 段）`,
+          `Teacher is warming up… (${r}/${coldBlocks.length} left)`,
+        );
+      }, 400);
+      setTimeout(() => clearInterval(tick), 30000); // 兜底：防泄漏
+    }
     loadFigures(page); // 图并行预载（不 await：decode 挂死不再阻塞开讲；排版早已按 aspect 完成）
     // 预取看门狗：整页语音+图预取设硬上限。任一环节挂死（Safari decode 不 settle、
     // TTS 网络黑洞、readAudioDuration 卡）都不许把讲解卡成空屏——到点强制开播，
@@ -2372,9 +2398,9 @@ async function playNarration(page, blockList) {
       );
     // 讲稿标记（circle/underline）：随语音讲到该词时画到板书上；重播则重建
     page._sayMarks = blockList ? page._sayMarks || [] : [];
-
     if (seq !== narration.seq) return; // 等待期间被停止
     narration.pending = false; // 预取完成，时间线即将启动
+    warmingEl.classList.add("hidden"); // 撤润嗓浮层
     clearTextCanvas(); // 开讲前先清板（renderText(0) 在 animState 未建时会当 Infinity 全量倾泻文字）
     lectureReset(true); // 讲义区清空并显示，随讲解逐句追加
     // 讲解链诊断日志（Safari 远程控制台可见；纯观察无行为影响）

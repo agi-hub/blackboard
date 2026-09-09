@@ -539,6 +539,28 @@ button {
 #toast.err { border-color: #7a2f2f; color: #ffb4b4; }
 #toast.ok { border-color: #3f6b3a; color: #c9f2c2; }
 
+/* 润嗓中持久提示：讲解预取期间常驻（toast 会 2.6s 消失，不够长） */
+#warming {
+  position: fixed;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 12px;
+  background: rgba(20, 17, 14, 0.95);
+  border: 1px solid #6a5c33;
+  color: var(--accent, #d9a93b);
+  font-size: 15px;
+  letter-spacing: 1px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 95;
+}
+#warming.hidden { display: none; }
+#warming .chalk-spin { width: 18px; height: 18px; border-width: 3px; flex-shrink: 0; }
+
 /* 粉笔槽底部：撤销 / 清屏 */
 .rail-tool {
   width: 60px;

@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>敲黑板</title>
-  <link rel="stylesheet" href="style.css?v=38" />
+  <link rel="stylesheet" href="style.css?v=39" />
   <!-- CDN 开源楷体兜底（霞鹜文楷）：本地楷体名全部失效的环境（如 Safari 26 某些配置）自动启用，按需切片下载 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/style.css" />
@@ -239,6 +239,9 @@
   <!-- 轻提示 -->
   <div id="toast" class="hidden"></div>
 
+  <!-- 润嗓中持久提示（预取语音期间显示，结束即隐） -->
+  <div id="warming" class="hidden"><span class="chalk-spin"></span><span id="warming-text">老师正在润嗓…</span></div>
+
   <script>
     // 缓存自检：app.js 版本不符（旧缓存）→ 强制整页刷新一次绕过缓存
     window.addEventListener("load", function () {
@@ -247,4 +250,4 @@
       }
     });
   </script>
-  <script src="app.js?v=53"></script>
+  <script src="app.js?v=54"></script>
