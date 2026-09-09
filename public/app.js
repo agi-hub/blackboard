@@ -3844,6 +3844,7 @@ async function acceptStreamPage(pg, receivedPages, getStarted, setStarted) {
   receivedPages.push(page);
   warmPageVoices(page); // 页一到达就后台预热语音：正式开讲时 fetchVoice 命中缓存，无声窗口趋零
   if (!getStarted()) {
+    document.getElementById("setup-hint")?.remove(); // 首页真的到了才撤新手引导（生成失败不撤）
     setStarted(true);
     stopAnim();
     pages = [page];
@@ -4367,6 +4368,34 @@ window
 relayout();
 syncToolbar();
 syncPageNav();
+// 未配置 API 时在黑板上方显示引导浮层（不画进 canvas——relayout/renderText
+// 会覆盖画布内容，浮层稳定；生成开始即隐藏）
+function drawSetupHint() {
+  let el = document.getElementById("setup-hint");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "setup-hint";
+    el.innerHTML = [
+      '<div class="sh-title">' +
+        tt("欢迎使用「敲黑板」", "Welcome to ChalkTalk") +
+        "</div>",
+      '<div class="sh-line">' +
+        tt(
+          "请点右上角「设置」，填写 API 接口地址与密钥",
+          "Open Settings (top right) to fill in the API base URL and key",
+        ) +
+        "</div>",
+      '<div class="sh-sub">' +
+        tt(
+          "保存后即可输入素材、开始备课",
+          "Save, then feed materials to start lesson prep",
+        ) +
+        "</div>",
+    ].join("");
+    document.getElementById("board-frame").appendChild(el);
+  }
+}
+
 fetch("api/config")
   .then((r) => r.json())
   .then((cfg) => {
@@ -4378,6 +4407,8 @@ fetch("api/config")
         ),
         "err",
       );
+      // 无配置（新用户）：黑板中央直接写引导，别让新手对着空黑板发懵
+      drawSetupHint();
     }
     if (cfg.lang === "en") {
       lang = "en";

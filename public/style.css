@@ -561,6 +561,36 @@ button {
 #warming.hidden { display: none; }
 #warming .chalk-spin { width: 18px; height: 18px; border-width: 3px; flex-shrink: 0; }
 
+/* 新手引导（未配置 API）：黑板中央浮层 */
+#setup-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  z-index: 3;
+  pointer-events: none;
+  padding: 20px;
+}
+#setup-hint .sh-title {
+  font-size: clamp(22px, 4vw, 44px);
+  color: #ffe066;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+#setup-hint .sh-line {
+  font-size: clamp(14px, 2.2vw, 22px);
+  color: #f2f0e6;
+}
+#setup-hint .sh-sub {
+  font-size: clamp(12px, 1.8vw, 17px);
+  color: #d8d8d8;
+  opacity: 0.85;
+}
+
 /* 粉笔槽底部：撤销 / 清屏 */
 .rail-tool {
   width: 60px;
