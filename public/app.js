@@ -950,7 +950,7 @@ function layoutPage(page) {
           x: r.x + 24,
           y: 0,
           width: r.w - 48,
-          fontSize: Math.max(30, Math.round((W < H ? 45 : 52) * fontScale)),
+          fontSize: Math.max(30, Math.round((W < H ? 45 : 60) * fontScale)),
           color: "#ffe066",
           emphasis: [],
         };
