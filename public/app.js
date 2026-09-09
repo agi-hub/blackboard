@@ -1605,8 +1605,8 @@ function holdTimelineForBuffer() {
   if (!animState) return;
   audioHoldCount++;
   if (audioHoldCount > 0 && !animState._holding) {
+    // 只冻结时间线，不弹提示（toast 遮讲义影响阅读）
     animState._holding = performance.now();
-    toast(tt("网络较慢，声音缓冲中…", "Slow network, buffering audio…"), "");
   }
 }
 function releaseTimelineBuffer() {
@@ -2466,6 +2466,20 @@ async function playNarration(page, blockList) {
           if (seq !== narration.seq) return;
           const el = spawnVoiceEl(v);
           if (!el) return;
+          // 等元素就绪再播（dataURL 解码/Safari 元素切换竞态下直接 play 会半途无声）
+          await new Promise((ready) => {
+            if (el.readyState >= 3) return ready();
+            const t = setTimeout(ready, 2500); // 兜底：等不到也开播
+            el.addEventListener(
+              "canplaythrough",
+              () => {
+                clearTimeout(t);
+                ready();
+              },
+              { once: true },
+            );
+          });
+          if (seq !== narration.seq) return;
           narration.audios.push(el);
           await new Promise((resolve) => {
             let done = false;
@@ -2479,11 +2493,12 @@ async function playNarration(page, blockList) {
               el.removeEventListener("playing", releaseTimelineBuffer);
               el.removeEventListener("canplay", releaseTimelineBuffer);
               el.removeEventListener("ended", releaseTimelineBuffer);
+              clearInterval(stallWatch);
               releaseTimelineBuffer(); // 本块结束：确保不留挂起态
               clearTimeout(guard);
               resolve();
             };
-            const guard = setTimeout(fin, guardMs);
+            const guard = setTimeout(fin, guardMs + 2500);
             el.addEventListener("ended", fin);
             el.addEventListener("pause", fin);
             // 网络缓冲停滞（解码跟不上/数据未就绪）→ 冻结时间线等它；
@@ -2493,8 +2508,35 @@ async function playNarration(page, blockList) {
             el.addEventListener("playing", releaseTimelineBuffer);
             el.addEventListener("canplay", releaseTimelineBuffer);
             el.addEventListener("ended", releaseTimelineBuffer);
+            // 半途断流自愈：timeupdate 停滞（没 paused、没 ended、进度不走）
+            // → 判定卡死，重发 play() 续播（Safari 元素切换竞态常见此症：
+            // 第 2-3 块半途无声、下一块又好）
+            let lastT = -1;
+            let lastMove = performance.now();
+            const stallWatch = setInterval(() => {
+              if (done || el.paused || el.ended) return;
+              const cur = el.currentTime;
+              if (cur !== lastT) {
+                lastT = cur;
+                lastMove = performance.now();
+                return;
+              }
+              if (performance.now() - lastMove > 1200) {
+                // 卡住超 1.2s：进度不走。seek 微移 + 重播自愈（位置保留，续上而不是重头）
+                try {
+                  const at = el.currentTime;
+                  el.play().catch(() => {});
+                  if (performance.now() - lastMove > 2500) {
+                    el.currentTime = at; // 二次仍卡：轻 seek 逼解码器重新拉流
+                    lastMove = performance.now();
+                  }
+                } catch {
+                  /* ignore */
+                }
+              }
+            }, 600);
             // iPad 自动播放策略偶发拒首次 play()（手势语境在长时间备课后失效）；
-            // 立刻当"播完"跳过 = 整页无声。指数退避重试，彻底被拒才静默推进。
+            // 立刻当「播完」跳过 = 整页无声。指数退避重试，彻底被拒才静默推进。
             const tryPlay = async (attempt) => {
               try {
                 await el.play();
