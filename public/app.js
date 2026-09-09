@@ -854,7 +854,7 @@ function layoutPage(page) {
   // 竖屏 500 宽画布下 72px 占宽 14%（横屏仅 4.5%）视觉过大 → 按方向取档
   if (page.titleBlock) {
     const t = page.titleBlock;
-    const [tDef, tMin, tMax] = W < H ? [42, 32, 50] : [72, 60, 88];
+    const [tDef, tMin, tMax] = W < H ? [42, 32, 50] : [82, 62, 100];
     t.fontSize = clampNum(t.fontSize || tDef, tMin, tMax);
     t.width = W - Math.round(W / 13);
     for (let tries = 0; tries < 12; tries++) {
@@ -912,8 +912,8 @@ function layoutPage(page) {
     }
   }
   const baseFonts = new Map(); // 每块原始字号（多轮收缩的基准）
-  // 竖屏基准字号降 20%（v47 画布减半后 45px 物理偏大）；横屏原样
-  const orientScale = W < H ? 0.8 : 1;
+  // 竖屏基准字号降 20%（v47 画布减半后 45px 物理偏大）；横屏桌面放大 15%（远看更清楚）
+  const orientScale = W < H ? 0.8 : 1.15;
   for (const b of page.blocks)
     baseFonts.set(b.uid, Math.round((b.fontSize || 45) * orientScale));
 
@@ -950,7 +950,7 @@ function layoutPage(page) {
           x: r.x + 24,
           y: 0,
           width: r.w - 48,
-          fontSize: Math.max(30, Math.round(45 * fontScale)),
+          fontSize: Math.max(30, Math.round((W < H ? 45 : 52) * fontScale)),
           color: "#ffe066",
           emphasis: [],
         };
@@ -990,8 +990,8 @@ function layoutPage(page) {
       }
       b.fontSize = clampNum(
         Math.round(baseFonts.get(b.uid) * fontScale),
-        Math.round(30 * orientScale),
-        63,
+        Math.round(30 * (W < H ? 0.8 : 1)),
+        W < H ? 63 : 72,
       );
       b.x = cur.r.x + 24;
       let fits = false;
@@ -1265,7 +1265,7 @@ function layoutPage(page) {
   // 总结换 2 行时向上溢进正文区压字）
   if (page.summaryBlock) {
     const s = page.summaryBlock;
-    const [sDef, sMin, sMax] = W < H ? [38, 32, 46] : [48, 42, 56];
+    const [sDef, sMin, sMax] = W < H ? [38, 32, 46] : [54, 44, 64];
     s.fontSize = clampNum(s.fontSize || sDef, sMin, sMax);
     s.x = Math.round(W / 20);
     s.width = W - Math.round(W / 10);
