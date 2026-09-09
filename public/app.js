@@ -1540,6 +1540,7 @@ function stopAnim() {
   if (animRaf) cancelAnimationFrame(animRaf);
   animRaf = 0;
   animState = null;
+  audioHoldCount = 0; // 停止动画：清缓冲挂起计数（animState 已置 null）
 }
 
 function animateIn(page, blockList, withDividers) {
@@ -1597,15 +1598,64 @@ function animateIn(page, blockList, withDividers) {
 }
 
 // 时间线驱动：onDone 仅在自然播完时回调（被 stopAnim 打断时不回调）；onFrame 每帧驱动讲义区
+// 音频缓冲停滞 → 冻结时间线（startTs 顺延，tNow 停走）：语音断流时板书等它，
+// 恢复后无缝续播，不再出现「声音断了字还在写完/时间白等」。
+let audioHoldCount = 0;
+function holdTimelineForBuffer() {
+  if (!animState) return;
+  audioHoldCount++;
+  if (audioHoldCount > 0 && !animState._holding) {
+    animState._holding = performance.now();
+    toast(tt("网络较慢，声音缓冲中…", "Slow network, buffering audio…"), "");
+  }
+}
+function releaseTimelineBuffer() {
+  if (audioHoldCount > 0) audioHoldCount--;
+  if (audioHoldCount === 0 && animState && animState._holding) {
+    // 把停滞时长从时间线里扣除：startTs 后移 → tNow 从冻结点继续
+    animState.holdShift =
+      (animState.holdShift || 0) + (performance.now() - animState._holding);
+    animState._holding = null;
+  }
+}
+// 停止/重播时清挂起态（不留残留 hold 计数）
+function resetTimelineHold() {
+  audioHoldCount = 0;
+  if (animState) {
+    animState._holding = null;
+    animState._holdTNow = null;
+  }
+}
 function runTimeline(entries, dividerMap, dur, onDone, onFrame) {
-  animState = { entries, dividerMap, dur, startTs: 0, tNow: 0, onDone };
+  animState = {
+    entries,
+    dividerMap,
+    dur,
+    startTs: 0,
+    tNow: 0,
+    onDone,
+    holdAt: null, // 音频缓冲停滞时冻结的时间线刻度（null = 正常推进）
+  };
   const frame = (ts) => {
     if (!animState) return;
     animState._lastFrame = performance.now();
     if (!animState.startTs) animState.startTs = ts;
-    // 时钟防护：部分引擎在最小化恢复的首帧给 rAF 回退的时间戳（或 freeze 期间的积压帧），
-    // tNow 倒退会让 quota 归零 → 板书瞬间清空。单调推进，永不低于上一帧。
-    animState.tNow = Math.max(animState.tNow, ts - animState.startTs);
+    // 正常推进：tNow 单调向前（时钟防护：恢复首帧时间戳回退不倒退）；
+    // 缓冲停滞期间冻结（_holding）——holdShift 在恢复时把停滞时长扣除
+    const holdShift = animState.holdShift || 0;
+    if (animState._holding) {
+      animState.tNow = Math.min(
+        animState.tNow,
+        animState._holdTNow ?? animState.tNow,
+      );
+      animState._holdTNow = animState.tNow;
+    } else {
+      animState.tNow = Math.max(
+        animState.tNow,
+        ts - animState.startTs - holdShift,
+      );
+      animState._holdTNow = null;
+    }
     renderText(animState.tNow);
     if (onFrame) onFrame(animState.tNow);
     if (animState.tNow < animState.dur) {
@@ -1893,6 +1943,7 @@ function setNarrateBtn() {
 }
 
 function stopNarration() {
+  resetTimelineHold(); // 清缓冲挂起态（防残留 hold 让新时间线出生即冻结）
   narration.seq++; // 使旧闭包失效
   narration.playing = false;
   narration.pending = false;
@@ -2397,12 +2448,25 @@ async function playNarration(page, blockList) {
               done = true;
               el.removeEventListener("ended", fin);
               el.removeEventListener("pause", fin);
+              el.removeEventListener("waiting", holdTimelineForBuffer);
+              el.removeEventListener("stalled", holdTimelineForBuffer);
+              el.removeEventListener("playing", releaseTimelineBuffer);
+              el.removeEventListener("canplay", releaseTimelineBuffer);
+              el.removeEventListener("ended", releaseTimelineBuffer);
+              releaseTimelineBuffer(); // 本块结束：确保不留挂起态
               clearTimeout(guard);
               resolve();
             };
             const guard = setTimeout(fin, guardMs);
             el.addEventListener("ended", fin);
             el.addEventListener("pause", fin);
+            // 网络缓冲停滞（解码跟不上/数据未就绪）→ 冻结时间线等它；
+            // 恢复播放时无缝续上（不再「声音断了、时间白走」）
+            el.addEventListener("waiting", holdTimelineForBuffer);
+            el.addEventListener("stalled", holdTimelineForBuffer);
+            el.addEventListener("playing", releaseTimelineBuffer);
+            el.addEventListener("canplay", releaseTimelineBuffer);
+            el.addEventListener("ended", releaseTimelineBuffer);
             // iPad 自动播放策略偶发拒首次 play()（手势语境在长时间备课后失效）；
             // 立刻当"播完"跳过 = 整页无声。指数退避重试，彻底被拒才静默推进。
             const tryPlay = async (attempt) => {
@@ -2503,6 +2567,10 @@ $("#btn-replay").addEventListener("click", () => {
   replayLastAt = Date.now();
   unlockAudio();
   stopNarration();
+  // 重播 = 从当前页重新开讲整门课：所有页的「已讲过」标记清零，
+  // 讲完本页才会继续讲下一页（曾因 animated 残留：播完第 1 页后第 2 页直接定格全量字）
+  for (const p of pages) p.animated = false;
+  pages[curPage].animated = true;
   playNarration(pages[curPage]);
 });
 
@@ -2796,54 +2864,12 @@ boardEl.addEventListener("pointerdown", (e) => {
 
 async function toggleFullscreen() {
   try {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      screen.orientation?.unlock?.(); // 退出全屏解除横屏锁,交还系统自动旋转
-    } else {
-      await document.documentElement.requestFullscreen();
-      await lockLandscapeWhileFullscreen();
-    }
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
   } catch {
     /* 浏览器拒绝时静默 */
   }
 }
-
-// 全屏期间保持横屏（演示/投影是横版黑板）:进入即锁 + 旋转事件里反复纠正(部分引擎首次 lock 被忽略/竞态丢失)。
-// iOS 不支持 orientation.lock —— 无法 JS 强制,保持现状(系统旋转跟随设备)。
-async function lockLandscapeWhileFullscreen() {
-  if (!document.fullscreenElement) return;
-  const doLock = async () => {
-    try {
-      await screen.orientation?.lock?.("landscape");
-    } catch {
-      /* 不支持则忽略 */
-    }
-  };
-  await doLock();
-  // 全屏切换动画期间首次 lock 可能被拒:动画完成后再锁一次(竞态兜底)
-  setTimeout(() => {
-    if (
-      document.fullscreenElement &&
-      screen.orientation?.type?.startsWith("portrait")
-    )
-      doLock();
-  }, 350);
-}
-// 全屏中系统仍可能旋回竖屏(锁被引擎释放/竞态):检测到就再锁回去
-screen.orientation?.addEventListener?.("change", () => {
-  if (
-    document.fullscreenElement &&
-    screen.orientation.type?.startsWith("portrait")
-  ) {
-    lockLandscapeWhileFullscreen();
-    toast(tt("已锁定横屏", "Landscape locked"), "");
-  }
-});
-// 全屏状态变化:进入时锁横屏,退出时解锁交还系统旋转
-document.addEventListener("fullscreenchange", () => {
-  if (document.fullscreenElement) lockLandscapeWhileFullscreen();
-  else screen.orientation?.unlock?.().catch?.(() => {});
-});
 
 $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
 
@@ -4010,6 +4036,12 @@ async function apPlay(blocks, title) {
           done = true;
           el.removeEventListener("ended", fin);
           el.removeEventListener("pause", fin);
+          el.removeEventListener("waiting", holdTimelineForBuffer);
+          el.removeEventListener("stalled", holdTimelineForBuffer);
+          el.removeEventListener("playing", releaseTimelineBuffer);
+          el.removeEventListener("canplay", releaseTimelineBuffer);
+          el.removeEventListener("ended", releaseTimelineBuffer);
+          releaseTimelineBuffer();
           clearTimeout(guard);
           resolve();
         };
@@ -4020,6 +4052,11 @@ async function apPlay(blocks, title) {
         );
         el.addEventListener("ended", fin);
         el.addEventListener("pause", fin);
+        el.addEventListener("waiting", holdTimelineForBuffer);
+        el.addEventListener("stalled", holdTimelineForBuffer);
+        el.addEventListener("playing", releaseTimelineBuffer);
+        el.addEventListener("canplay", releaseTimelineBuffer);
+        el.addEventListener("ended", releaseTimelineBuffer);
         // 同主链：iPad 自动播放被拒重试，勿立刻当"播完"（问答面板无声同根）
         const tryPlay = async (attempt) => {
           try {
