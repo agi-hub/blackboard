@@ -2108,8 +2108,12 @@ async function fetchVoice(b) {
       // 真实时长优先（readAudioDuration 含 Safari Infinity 处理）；
       // 拿不到时宁可高估（estimateSpeech）——低估会让下一块提前开播、两个声音重叠。
       const dur = (await readAudioDuration(probe)) || est;
-      b._voice = { voice: voiceId, src: data.audio, dur };
-      return b._voice;
+      // probe 已完成解码（readAudioDuration 逼出过真实时长）——首次播放直接复用它：
+      // 第一次播放曾半途无声（新元素冷解码 + Safari 元素切换竞态），重播就没事
+      // （同 dataURL 二次解码走缓存）。_fresh 标记「从未播放过」，只复用一次；
+      // 播过/被 pause 过的元素一律弃用（Safari 中断后复用会拒绝 play）。
+      probe._fresh = true;
+      b._voice = { voice: voiceId, src: data.audio, dur, el: probe };
     } catch (e) {
       b._voice = fallback;
       // TTS 不可用时明确告知（每次会话只提醒一次），避免误以为程序坏了
@@ -2136,7 +2140,16 @@ const VOICE_GAIN = 2.0;
 let voiceAudioCtx = null;
 function spawnVoiceEl(v) {
   if (!v || !v.src) return null;
-  const el = new Audio(v.src);
+  // 首次播放复用 fetchVoice 的 probe 元素（已解码，曾致首次播放半途无声的
+  // 冷解码竞态被根治）；用完即弃，重播走 new Audio（二次解码有媒体缓存）
+  let el;
+  if (v.el && v.el._fresh) {
+    el = v.el;
+    el._fresh = false;
+    v.el = null;
+  } else {
+    el = new Audio(v.src);
+  }
   try {
     if (!voiceAudioCtx)
       voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
