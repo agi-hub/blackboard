@@ -3,7 +3,7 @@
 // 职责：静态托管 / LLM 转发（保护密钥）/ 简单限流 / 配置管理
 // 运行：bun server.ts   （默认 http://127.0.0.1:8918）
 
-import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync, appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -60,6 +60,7 @@ interface AppConfig {
   ttsVoice: string;
   ttsSpeed: number;
   font: string; // 板书字体预设 id（前端可选）
+  uiFont: string; // 界面字体预设 id（按钮/标题；前端可选）
   grain: number; // 字体磨砂强度 0~2.5
   theme: "black" | "green"; // 板书主题（黑板/绿板）
   lang: "zh" | "en"; // 界面与生成内容语言
@@ -99,6 +100,7 @@ const DEFAULT_CONFIG: AppConfig = {
   ttsVoice: "FunAudioLLM/CosyVoice2-0.5B:alex",
   ttsSpeed: 1.0,
   font: "kaiti",
+  uiFont: "default",
   grain: 1.3,
   theme: "green",
   lang: "zh",
@@ -126,6 +128,7 @@ function loadConfig(): AppConfig {
       cfg.ttsSpeed = parsed.ttsSpeed;
     }
     if (isStr(parsed.font) && parsed.font.trim()) cfg.font = parsed.font.trim().slice(0, 32);
+    if (isStr(parsed.uiFont) && parsed.uiFont.trim()) cfg.uiFont = parsed.uiFont.trim().slice(0, 32);
     if (parsed.theme === "black" || parsed.theme === "green") cfg.theme = parsed.theme;
     if (typeof parsed.grain === "number" && Number.isFinite(parsed.grain) && parsed.grain >= 0 && parsed.grain <= 2.5) cfg.grain = parsed.grain;
     if (parsed.lang === "en" || parsed.lang === "zh") cfg.lang = parsed.lang;
@@ -153,6 +156,66 @@ function allowRequest(ip: string, rpm: number): boolean {
   b.tokens -= 1;
   buckets.set(ip, b);
   return true;
+}
+
+// ---------- 生成日志（JSONL 落盘 + 内存尾部环形缓冲） ----------
+
+interface GenLog {
+  ts: string; // ISO 时间
+  type: "text2board" | "ask" | "tts" | "asr" | "clog";
+  durationMs: number; // 耗时
+  ip: string;
+  model?: string; // LLM/TTS/ASR 模型
+  lang?: string;
+  stream?: boolean;
+  pages?: number; // text2board 产出页数
+  blocks?: number; // 总块数
+  material?: string; // 素材摘要（截断）
+  images?: number; // 附带图片数
+  error?: string; // 失败原因
+}
+
+const LOG_PATH = join(ROOT, "logs", "gen.jsonl");
+const LOG_TAIL_MAX = 500; // 内存环形缓冲条数（/api/logs 快速读取）
+const logTail: GenLog[] = [];
+let logSize = 0; // 当日文件字节数（超限轮转）
+
+function appendLog(entry: Omit<GenLog, "ts">): void {
+  const full: GenLog = { ts: new Date().toISOString(), ...entry };
+  const line = JSON.stringify(full) + "\n";
+  try {
+    // 目录懒创建；单文件 >10MB 轮转为 .1（保留上一份，够用且零依赖）
+    if (logSize > 10_000_000) {
+      renameSync(LOG_PATH + ".1", LOG_PATH + ".2");
+      renameSync(LOG_PATH, LOG_PATH + ".1");
+      logSize = 0;
+    }
+    mkdirSync(dirname(LOG_PATH), { recursive: true });
+    appendFileSync(LOG_PATH, line);
+    logSize += line.length;
+  } catch (err) {
+    console.error("日志写入失败:", err instanceof Error ? err.message : err);
+  }
+  logTail.push(full);
+  if (logTail.length > LOG_TAIL_MAX) logTail.shift();
+  // 控制台同步一行可读摘要（systemd journal 亦留痕）
+  const info = full.type === "text2board"
+    ? `素材「${full.material ?? ""}」${full.images ? `+${full.images}图 ` : ""}→ ${full.pages ?? 0} 页/${full.blocks ?? 0} 块`
+    : full.type === "ask"
+      ? `指句「${full.material ?? ""}」`
+      : full.type;
+  console.log(`[LOG] ${full.ts} ${full.ok ? "OK " : "ERR"} ${full.type} ${full.durationMs}ms ${info}${full.error ? ` | ${full.error}` : ""}`);
+}
+
+// 素材摘要：压空白、去首尾，截 60 字符
+function summarizeMaterial(text: unknown): string {
+  if (!isStr(text)) return "";
+  return text.replace(/\s+/g, " ").trim().slice(0, 60);
+}
+try {
+  logSize = statSync(LOG_PATH).size; // 重启后续写：先读现有文件大小，轮转判断才准
+} catch {
+  logSize = 0;
 }
 
 // ---------- LLM 调用（OpenAI 兼容 chat/completions） ----------
@@ -553,6 +616,33 @@ Bun.serve({
     try {
       if (path === "/api/health") return Response.json({ ok: true });
 
+      // ---- 生成日志：最近 N 条（内存环形缓冲；?n=50&ok=false 过滤） ----
+      if (path === "/api/logs" && req.method === "GET") {
+        const n = Math.min(500, Math.max(1, Number(url.searchParams.get("n")) || 50));
+        const okFilter = url.searchParams.get("ok"); // "true"/"false" 过滤成败
+        const typeFilter = url.searchParams.get("type"); // text2board/ask/tts/asr
+        let list = logTail;
+        if (okFilter === "true" || okFilter === "false") list = list.filter((l) => l.ok === (okFilter === "true"));
+        if (typeFilter) list = list.filter((l) => l.type === typeFilter);
+        return Response.json({ ok: true, total: logTail.length, logs: list.slice(-n).reverse() });
+      }
+
+      // ---- 客户端语音播放诊断日志落盘（前端 vlog 上报；只收白名单字段） ----
+      if (path === "/api/clog" && req.method === "POST") {
+        const body = await readJSONBody(req);
+        if (body && isStr(body.ev)) {
+          appendLog({
+            type: "clog",
+            ok: body.ev !== "error",
+            durationMs: typeof body.at === "number" ? Math.round(body.at * 1000) : 0,
+            ip,
+            material: `${String(body.ev)} #${String(body.blk ?? "-")} ${isStr(body.text) ? body.text : ""}`.slice(0, 80),
+            error: isStr(body.err) ? body.err.slice(0, 120) : undefined,
+          });
+        }
+        return Response.json({ ok: true });
+      }
+
       // ---- 配置：读（密钥打码）/ 写 ----
       if (path === "/api/config" && req.method === "GET") {
         const cfg = loadConfig();
@@ -567,6 +657,7 @@ Bun.serve({
           ttsVoice: cfg.ttsVoice,
           ttsSpeed: cfg.ttsSpeed,
           font: cfg.font,
+          uiFont: cfg.uiFont,
           grain: cfg.grain,
           theme: cfg.theme,
           lang: cfg.lang,
@@ -600,6 +691,7 @@ Bun.serve({
           cfg.ttsSpeed = body.ttsSpeed;
         }
         if (isStr(body.font) && body.font.trim()) cfg.font = body.font.trim().slice(0, 32);
+        if (isStr(body.uiFont) && body.uiFont.trim()) cfg.uiFont = body.uiFont.trim().slice(0, 32);
         if (body.theme === "black" || body.theme === "green") cfg.theme = body.theme;
         if (typeof body.grain === "number" && Number.isFinite(body.grain) && body.grain >= 0 && body.grain <= 2.5) cfg.grain = body.grain;
         if (body.lang === "en" || body.lang === "zh") cfg.lang = body.lang;
@@ -628,6 +720,14 @@ Bun.serve({
         const cfg = loadConfig();
         if (!cfg.apiKey) return jsonError("未配置 API Key，请先在「设置」中填写", 400);
         if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
+        const t2bStart = Date.now();
+        const material = summarizeMaterial(hasText ? body.text : `（${images.length} 张图片）`);
+        const t2bLog = (extra: Partial<GenLog>) =>
+          appendLog({
+            type: "text2board", ok: true, durationMs: Date.now() - t2bStart, ip,
+            model, lang: body.lang === "en" ? "en" : "zh", stream: !!body.stream,
+            material, images: images.length, ...extra,
+          });
 
         // 图片存在 → 视觉模型多模态输入（文本+图）；否则纯文本走排版模型
         const useVision = images.length > 0;
@@ -682,10 +782,12 @@ Bun.serve({
                   for (let i = pushed; i < all.length; i++) send("page", all[i]);
                 }
                 send("done", { ok: true, pages: all.length });
+                t2bLog({ pages: all.length, blocks: all.reduce((n, p) => n + p.blocks.length, 0) });
                 controller.close();
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 send("error", { ok: false, error: msg.slice(0, 400) });
+                t2bLog({ ok: false, error: msg.slice(0, 200) });
                 controller.close();
               }
             },
@@ -699,11 +801,13 @@ Bun.serve({
           });
         }
 
+        try {
         const content = await callLLM(cfg, model, messages, 8192);
         const pages = normalizePages(extractJSON(content), W, H).filter(
           (p) => p.title !== null || p.blocks.length > 0 || p.summary !== null,
         );
         if (pages.length === 0) {
+          t2bLog({ ok: false, error: "模型未返回有效板书 JSON" });
           return jsonError("模型未返回有效板书 JSON，请重试", 502);
         }
 
@@ -746,7 +850,12 @@ Bun.serve({
             /* 补图失败不影响板书返回 */
           }
         }
+        t2bLog({ pages: pages.length, blocks: pages.reduce((n, p) => n + p.blocks.length, 0) });
         return Response.json({ ok: true, pages, raw: content.length > 2000 ? content.slice(0, 2000) : content });
+        } catch (err) {
+          t2bLog({ ok: false, error: (err instanceof Error ? err.message : String(err)).slice(0, 200) });
+          throw err;
+        }
       }
 
 
@@ -766,30 +875,40 @@ Bun.serve({
         if (!cfg.apiKey) return jsonError("未配置 API Key，请先在「设置」中填写", 400);
         if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
 
-        const content = await callLLM(
-          cfg,
-          cfg.textModel,
-          [
-            {
-              role: "system",
-              content: [
-                "你是黑板AI助教。学生用教鞭指着黑板上的一行字提问，你要就地给出解释。",
-                `整块黑板的板书内容（上下文）：\n${context || "（空）"}`,
-                `学生指的位置：(${px}, ${py})，画布 ${W}x${H}。`,
-                `学生指的这行字：「${line}」`,
-    "要求：结合上下文解释这行字在讲什么；像老师当面给学生答疑——口语化、亲和，多用「你看」「那么」「就是说」「对吧」「比如说」这类口头语，允许语气词；25~60 字；不要复述问题，不要书面腔。若回答含公式/表达式，用 math{...} 包裹（系统直读不转写）；图注类前缀【图】禁止出现。",
-    ...(body.lang === "en" ? ["Language: answer entirely in English (conversational teacher tone, 15~40 words)."] : []),
-    '严格只返回 JSON（无解释无代码块）：{"text":"解释内容"}',
-              ].join("\n"),
-            },
-            { role: "user", content: `这行是什么意思？「${line}」` },
-          ],
-          1024,
-        );
-        const parsed = extractJSON(content);
-        const text = isRecord(parsed) && isStr(parsed.text) && parsed.text.trim() ? parsed.text.trim().slice(0, 120) : "";
-        if (!text) return jsonError("模型未返回有效解释，请重试", 502);
-        return Response.json({ ok: true, text });
+        const askStart = Date.now();
+        try {
+          const content = await callLLM(
+            cfg,
+            cfg.textModel,
+            [
+              {
+                role: "system",
+                content: [
+                  "你是黑板AI助教。学生用教鞭指着黑板上的一行字提问，你要就地给出解释。",
+                  `整块黑板的板书内容（上下文）：\n${context || "（空）"}`,
+                  `学生指的位置：(${px}, ${py})，画布 ${W}x${H}。`,
+                  `学生指的这行字：「${line}」`,
+      "要求：结合上下文解释这行字在讲什么；像老师当面给学生答疑——口语化、亲和，多用「你看」「那么」「就是说」「对吧」「比如说」这类口头语，允许语气词；25~60 字；不要复述问题，不要书面腔。若回答含公式/表达式，用 math{...} 包裹（系统直读不转写）；图注类前缀【图】禁止出现。",
+      ...(body.lang === "en" ? ["Language: answer entirely in English (conversational teacher tone, 15~40 words)."] : []),
+      '严格只返回 JSON（无解释无代码块）：{"text":"解释内容"}',
+                ].join("\n"),
+              },
+              { role: "user", content: `这行是什么意思？「${line}」` },
+            ],
+            1024,
+          );
+          const parsed = extractJSON(content);
+          const text = isRecord(parsed) && isStr(parsed.text) && parsed.text.trim() ? parsed.text.trim().slice(0, 120) : "";
+          if (!text) {
+            appendLog({ type: "ask", ok: false, durationMs: Date.now() - askStart, ip, model: cfg.textModel, material: summarizeMaterial(line), lang: body.lang === "en" ? "en" : "zh", error: "模型未返回有效解释" });
+            return jsonError("模型未返回有效解释，请重试", 502);
+          }
+          appendLog({ type: "ask", ok: true, durationMs: Date.now() - askStart, ip, model: cfg.textModel, material: summarizeMaterial(line), lang: body.lang === "en" ? "en" : "zh" });
+          return Response.json({ ok: true, text });
+        } catch (err) {
+          appendLog({ type: "ask", ok: false, durationMs: Date.now() - askStart, ip, model: cfg.textModel, material: summarizeMaterial(line), lang: body.lang === "en" ? "en" : "zh", error: (err instanceof Error ? err.message : String(err)).slice(0, 200) });
+          throw err;
+        }
       }
 
       // ---- 按住说话：语音识别（SiliconFlow /audio/transcriptions，密钥复用 TTS 配置） ----
@@ -805,6 +924,8 @@ Bun.serve({
         // 默认 Qwen3-ASR:实测 0.6-1.4s(SenseVoiceSmall 4.9s 且偶发错字"勾→股"),快 8 倍更准
         upstream.append("model", typeof model === "string" && /^[\w/.-]+$/.test(model) ? model : "Qwen/Qwen3-ASR-1.7B");
         upstream.append("file", file, file.name || "speech.webm");
+        const asrStart = Date.now();
+        const asrModel = typeof model === "string" && /^[\w/.-]+$/.test(model) ? model : "Qwen/Qwen3-ASR-1.7B";
         try {
           const asrRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/audio/transcriptions", {
             method: "POST",
@@ -814,13 +935,16 @@ Bun.serve({
           });
           if (!asrRes.ok) {
             const errText = (await asrRes.text()).slice(0, 300);
+            appendLog({ type: "asr", ok: false, durationMs: Date.now() - asrStart, ip, model: asrModel, material: `音频 ${(file.size / 1000).toFixed(0)}KB`, error: `ASR ${asrRes.status}` });
             return jsonError(`ASR 服务返回 ${asrRes.status}: ${errText}`, 502);
           }
           const data: unknown = await asrRes.json();
           const text = isRecord(data) && isStr(data.text) ? data.text : "";
+          appendLog({ type: "asr", ok: true, durationMs: Date.now() - asrStart, ip, model: asrModel, material: summarizeMaterial(text) || "（无识别结果）" });
           return Response.json({ ok: true, text });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
+          appendLog({ type: "asr", ok: false, durationMs: Date.now() - asrStart, ip, model: asrModel, material: `音频 ${(file.size / 1000).toFixed(0)}KB`, error: msg.slice(0, 200) });
           return jsonError(msg.slice(0, 400), 500);
         }
       }
@@ -837,31 +961,38 @@ Bun.serve({
 
 
 
-        const ttsRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/audio/speech", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${cfg.ttsApiKey}`,
-          },
-          body: JSON.stringify({
-            model: cfg.ttsModel,
-            input: text,
-            voice,
-            response_format: "mp3",
-            speed: cfg.ttsSpeed,
-          }),
-          signal: AbortSignal.timeout(60_000),
-        });
-        if (!ttsRes.ok) {
-          const errText = (await ttsRes.text()).slice(0, 300);
-          throw new Error(`TTS 服务返回 ${ttsRes.status}: ${errText}`);
+        const ttsStart = Date.now();
+        try {
+          const ttsRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/audio/speech", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${cfg.ttsApiKey}`,
+            },
+            body: JSON.stringify({
+              model: cfg.ttsModel,
+              input: text,
+              voice,
+              response_format: "mp3",
+              speed: cfg.ttsSpeed,
+            }),
+            signal: AbortSignal.timeout(60_000),
+          });
+          if (!ttsRes.ok) {
+            const errText = (await ttsRes.text()).slice(0, 300);
+            throw new Error(`TTS 服务返回 ${ttsRes.status}: ${errText}`);
+          }
+          const bytes = new Uint8Array(await ttsRes.arrayBuffer());
+          let bin = "";
+          for (let i = 0; i < bytes.length; i += 0x8000) {
+            bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); // 32k 分块，避免 spread 参数上限
+          }
+          appendLog({ type: "tts", ok: true, durationMs: Date.now() - ttsStart, ip, model: cfg.ttsModel, material: summarizeMaterial(text) });
+          return Response.json({ ok: true, audio: `data:audio/mpeg;base64,${btoa(bin)}` });
+        } catch (err) {
+          appendLog({ type: "tts", ok: false, durationMs: Date.now() - ttsStart, ip, model: cfg.ttsModel, material: summarizeMaterial(text), error: (err instanceof Error ? err.message : String(err)).slice(0, 200) });
+          throw err;
         }
-        const bytes = new Uint8Array(await ttsRes.arrayBuffer());
-        let bin = "";
-        for (let i = 0; i < bytes.length; i += 0x8000) {
-          bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); // 32k 分块，避免 spread 参数上限
-        }
-        return Response.json({ ok: true, audio: `data:audio/mpeg;base64,${btoa(bin)}` });
       }
 
       // ---- 静态文件 ----

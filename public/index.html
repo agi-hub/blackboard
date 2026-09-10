@@ -10,24 +10,29 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>敲黑板</title>
-  <link rel="stylesheet" href="style.css?v=40" />
+  <link rel="stylesheet" href="style.css?v=42" />
   <!-- CDN 开源楷体兜底（霞鹜文楷）：本地楷体名全部失效的环境（如 Safari 26 某些配置）自动启用，按需切片下载 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/style.css" />
+  <link rel="stylesheet" href="style.css?v=44" />
+  <!-- 英文界面手写风字体（Caveat）：html[lang=en] 时替换标题与按钮 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/caveat@5.3.0/index.css" />
+  <!-- 界面字体候选（Fontsource CDN）：中文手写/美术 5 款 + 英文手写 5 款 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/zcool-kuaile@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/zcool-xiaowei@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/zcool-qingke-huangyou@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/ma-shan-zheng@5.3.1/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/zhi-mang-xing@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/patrick-hand@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/indie-flower@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/dancing-script@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/shadows-into-light@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/permanent-marker@5.3.0/index.css" />
 </head>
 <body>
   <!-- 顶部工具栏：左侧品牌，右侧功能 -->
   <header id="toolbar">
     <div class="tb-group brand">
-      <span class="brand-logo">
-        <svg viewBox="0 0 32 32" width="26" height="26">
-          <rect x="2" y="3" width="28" height="22" rx="3" fill="#6b4a2c"/>
-          <rect x="5" y="6" width="22" height="16" rx="1.5" fill="#2b4a3a"/>
-          <path d="M9 12 h10" stroke="#f2f0e6" stroke-width="1.8" stroke-linecap="round"/>
-          <path d="M9 16 h6" stroke="#ffe066" stroke-width="1.8" stroke-linecap="round"/>
-          <rect x="10" y="26.5" width="12" height="2.6" rx="1.3" fill="#f2f0e6"/>
-        </svg>
-      </span>
+      <img class="brand-logo" src="Chalktalk.png" alt="Chalktalk" height="30" />
       <span class="brand-name">敲黑板</span>
     </div>
 
@@ -41,7 +46,6 @@
       <button id="btn-prev-page" class="tool-btn nav-btn" title="上一页 (←)">◀</button>
       <span id="page-indicator">1 / 1</span>
       <button id="btn-next-page" class="tool-btn nav-btn" title="下一页 (→)">▶</button>
-      <button id="btn-voice-ask" class="tool-btn" title="按一下开始说话，再按一下结束并识别提问">🎤</button>
     </div>
 
     <div class="tb-group">
@@ -51,6 +55,7 @@
       <button id="btn-load-course" class="tool-btn" title="加载课程文件，恢复板书与讲解">加载</button>
       <button id="btn-settings" class="tool-btn" title="设置（模型/配音/外观）">设置</button>
       <button id="btn-rail" class="tool-btn" title="显示/隐藏粉笔槽（投影时腾出更大黑板）">粉笔</button>
+      <button id="btn-voice-ask" class="tool-btn" title="按一下开始说话，再按一下结束并识别提问">🎤</button>
       <button id="btn-lang" class="tool-btn" title="切换中文 / Switch to English">EN</button>
     </div>
   </header>
@@ -209,6 +214,9 @@
               <option value="black">经典黑板</option>
             </select>
           </label>
+          <label>界面字体（按钮/标题）
+            <select id="cfg-uifont"></select>
+          </label>
           <label>板书字体
             <select id="cfg-font"></select>
           </label>
@@ -242,6 +250,9 @@
   <!-- 润嗓中持久提示（预取语音期间显示，结束即隐） -->
   <div id="warming" class="hidden"><span class="chalk-spin"></span><span id="warming-text">老师正在润嗓…</span></div>
 
+  <!-- 音频缓冲中提示：语音停滞（网络/解码）时显示，恢复即隐 -->
+  <div id="buffering" class="hidden"><span class="chalk-spin"></span><span id="buffering-text">网络较慢，正在缓冲…</span></div>
+
   <script>
     // 缓存自检：app.js 版本不符（旧缓存）→ 强制整页刷新一次绕过缓存
     window.addEventListener("load", function () {
@@ -250,4 +261,4 @@
       }
     });
   </script>
-  <script src="app.js?v=61"></script>
+  <script src="app.js?v=65"></script>

@@ -188,8 +188,9 @@ button {
   padding: 0 6px;
 }
 .brand-logo {
-  display: grid;
-  place-items: center;
+  display: block;
+  height: 30px;
+  width: auto;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 .brand-name {
@@ -560,6 +561,25 @@ button {
 }
 #warming.hidden { display: none; }
 #warming .chalk-spin { width: 18px; height: 18px; border-width: 3px; flex-shrink: 0; }
+#buffering {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: rgba(20, 17, 14, 0.95);
+  border: 1px solid #6a5c33;
+  color: var(--accent, #d9a93b);
+  font-size: 14px;
+  letter-spacing: 1px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 96;
+}
+#buffering.hidden { display: none; }
+#buffering .chalk-spin { width: 16px; height: 16px; border-width: 3px; flex-shrink: 0; }
 
 /* 新手引导（未配置 API）：黑板中央浮层 */
 #setup-hint {
@@ -704,7 +724,7 @@ button {
   .tb-group { gap: 6px; }
   .tb-group.brand { order: 1; margin-right: auto; }
   .brand-name { font-size: 15px; letter-spacing: 1px; }
-  .brand-logo svg { width: 18px; height: 18px; }
+  .brand-logo { height: 18px; }
   /* 翻页组 + AI 按钮同行靠右 */
   #page-nav { order: 2; margin-left: 0; }
   #page-nav #page-indicator { font-size: 12px; min-width: 34px; text-align: center; }
@@ -939,7 +959,7 @@ button {
   50% { box-shadow: 0 0 0 8px rgba(255, 224, 102, 0); }
 }
 
-/* 语音提问按钮(翻页右侧):录音激活态 */
+/* 语音提问按钮(工具行,粉笔右侧):录音激活态 */
 #btn-voice-ask { font-size: 15px; padding: 0 9px; }
 #btn-voice-ask.active {
   border-color: #ff9e9e;
@@ -950,3 +970,57 @@ button {
   0%, 100% { box-shadow: 0 0 0 0 rgba(255, 120, 120, 0.5); }
   50% { box-shadow: 0 0 0 8px rgba(255, 120, 120, 0); }
 }
+
+/* ---------- 英文界面：手写风标题与按钮（Caveat；中文界面不受影响） ---------- */
+html[lang="en"] .brand-name,
+html[lang="en"] .ai-btn,
+html[lang="en"] .tool-btn,
+html[lang="en"] .nav-btn,
+html[lang="en"] .mtab,
+html[lang="en"] .rail-tool,
+html[lang="en"] .drawer-head h2,
+html[lang="en"] .modal-head h2,
+html[lang="en"] #page-indicator {
+  font-family: "Caveat", cursive;
+}
+/* 手写体视觉偏小：按钮放大一档并收紧字距 */
+html[lang="en"] .ai-btn,
+html[lang="en"] .rail-tool,
+html[lang="en"] .nav-btn,
+html[lang="en"] .mtab,
+html[lang="en"] #page-indicator {
+  font-size: 17px;
+  letter-spacing: 0.5px;
+}
+/* 标题保持原字号观感 */
+html[lang="en"] .brand-name { font-size: 26px; letter-spacing: 2px; }
+html[lang="en"] .drawer-head h2,
+html[lang="en"] .modal-head h2 { font-size: 22px; }
+/* 竖屏媒体查询字号覆盖优先级高于 lang 规则，需同步放大 */
+html[lang="en"] .tb-group.spacer-right .ai-btn { font-size: 16px; }
+html[lang="en"] .tb-group.spacer-right .tool-btn { font-size: 16px; }
+@media (max-width: 720px) {
+  html[lang="en"] .ai-btn,
+  html[lang="en"] .tool-btn,
+  html[lang="en"] .nav-btn,
+  html[lang="en"] .mtab,
+  html[lang="en"] #page-indicator { font-size: 16px; }
+  html[lang="en"] .brand-name { font-size: 20px; }
+  html[lang="en"] .drawer-head h2,
+  html[lang="en"] .modal-head h2 { font-size: 17px; }
+}
+
+/* ---------- 界面字体（设置→外观→界面字体；作用于全部按钮/标题，不碰板书画布） ---------- */
+/* 规则文件由 applyUiFont() 生成注入：html[data-ui-font="<id>"] { --ui-font: <stack> } */
+html[data-ui-font] .brand-name,
+html[data-ui-font] .ai-btn,
+html[data-ui-font] .tool-btn,
+html[data-ui-font] .nav-btn,
+html[data-ui-font] .mtab,
+html[data-ui-font] .rail-tool,
+html[data-ui-font] .drawer-head h2,
+html[data-ui-font] .modal-head h2,
+html[data-ui-font] #page-indicator {
+  font-family: var(--ui-font);
+}
+/* 用户显式选的界面字体优先于英文模式默认的 Caveat（特异性：属性选择器+类 vs html[lang]+类，后者相同 → 源顺序在后胜出） */

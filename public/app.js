@@ -54,6 +54,7 @@ const FONT_PRESETS = [
   {
     id: "kaiti",
     label: "楷体",
+    labelEn: "Kai (regular script)",
     stack: `"Kaiti SC","STKaiti","Kaiti TC","楷体-简","楷体","KaiTi","BiauKai","AR PL UKai CN","LXGW WenKai","Noto Serif CJK SC",serif`,
     names: [
       "Kaiti SC",
@@ -69,6 +70,7 @@ const FONT_PRESETS = [
   {
     id: "xingkai",
     label: "行楷（手写风）",
+    labelEn: "Xingkai (handwriting)",
     stack: `"Xingkai SC","STXingkai","行楷","Kaiti SC","Kaiti TC","楷体-简","KaiTi","BiauKai","LXGW WenKai Lite","Noto Serif CJK SC",serif`,
     names: [
       "Xingkai SC",
@@ -84,6 +86,7 @@ const FONT_PRESETS = [
   {
     id: "songti",
     label: "宋体",
+    labelEn: "Song (serif)",
     stack: `"Songti SC","STSong","宋体","SimSun","NSimSun","Noto Serif CJK SC","Source Han Serif SC",serif`,
     names: [
       "Songti SC",
@@ -98,6 +101,7 @@ const FONT_PRESETS = [
   {
     id: "heiti",
     label: "黑体",
+    labelEn: "Hei (sans-serif)",
     stack: `"PingFang SC","Heiti SC","Microsoft YaHei","微软雅黑","SimHei","黑体","Noto Sans CJK SC","Source Han Sans SC",sans-serif`,
     names: [
       "PingFang SC",
@@ -113,17 +117,57 @@ const FONT_PRESETS = [
   {
     id: "yuanti",
     label: "圆体",
+    labelEn: "Yuan (rounded)",
     stack: `"Yuanti SC","STYuan","圆体","YouYuan","幼圆","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif`,
     names: ["Yuanti SC", "STYuan", "圆体", "YouYuan", "幼圆"],
   },
   {
     id: "fangsong",
     label: "仿宋",
+    labelEn: "Fangsong (imitation Song)",
     stack: `"STFangsong","FangSong","仿宋","STFang","Noto Serif CJK SC",serif`,
     names: ["STFangsong", "FangSong", "仿宋", "STFang"],
   },
 ];
 let fontChoice = "kaiti";
+
+// 界面字体预设（按钮/标题，不碰板书画布）：cssClass 指向 style.css 的 html[data-ui-font]
+// 规则；CDN 字体已在 index.html 引入，这里只做选择。default=系统 UI 字体（不设置属性）。
+const UI_FONT_PRESETS = [
+  { id: "default", label: "默认（系统）", labelEn: "Default (system)", stack: "" },
+  // 中文：系统栈
+  { id: "kai", label: "楷体（界面）", labelEn: "Kai (regular script)", stack: `"Kaiti SC","STKaiti","KaiTi","楷体","BiauKai","LXGW WenKai",serif` },
+  { id: "xingkai", label: "行楷（界面）", labelEn: "Xingkai (handwriting)", stack: `"Xingkai SC","STXingkai","行楷","Kaiti SC","KaiTi","LXGW WenKai Lite",serif` },
+  { id: "songti", label: "宋体（界面）", labelEn: "Song (serif)", stack: `"Songti SC","STSong","SimSun","宋体","NSimSun",serif` },
+  { id: "heiti", label: "黑体（界面）", labelEn: "Hei (sans-serif)", stack: `"PingFang SC","Heiti SC","Microsoft YaHei","微软雅黑","SimHei","黑体",sans-serif` },
+  // 中文：CDN 美术/手写
+  { id: "zcool-kuaile", label: "站酷快乐体", labelEn: "ZCOOL KuaiLe (playful)", stack: `"ZCOOL KuaiLe"` },
+  { id: "zcool-xiaowei", label: "站酷小薇LOGO体", labelEn: "ZCOOL XiaoWei (logo serif)", stack: `"ZCOOL XiaoWei"` },
+  { id: "zcool-qingke-huangyou", label: "站酷庆科黄油体", labelEn: "ZCOOL QingKe HuangYou (butter)", stack: `"ZCOOL QingKe HuangYou"` },
+  { id: "ma-shan-zheng", label: "马善政毛笔楷书", labelEn: "Ma Shan Zheng (brush kai)", stack: `"Ma Shan Zheng"` },
+  { id: "zhi-mang-xing", label: "志莽行书", labelEn: "Zhi Mang Xing (running hand)", stack: `"Zhi Mang Xing"` },
+  // 英文：CDN 手写
+  { id: "caveat", label: "Caveat（英文手写）", labelEn: "Caveat (handwriting)", stack: `"Caveat",cursive` },
+  { id: "patrick-hand", label: "Patrick Hand（英文手写）", labelEn: "Patrick Hand (handwriting)", stack: `"Patrick Hand",cursive` },
+  { id: "indie-flower", label: "Indie Flower（英文手写）", labelEn: "Indie Flower (handwriting)", stack: `"Indie Flower",cursive` },
+  { id: "dancing-script", label: "Dancing Script（英文花体）", labelEn: "Dancing Script (cursive)", stack: `"Dancing Script",cursive` },
+  { id: "shadows-into-light", label: "Shadows Into Light（英文手写）", labelEn: "Shadows Into Light (handwriting)", stack: `"Shadows Into Light",cursive` },
+  { id: "permanent-marker", label: "Permanent Marker（英文记号笔）", labelEn: "Permanent Marker (marker)", stack: `"Permanent Marker",cursive` },
+];
+let uiFontChoice = "default";
+
+// 应用界面字体：default 移除属性回落系统栈；否则设置 data-ui-font 并写 --ui-font 变量
+// （style.css 末尾的 html[data-ui-font] 规则组读取该变量，源顺序在 Caveat 规则之后 → 用户选择优先）
+function applyUiFont(id) {
+  const preset = UI_FONT_PRESETS.find((f) => f.id === id);
+  uiFontChoice = preset ? preset.id : "default";
+  if (uiFontChoice === "default") {
+    document.documentElement.removeAttribute("data-ui-font");
+  } else {
+    document.documentElement.setAttribute("data-ui-font", uiFontChoice);
+    document.documentElement.style.setProperty("--ui-font", preset.stack);
+  }
+}
 
 // 检测字体名在本机是否真实可用（宽度对比法：与任一通用族测宽不同 → 命中了真实字体）
 let _fontAvailCache = null;
@@ -263,6 +307,7 @@ const UI_I18N = [
     "ph",
   ],
   ["#btn-image", "上传图像", "Upload Image", "text"],
+  ["#btn-holdtalk", "🎤 按住说话", "🎤 Hold to Talk", "text"],
   ["#btn-generate", "开始学习", "Start", "text"],
   [".brand-name", "敲黑板", "ChalkTalk", "text"],
   ["#btn-undo", "撤销", "Undo", "text"],
@@ -335,13 +380,21 @@ const UI_I18N = [
     "first",
   ],
   ["#tab-look label:nth-of-type(1)", "板书主题", "Board theme", "first"],
-  ["#tab-look label:nth-of-type(2)", "板书字体", "Board font", "first"],
+  ["#tab-look label:nth-of-type(2)", "界面字体（按钮/标题）", "UI font (buttons & titles)", "first"],
+  ["#tab-look label:nth-of-type(3)", "板书字体", "Board font", "first"],
   [
-    "#tab-look label:nth-of-type(3)",
+    "#tab-look label:nth-of-type(4)",
     "字体磨砂感（粉笔颗粒强度）",
     "Chalk grain (texture strength)",
     "first",
   ],
+  ['select#cfg-theme option[value="green"]', "护眼绿板", "Eye-care green", "text"],
+  ['select#cfg-theme option[value="black"]', "经典黑板", "Classic black", "text"],
+  ['select#cfg-grain option[value="0"]', "无（纯净字体）", "None (clean font)", "text"],
+  ['select#cfg-grain option[value="0.7"]', "轻磨砂", "Light grain", "text"],
+  ['select#cfg-grain option[value="1.3"]', "标准磨砂", "Standard grain", "text"],
+  ['select#cfg-grain option[value="1.8"]', "重磨砂", "Heavy grain", "text"],
+  ['select#cfg-grain option[value="2.2"]', "很重（石膏感）", "Extra heavy (plaster)", "text"],
   ["#btn-cfg-save", "保存", "Save", "text"],
 ];
 // 悬停提示（title 属性）翻译
@@ -396,6 +449,11 @@ const TITLE_I18N = [
     "#btn-image",
     "拍照或从相册选图，题目图片会自动附解题过程",
     "Take a photo or pick one; problems get worked solutions",
+  ],
+  [
+    "#btn-holdtalk",
+    "按住说话，松开后语音识别为文字填入素材文本框",
+    "Hold to talk; speech is recognized into the materials box on release",
   ],
 ];
 function applyLangUI() {
@@ -1601,30 +1659,51 @@ function animateIn(page, blockList, withDividers) {
 // 音频缓冲停滞 → 冻结时间线（startTs 顺延，tNow 停走）：语音断流时板书等它，
 // 恢复后无缝续播，不再出现「声音断了字还在写完/时间白等」。
 let audioHoldCount = 0;
-function holdTimelineForBuffer() {
+const audioHeldEls = new Set(); // 按元素去重：waiting/stalled 同一元素可连发多次，只计一次
+function holdTimelineForBuffer(e) {
   if (!animState) return;
+  const el = e && e.target;
+  if (el) {
+    if (audioHeldEls.has(el)) return; // 已持有 → 不重复计数（泄漏会永久冻结时间线/永不翻页）
+    audioHeldEls.add(el);
+  }
   audioHoldCount++;
   if (audioHoldCount > 0 && !animState._holding) {
-    // 只冻结时间线，不弹提示（toast 遮讲义影响阅读）
-    animState._holding = performance.now();
+    animState._holding = performance.now(); // 冻结时间线（不弹 toast：遮讲义影响阅读）
+    showBuffering(true);
   }
 }
-function releaseTimelineBuffer() {
+function releaseTimelineBuffer(e) {
+  const el = e && e.target;
+  if (el && !audioHeldEls.delete(el)) return; // 未持有（重复 release）→ 不减
   if (audioHoldCount > 0) audioHoldCount--;
   if (audioHoldCount === 0 && animState && animState._holding) {
     // 把停滞时长从时间线里扣除：startTs 后移 → tNow 从冻结点继续
     animState.holdShift =
       (animState.holdShift || 0) + (performance.now() - animState._holding);
     animState._holding = null;
+    showBuffering(false);
+  }
+}
+// 缓冲提示浮层：hold 时显示、release 归零时隐藏（stopNarration/resetTimelineHold 也会清）
+function showBuffering(show) {
+  const el = document.getElementById("buffering");
+  if (!el) return;
+  el.classList.toggle("hidden", !show);
+  if (show) {
+    const t = document.getElementById("buffering-text");
+    if (t) t.textContent = tt("网络较慢，正在缓冲…", "Slow network — buffering…");
   }
 }
 // 停止/重播时清挂起态（不留残留 hold 计数）
 function resetTimelineHold() {
   audioHoldCount = 0;
+  audioHeldEls.clear();
   if (animState) {
     animState._holding = null;
     animState._holdTNow = null;
   }
+  showBuffering(false);
 }
 function runTimeline(entries, dividerMap, dur, onDone, onFrame) {
   animState = {
@@ -1804,7 +1883,7 @@ async function startHoldTalk(mode = "materials") {
     holdTalk.rec.start();
     if (mode === "materials") {
       holdTalkBtn.classList.add("recording");
-      holdTalkBtn.textContent = "● 录音中…再按停止";
+      holdTalkBtn.textContent = tt("● 录音中…再按停止", "● Recording… tap to stop");
     }
   } catch (e) {
     toast(
@@ -1820,7 +1899,7 @@ function stopHoldTalk() {
   holdTalk.active = false;
   // stop() 异步(onstop 才走识别):先给即时视觉反馈,避免"松开无反应"的观感
   holdTalkBtn.classList.remove("recording");
-  if (holdTalk.mode === "materials") holdTalkBtn.textContent = "识别中…";
+  if (holdTalk.mode === "materials") holdTalkBtn.textContent = tt("识别中…", "Recognizing…");
   try {
     holdTalk.rec.stop();
   } catch {
@@ -1830,9 +1909,9 @@ function stopHoldTalk() {
 
 async function finishHoldTalk(mode = "materials") {
   holdTalkBtn.classList.remove("recording");
-  holdTalkBtn.textContent = "🎤 按住说话";
+  holdTalkBtn.textContent = tt("🎤 按住说话", "🎤 Hold to Talk");
   const resetBtn = () => {
-    holdTalkBtn.textContent = "🎤 按住说话";
+    holdTalkBtn.textContent = tt("🎤 按住说话", "🎤 Hold to Talk");
   };
   const blob = new Blob(holdTalk.chunks, {
     type: holdTalk.rec.mimeType || "audio/webm",
@@ -1841,7 +1920,7 @@ async function finishHoldTalk(mode = "materials") {
     resetBtn();
     return toast(tt("录音太短", "Recording too short"), "err");
   }
-  if (mode === "materials") holdTalkBtn.textContent = "识别中…";
+  if (mode === "materials") holdTalkBtn.textContent = tt("识别中…", "Recognizing…");
   else toast(tt("识别中…", "Recognizing…"), "");
   let text = "";
   try {
@@ -1942,6 +2021,24 @@ function setNarrateBtn() {
   }
 }
 
+// ---------- 语音播放诊断日志：每段音频 spawn/play/ended/error/stall 全留痕 ----------
+// console 实时输出 + 环形缓冲 200 条；关键事件 POST /api/clog 落盘到服务端 gen.jsonl
+const voiceLogBuf = [];
+function vlog(ev, data = {}) {
+  const rec = { ts: new Date().toISOString(), ev, ...data };
+  voiceLogBuf.push(rec);
+  if (voiceLogBuf.length > 200) voiceLogBuf.shift();
+  console.info("[voice]", JSON.stringify(rec));
+  // 落盘上报只发关键事件（spawn/ended/error/play-rejected/stall-heal），
+  // waiting/pause 等高频事件只留前端缓冲，避免每段音频打多次请求
+  if (!["spawn", "ended", "error", "play-rejected", "stall-heal"].includes(ev)) return;
+  fetch("api/clog", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(rec),
+  }).catch(() => {});
+}
+
 function stopNarration() {
   resetTimelineHold(); // 清缓冲挂起态（防残留 hold 让新时间线出生即冻结）
   const w = document.getElementById("warming");
@@ -1972,27 +2069,29 @@ function stopNarration() {
 
 // 讲解音色（SiliconFlow CosyVoice2 全部预置音色，性别为基音实测）
 const VOICE_LIST = [
-  { id: "FunAudioLLM/CosyVoice2-0.5B:anna", label: "女声 · anna" },
-  { id: "FunAudioLLM/CosyVoice2-0.5B:bella", label: "女声 · bella" },
-  { id: "FunAudioLLM/CosyVoice2-0.5B:claire", label: "女声 · claire" },
-  { id: "FunAudioLLM/CosyVoice2-0.5B:diana", label: "女声 · diana" },
-  { id: "FunAudioLLM/CosyVoice2-0.5B:alex", label: "男声 · alex" },
-  { id: "FunAudioLLM/CosyVoice2-0.5B:benjamin", label: "男声 · benjamin" },
-  { id: "FunAudioLLM/CosyVoice2-0.5B:charles", label: "男声 · charles" },
-  { id: "FunAudioLLM/CosyVoice2-0.5B:david", label: "男声 · david" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:anna", label: "女声 · anna", labelEn: "Female · anna" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:bella", label: "女声 · bella", labelEn: "Female · bella" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:claire", label: "女声 · claire", labelEn: "Female · claire" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:diana", label: "女声 · diana", labelEn: "Female · diana" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:alex", label: "男声 · alex", labelEn: "Male · alex" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:benjamin", label: "男声 · benjamin", labelEn: "Male · benjamin" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:charles", label: "男声 · charles", labelEn: "Male · charles" },
+  { id: "FunAudioLLM/CosyVoice2-0.5B:david", label: "男声 · david", labelEn: "Male · david" },
 ];
 let voiceId = VOICE_LIST[0].id;
 
 // 设置页的音色/字体下拉一次性构建（顶栏不再放音色）
 function buildSettingSelects() {
+  // 音色/字体标签双语：label 存中文，labelEn 存英文，按当前语言重建
   const vs = $("#cfg-voice");
-  if (!vs.options.length) {
-    for (const v of VOICE_LIST) vs.add(new Option(v.label, v.id));
-  }
+  vs.options.length = 0;
+  for (const v of VOICE_LIST) vs.add(new Option(lang === "en" ? v.labelEn : v.label, v.id));
   const fs = $("#cfg-font");
-  if (!fs.options.length) {
-    for (const f of FONT_PRESETS) fs.add(new Option(f.label, f.id));
-  }
+  fs.options.length = 0;
+  for (const f of FONT_PRESETS) fs.add(new Option(lang === "en" ? f.labelEn : f.label, f.id));
+  const us = $("#cfg-uifont");
+  us.options.length = 0;
+  for (const f of UI_FONT_PRESETS) us.add(new Option(lang === "en" ? f.labelEn : f.label, f.id));
 }
 
 // 讲稿标记解析：circle{词}/underline{词} → 板书动作标记；math{...} → 公式段（TTS 直读不转"杠"）
@@ -2020,10 +2119,11 @@ function parseSay(say) {
   return { clean, marks, segs };
 }
 
-// TTS 朗读文本：公式段(math{})原样直读，普通文本把 - 读作"杠"
+// TTS 朗读文本：公式段(math{})原样直读；普通文本 - 的读法跟随界面语言（中文「杠」/英文 minus）
 function ttsSpeech(parsed) {
+  const dash = lang === "en" ? " minus " : "杠";
   return (parsed.segs || [{ text: parsed.clean, isMath: false }])
-    .map((s) => (s.isMath ? s.text : s.text.replace(/-/g, "杠")))
+    .map((s) => (s.isMath ? s.text : s.text.replace(/-/g, dash)))
     .join("");
 }
 
@@ -2494,6 +2594,17 @@ async function playNarration(page, blockList) {
           });
           if (seq !== narration.seq) return;
           narration.audios.push(el);
+          // 诊断埋点：每段音频全生命周期事件留痕（服务端 gen.jsonl type=clog）
+          const blkIdx = i;
+          const blkText = (b.text || "").replace(/\s+/g, " ").slice(0, 20);
+          vlog("spawn", { seq, blk: blkIdx, text: blkText, dur: v.dur, fresh: el._fresh === true });
+          el.addEventListener("error", () =>
+            vlog("error", { seq, blk: blkIdx, code: el.error?.code, msg: String(el.error?.message || "").slice(0, 80), at: el.currentTime }),
+          );
+          el.addEventListener("stalled", () => vlog("stalled", { seq, blk: blkIdx, at: el.currentTime }));
+          el.addEventListener("waiting", () => vlog("waiting", { seq, blk: blkIdx, at: el.currentTime }));
+          el.addEventListener("pause", () => vlog("pause", { seq, blk: blkIdx, at: el.currentTime, ended: el.ended }));
+          el.addEventListener("ended", () => vlog("ended", { seq, blk: blkIdx, at: el.currentTime, dur: el.duration }));
           await new Promise((resolve) => {
             let done = false;
             const fin = () => {
@@ -2507,13 +2618,20 @@ async function playNarration(page, blockList) {
               el.removeEventListener("canplay", releaseTimelineBuffer);
               el.removeEventListener("ended", releaseTimelineBuffer);
               clearInterval(stallWatch);
-              releaseTimelineBuffer(); // 本块结束：确保不留挂起态
+              releaseTimelineBuffer({ target: el }); // 本块结束：强制清本元素的持有（防泄漏）
               clearTimeout(guard);
               resolve();
             };
             const guard = setTimeout(fin, guardMs + 2500);
             el.addEventListener("ended", fin);
-            el.addEventListener("pause", fin);
+            // pause ≠ 播完：外部中断（来电/系统抢占/内存压力）会半途 pause——
+            // 旧逻辑立即推进下一块 = 半截无声、下一块又出声。只有真 ended 或
+            // 已播到尾部（≥92%）的 pause 才算自然结束；中途 pause 走续播重试。
+            el.addEventListener("pause", () => {
+              const d = el.duration;
+              const nearEnd = Number.isFinite(d) && d > 0 && el.currentTime >= d * 0.92;
+              if (done || el.ended || nearEnd) fin();
+            });
             // 网络缓冲停滞（解码跟不上/数据未就绪）→ 冻结时间线等它；
             // 恢复播放时无缝续上（不再「声音断了、时间白走」）
             el.addEventListener("waiting", holdTimelineForBuffer);
@@ -2538,6 +2656,8 @@ async function playNarration(page, blockList) {
                 // 卡住超 1.2s：进度不走。seek 微移 + 重播自愈（位置保留，续上而不是重头）
                 try {
                   const at = el.currentTime;
+                  const stuckMs = Math.round(performance.now() - lastMove);
+                  vlog("stall-heal", { seq, blk: blkIdx, at, stuckMs });
                   el.play().catch(() => {});
                   if (performance.now() - lastMove > 2500) {
                     el.currentTime = at; // 二次仍卡：轻 seek 逼解码器重新拉流
@@ -2553,7 +2673,9 @@ async function playNarration(page, blockList) {
             const tryPlay = async (attempt) => {
               try {
                 await el.play();
-              } catch {
+                vlog("play-ok", { seq, blk: blkIdx, attempt, at: el.currentTime });
+              } catch (e) {
+                vlog("play-rejected", { seq, blk: blkIdx, attempt, err: String(e && e.name).slice(0, 40) });
                 if (attempt < 3 && seq === narration.seq)
                   setTimeout(() => tryPlay(attempt + 1), 300 * (attempt + 1));
                 else fin();
@@ -4282,16 +4404,16 @@ async function openSettings() {
       ? voiceId
       : VOICE_LIST[0].id;
     $("#cfg-font").value = fontChoice;
+    $("#cfg-uifont").value = UI_FONT_PRESETS.some((f) => f.id === uiFontChoice) ? uiFontChoice : "default";
     $("#cfg-grain").value = String(chalkGrain);
     $("#cfg-theme").value = theme;
-    $("#cfg-status").textContent =
-      cfg.hasKey && cfg.hasTtsKey
-        ? "已配置 LLM + TTS 密钥"
-        : cfg.hasKey
-          ? "LLM 已配置；未配置 TTS，讲解将无配音"
-          : "未配置密钥，AI 功能不可用";
+    $("#cfg-status").textContent = cfg.hasKey && cfg.hasTtsKey
+      ? tt("已配置 LLM + TTS 密钥", "LLM + TTS keys configured")
+      : cfg.hasKey
+        ? tt("LLM 已配置；未配置 TTS，讲解将无配音", "LLM configured; no TTS key — narration will be silent")
+        : tt("未配置密钥，AI 功能不可用", "No keys configured — AI features unavailable");
   } catch {
-    $("#cfg-status").textContent = "读取配置失败";
+    $("#cfg-status").textContent = tt("读取配置失败", "Failed to load config");
   }
   $("#settings-modal").classList.remove("hidden");
 }
@@ -4308,6 +4430,7 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     ttsModel: $("#cfg-ttsModel").value.trim(),
     ttsVoice: $("#cfg-voice").value, // 音色由下拉选择（持久化）
     font: $("#cfg-font").value,
+    uiFont: $("#cfg-uifont").value,
     grain: Number($("#cfg-grain").value),
     theme: $("#cfg-theme").value,
   };
@@ -4321,17 +4444,18 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     voiceId = $("#cfg-voice").value; // 立即生效（语音按音色缓存，重讲即用新音色）
     applyFont($("#cfg-font").value);
+    applyUiFont($("#cfg-uifont").value);
     const t = $("#cfg-theme").value;
     if (t === "black" || t === "green") {
       theme = t;
       applyTheme();
     }
     applyGrain($("#cfg-grain").value);
-    $("#cfg-status").textContent = "已保存 ✓";
-    toast("设置已保存", "ok");
+    $("#cfg-status").textContent = tt("已保存 ✓", "Saved ✓");
+    toast(tt("设置已保存", "Settings saved"), "ok");
     setTimeout(() => $("#settings-modal").classList.add("hidden"), 600);
   } catch (err) {
-    $("#cfg-status").textContent = `保存失败: ${err.message}`;
+    $("#cfg-status").textContent = tt("保存失败", "Save failed") + `: ${err.message}`;
   }
 });
 
@@ -4416,6 +4540,7 @@ fetch("api/config")
     }
     // 持久化的字体与音色：先按本机可用性选定字体（偏好不可用则就近降级），再应用
     applyFont(initFontChoice(cfg.font));
+    applyUiFont(cfg.uiFont || "default");
     if (cfg.grain !== undefined) applyGrain(cfg.grain);
     if (cfg.theme === "black" || cfg.theme === "green") {
       theme = cfg.theme;

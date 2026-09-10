@@ -1,0 +1,14 @@
+{"ts":"2026-09-10T10:59:30.682Z","type":"text2board","ok":true,"durationMs":15698,"ip":"local","model":"glm-5.3","lang":"zh","stream":false,"material":"勾股定理：直角三角形两直角边 a、b 的平方和等于斜边 c 的平方，即 a²+b²=c²","images":0,"pages":1,"blocks":4}
+{"ts":"2026-09-10T11:00:00.857Z","type":"tts","ok":true,"durationMs":524,"ip":"local","model":"FunAudioLLM/CosyVoice2-0.5B","material":"同学们好，今天我们讲勾股定理"}
+{"ts":"2026-09-10T11:00:10.820Z","type":"tts","ok":false,"durationMs":37,"ip":"local","model":"FunAudioLLM/CosyVoice2-0.5B","material":"测试失败日志","error":"TTS 服务返回 401: \"Api key is invalid\""}
+{"ts":"2026-09-10T11:15:47.312Z","type":"clog","ok":true,"durationMs":0,"ip":"local","material":"spawn #0 测试块"}
+{"ts":"2026-09-10T11:18:39.267Z","type":"text2board","ok":true,"durationMs":14877,"ip":"38.76.220.234","model":"glm-5.3","lang":"en","stream":true,"material":"勾股定理：a²+b²=c²。例如 3、4、5 就是一组勾股数。","images":0,"pages":1,"blocks":3}
+{"ts":"2026-09-10T11:18:40.778Z","type":"tts","ok":true,"durationMs":1363,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Alright, so today we're going to talk about one of the most "}
+{"ts":"2026-09-10T11:18:41.308Z","type":"tts","ok":true,"durationMs":1892,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Now look at this picture over here. Each side of the triangl"}
+{"ts":"2026-09-10T11:18:41.396Z","type":"tts","ok":true,"durationMs":1980,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Let's check it with numbers. Take the famous triple 3, 4, 5."}
+{"ts":"2026-09-10T11:18:42.340Z","type":"tts","ok":true,"durationMs":2924,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"So here's the deal — this only works for right triangle, oka"}
+{"ts":"2026-09-10T11:18:45.174Z","type":"clog","ok":true,"durationMs":0,"ip":"38.76.220.234","material":"spawn #0 Pythagorean Theorem"}
+{"ts":"2026-09-10T11:18:55.121Z","type":"clog","ok":true,"durationMs":9888,"ip":"38.76.220.234","material":"ended #0 "}
+{"ts":"2026-09-10T11:19:00.205Z","type":"clog","ok":true,"durationMs":0,"ip":"38.76.220.234","material":"spawn #2 For a right triangle"}
+{"ts":"2026-09-10T11:19:28.971Z","type":"clog","ok":true,"durationMs":28656,"ip":"38.76.220.234","material":"ended #2 "}
+{"ts":"2026-09-10T11:19:31.964Z","type":"clog","ok":true,"durationMs":0,"ip":"38.76.220.234","material":"spawn #3 Example: 3, 4, 5 3² "}
