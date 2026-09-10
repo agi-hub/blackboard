@@ -102,7 +102,7 @@ const DEFAULT_CONFIG: AppConfig = {
   ttsSpeed: 1.0,
   font: "kaiti",
   uiFont: "default",
-  posterModel: "Kwai-Kolors/Kolors",
+  posterModel: "Tongyi-MAI/Z-Image-Turbo",
   grain: 1.3,
   theme: "green",
   lang: "zh",
@@ -1152,12 +1152,12 @@ Bun.serve({
           material: summarizeMaterial(theme), ...extra,
         });
         try {
-          // 提示词与讲课完全不同：纯线条粉笔简笔画（无填充），清新留白
+          // 提示词与讲课完全不同：彩色线条粉笔简笔画（严格无填充）——用户指定模板
           const en = body.lang === "en";
-          const styleZh = "纯黑背景（画面画在漆黑一片的背景上，大量留黑，禁止任何背景色块、禁止棕色灰色纸张底色），极简粉笔线描画，只用细线条勾勒轮廓，白色粉笔线条为主、少量彩色粉笔点缀，线条轻微抖动不光滑，手绘感，禁止任何填充色块（所有形状只描边不填充），无阴影，无渐变，构图疏朗，大量留白，清新简洁，高对比度，边缘干净，2D平面插画";
-          const styleEn = "on a PURE BLACK background (solid pitch-black, generous empty black space, no background blocks, no brown/grey paper), minimal chalk LINE drawing, thin outlines only, mostly white chalk lines with a few colored chalk accents, slightly shaky hand-drawn lines, STRICTLY NO FILLS (every shape outlined, never colored in), no shadows, no gradients, airy composition, lots of empty space, fresh and elegant, high contrast, clean edges, flat 2D";
+          const styleZh = "简笔画，黑板报风格粉笔简笔画，手绘粉笔线条，线条轻微抖动不光滑，简笔，线条一定使用彩色粉笔，色彩表现在线条上，干净轮廓，一定不要填充，无阴影，无渐变，画面留白充足，2D 平面插画，高对比度，边缘干净，不要背景，纯黑背景。";
+          const styleEn = "simple sketch, blackboard bulletin chalk drawing, hand-drawn chalk lines, slightly shaky imperfect lines, minimal style, lines MUST use colored chalks (color lives in the lines only), clean outlines, STRICTLY NO FILLS, no shadows, no gradients, generous empty space, flat 2D illustration, high contrast, clean edges, no background, pure black background.";
           const prompt = en
-            ? `${theme} themed classroom blackboard bulletin, children happily going to school, simple stick-figure sketch. ${styleEn}`
+            ? `${theme} themed classroom blackboard bulletin, children happily going to school, simple sketch. ${styleEn}`
             : `${theme}为主题的黑板报，简笔画，有同学们上学的开心的画面。${styleZh}`;
           const imgRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/images/generations", {
             method: "POST",
