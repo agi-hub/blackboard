@@ -851,7 +851,7 @@ button {
   #text-input { min-height: 96px; font-size: 15px; }
   .drawer-actions { flex-wrap: wrap; justify-content: stretch; }
   .drawer-actions .tool-btn, .drawer-actions .ai-btn { flex: 1 1 30%; height: 40px; }
-  /* 两个主按钮（开始学习/画板报）一行平分、严格等宽 */
+  /* 两个主按钮（开始讲课/画板报）一行平分、严格等宽 */
   .drawer-actions .ai-btn { flex: 1 1 calc(50% - 6px); max-width: calc(50% - 6px); }
   #answer-panel { max-height: 58vh; }
   #lecture-panel { max-height: 44vh; }

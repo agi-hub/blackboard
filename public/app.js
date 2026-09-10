@@ -308,7 +308,7 @@ const UI_I18N = [
   ],
   ["#btn-image", "上传图像", "Upload Image", "text"],
   ["#btn-holdtalk", "按住说话", "Hold to Talk", "text"],
-  ["#btn-generate", "开始学习", "Start", "text"],
+  ["#btn-generate", "开始讲课", "Start Lesson", "text"],
   ["#btn-poster", "画板报", "Poster", "text"],
   [".brand-name", "敲黑板", "ChalkTalk", "text"],
   ["#btn-undo", "撤销", "Undo", "text"],
@@ -3816,7 +3816,7 @@ $("#btn-crop-ok").addEventListener("click", () => {
   c.getContext("2d").drawImage(im, ox, oy, ow, oh, 0, 0, c.width, c.height);
   setImage(c.toDataURL("image/jpeg", 0.85));
   $("#crop-modal").classList.add("hidden");
-  toast("图片已就绪，点「开始学习」一起生成", "ok");
+  toast("图片已就绪，点「开始讲课」一起生成", "ok");
 });
 window.addEventListener("resize", () => {
   if (!$("#crop-modal").classList.contains("hidden")) renderCrop();
