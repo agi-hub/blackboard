@@ -447,7 +447,7 @@ button {
 
 .drawer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 #drawer .drawer-actions .tool-btn,
-#drawer .drawer-actions .ai-btn { padding: 5px 10px; } /* 紧凑一档：4 按钮在 360px 抽屉一行放下 */
+#drawer .drawer-actions .ai-btn { padding: 5px 10px; min-width: 78px; } /* 紧凑一档：4 按钮一行放下；主按钮等宽（开始学习/画板报） */
 .cfg-status { font-size: 12px; color: var(--muted); margin-right: auto; }
 
 /* ---------- 设置弹窗 ---------- */
