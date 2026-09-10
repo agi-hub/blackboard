@@ -61,6 +61,7 @@ interface AppConfig {
   ttsSpeed: number;
   font: string; // 板书字体预设 id（前端可选）
   uiFont: string; // 界面字体预设 id（按钮/标题；前端可选）
+  posterModel: string; // 板报文生图模型（SiliconFlow /images/generations）
   grain: number; // 字体磨砂强度 0~2.5
   theme: "black" | "green"; // 板书主题（黑板/绿板）
   lang: "zh" | "en"; // 界面与生成内容语言
@@ -101,6 +102,7 @@ const DEFAULT_CONFIG: AppConfig = {
   ttsSpeed: 1.0,
   font: "kaiti",
   uiFont: "default",
+  posterModel: "Kwai-Kolors/Kolors",
   grain: 1.3,
   theme: "green",
   lang: "zh",
@@ -129,6 +131,7 @@ function loadConfig(): AppConfig {
     }
     if (isStr(parsed.font) && parsed.font.trim()) cfg.font = parsed.font.trim().slice(0, 32);
     if (isStr(parsed.uiFont) && parsed.uiFont.trim()) cfg.uiFont = parsed.uiFont.trim().slice(0, 32);
+    if (isStr(parsed.posterModel) && parsed.posterModel.trim()) cfg.posterModel = parsed.posterModel.trim().slice(0, 64);
     if (parsed.theme === "black" || parsed.theme === "green") cfg.theme = parsed.theme;
     if (typeof parsed.grain === "number" && Number.isFinite(parsed.grain) && parsed.grain >= 0 && parsed.grain <= 2.5) cfg.grain = parsed.grain;
     if (parsed.lang === "en" || parsed.lang === "zh") cfg.lang = parsed.lang;
@@ -159,10 +162,9 @@ function allowRequest(ip: string, rpm: number): boolean {
 }
 
 // ---------- 生成日志（JSONL 落盘 + 内存尾部环形缓冲） ----------
-
 interface GenLog {
   ts: string; // ISO 时间
-  type: "text2board" | "ask" | "tts" | "asr" | "clog";
+  type: "text2board" | "ask" | "tts" | "asr" | "clog" | "poster";
   durationMs: number; // 耗时
   ip: string;
   model?: string; // LLM/TTS/ASR 模型
@@ -218,10 +220,153 @@ try {
   logSize = 0;
 }
 
+
+// ---------- PNG 黑底转透明（板报用）：零依赖解码→逐像素→重编码 ----------
+// 纯黑（含容差）像素 alpha=0；粉笔线条按亮度保留。只支持非隔行 8bit RGB/RGBA
+// （Kolors 输出实测 RGBA）；其余格式抛错由调用方兜底返回原图。
+function blackToAlphaPng(bytes: Uint8Array): Uint8Array {
+  const zlib = require("node:zlib");
+  const CRC_TABLE = new Uint32Array(256).map((_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc32 = (buf: Uint8Array, start: number, end: number) => {
+    let c = 0xffffffff;
+    for (let i = start; i < end; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const readU32 = (b: Uint8Array, o: number) => (b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3];
+  let pos = 8; // PNG 签名
+  let width = 0, height = 0, bitDepth = 0, colorType = 0, interlace = 0;
+  const idat: Uint8Array[] = [];
+  while (pos + 8 <= bytes.length) {
+    const len = readU32(bytes, pos);
+    const type = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+    const data = bytes.subarray(pos + 8, pos + 8 + len);
+    if (type === "IHDR") {
+      width = readU32(data, 0); height = readU32(data, 4);
+      bitDepth = data[8]; colorType = data[9]; interlace = data[12];
+    } else if (type === "IDAT") idat.push(data);
+    else if (type === "IEND") break;
+    pos += 12 + len;
+  }
+  if (!width || !height) throw new Error("PNG 尺寸解析失败");
+  if (bitDepth !== 8 || (colorType !== 6 && colorType !== 2)) throw new Error(`不支持的 PNG depth=${bitDepth} color=${colorType}`);
+  if (interlace !== 0) throw new Error("隔行 PNG 不支持");
+  const bpp = colorType === 6 ? 4 : 3;
+  // 解压 + 去滤波（PNG filter 0-4）
+  const raw = new Uint8Array(zlib.inflateSync(Buffer.concat(idat.map((c) => Buffer.from(c)))));
+  const stride = width * bpp;
+  const px = new Uint8Array((stride + 1) * height); // 去滤波后按行存储（无 filter 字节）
+  for (let y = 0; y < height; y++) {
+    const f = raw[y * (stride + 1)];
+    const src = y * (stride + 1) + 1;
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? px[y * stride + x - bpp] : 0;
+      const b = y > 0 ? px[(y - 1) * stride + x] : 0;
+      const c = x >= bpp && y > 0 ? px[(y - 1) * stride + x - bpp] : 0;
+      let v = raw[src + x];
+      if (f === 1) v = (v + a) & 0xff;
+      else if (f === 2) v = (v + b) & 0xff;
+      else if (f === 3) v = (v + ((a + b) >> 1)) & 0xff;
+      else if (f === 4) {
+        const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+        v = (v + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff;
+      }
+      px[y * stride + x] = v;
+    }
+  }
+  // 黑→透明：先从四边采样自动检测背景基准色（模型多数听令画纯黑，
+  // 但偶尔画深棕/深灰背景——固定阈值在这种图上失效），
+  // 再按「与背景色的距离」衰减 alpha：背景近端全透、粉笔线条（亮/彩色）保留。
+  const edgeLum: number[] = [];
+  const edgePx: [number, number, number][] = [];
+  for (let x = 0; x < width; x += 7) {
+    for (const y of [2, height - 3]) {
+      const i = y * stride + x * bpp;
+      edgePx.push([px[i], px[i + 1], px[i + 2]]);
+    }
+  }
+  for (let y = 0; y < height; y += 7) {
+    for (const x of [2, width - 3]) {
+      const i = y * stride + x * bpp;
+      edgePx.push([px[i], px[i + 1], px[i + 2]]);
+    }
+  }
+  for (const [r, g, b] of edgePx) edgeLum.push((r * 299 + g * 587 + b * 114) / 1000);
+  edgeLum.sort((a, b) => a - b);
+  const bgLum = edgeLum[Math.floor(edgeLum.length * 0.1)] ?? 0; // P10：边缘最暗一批 = 真背景（内容常延伸到边缘，P25 会被内容污染）
+  const bgSat = (() => {
+    const dark = edgePx.filter(([r, g, b]) => Math.abs((r * 299 + g * 587 + b * 114) / 1000 - bgLum) < 20);
+    if (!dark.length) return 0;
+    return dark.reduce((n, [r, g, b]) => n + (Math.max(r, g, b) - Math.min(r, g, b)), 0) / dark.length;
+  })();
+  // 内容保护线：背景通常又暗又灰；亮度或饱和度远超背景的必是粉笔画内容
+  const bgIsDark = bgLum < 80;
+  // 背景有效性守卫：边缘暗像素占比 <35% 说明模型没画暗背景（内容铺满边角），
+  // 强行抠背景会啃掉内容 → 不转换（返回原图，前端直接铺满也有板报效果）
+  const darkRatio = edgeLum.filter((l) => l < 80).length / edgeLum.length;
+  if (darkRatio < 0.35) throw new Error("背景不是暗色，跳过转透明");
+  const isBg = (r: number, g: number, b: number) => {
+    const lum = (r * 299 + g * 587 + b * 114) / 1000;
+    const sat = Math.max(r, g, b) - Math.min(r, g, b);
+    if (lum > bgLum + 60) return false; // 明显比背景亮 → 粉笔内容
+    if (sat > bgSat + 50) return false; // 明显比背景鲜艳 → 彩色粉笔
+    const dist = Math.abs(lum - bgLum) + Math.max(0, sat - bgSat);
+    return dist < (bgIsDark ? 50 : 40); // 暗背景容差稍宽（噪声大）
+  };
+  const rgba = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const si = y * stride + x * bpp, di = (y * width + x) * 4;
+      const r = px[si], g = px[si + 1], b = px[si + 2];
+      const lum = (r * 299 + g * 587 + b * 114) / 1000;
+      const sat = Math.max(r, g, b) - Math.min(r, g, b);
+      let alpha = 255;
+      if (isBg(r, g, b)) {
+        const dist = Math.abs(lum - bgLum) + Math.max(0, sat - bgSat);
+        alpha = Math.min(255, Math.round((dist / 50) * 255));
+      } else if (lum < bgLum + 60 && lum < 60 && sat < 40) {
+        alpha = Math.round(lum * 2); // 比背景更暗的纯黑残留也吃掉
+      }
+      rgba[di] = r; rgba[di + 1] = g; rgba[di + 2] = b;
+      rgba[di + 3] = (alpha * (bpp === 4 ? px[si + 3] : 255)) / 255;
+    }
+  }
+  // 重编码：filter 全 0 + deflate
+  const outStride = width * 4;
+  const rawOut = new Uint8Array((outStride + 1) * height);
+  for (let y = 0; y < height; y++) {
+    rawOut[y * (outStride + 1)] = 0;
+    rawOut.set(rgba.subarray(y * outStride, (y + 1) * outStride), y * (outStride + 1) + 1);
+  }
+  const compressed = zlib.deflateSync(Buffer.from(rawOut), { level: 6 });
+  const chunk = (type: string, data: Uint8Array) => {
+    const out = new Uint8Array(12 + data.length);
+    new DataView(out.buffer).setUint32(0, data.length);
+    out.set(new TextEncoder().encode(type), 4);
+    out.set(data, 8);
+    new DataView(out.buffer).setUint32(8 + data.length, crc32(out, 4, 8 + data.length));
+    return out;
+  };
+  const ihdr = new Uint8Array(13);
+  new DataView(ihdr.buffer).setUint32(0, width);
+  new DataView(ihdr.buffer).setUint32(4, height);
+  ihdr[8] = 8; ihdr[9] = 6; // 8bit RGBA
+  const sig = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const parts = [sig, chunk("IHDR", ihdr), chunk("IDAT", new Uint8Array(compressed)), chunk("IEND", new Uint8Array(0))];
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const outPng = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) { outPng.set(p, o); o += p.length; }
+  return outPng;
+}
 // ---------- LLM 调用（OpenAI 兼容 chat/completions） ----------
 
 async function callLLM(cfg: AppConfig, model: string, messages: ChatMessage[], maxTokens: number): Promise<string> {
   const url = cfg.baseUrl.replace(/\/+$/, "") + "/chat/completions";
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -658,6 +803,7 @@ Bun.serve({
           ttsSpeed: cfg.ttsSpeed,
           font: cfg.font,
           uiFont: cfg.uiFont,
+          posterModel: cfg.posterModel,
           grain: cfg.grain,
           theme: cfg.theme,
           lang: cfg.lang,
@@ -692,6 +838,7 @@ Bun.serve({
         }
         if (isStr(body.font) && body.font.trim()) cfg.font = body.font.trim().slice(0, 32);
         if (isStr(body.uiFont) && body.uiFont.trim()) cfg.uiFont = body.uiFont.trim().slice(0, 32);
+        if (isStr(body.posterModel) && body.posterModel.trim()) cfg.posterModel = body.posterModel.trim().slice(0, 64);
         if (body.theme === "black" || body.theme === "green") cfg.theme = body.theme;
         if (typeof body.grain === "number" && Number.isFinite(body.grain) && body.grain >= 0 && body.grain <= 2.5) cfg.grain = body.grain;
         if (body.lang === "en" || body.lang === "zh") cfg.lang = body.lang;
@@ -802,14 +949,14 @@ Bun.serve({
         }
 
         try {
-        const content = await callLLM(cfg, model, messages, 8192);
-        const pages = normalizePages(extractJSON(content), W, H).filter(
-          (p) => p.title !== null || p.blocks.length > 0 || p.summary !== null,
-        );
-        if (pages.length === 0) {
-          t2bLog({ ok: false, error: "模型未返回有效板书 JSON" });
-          return jsonError("模型未返回有效板书 JSON，请重试", 502);
-        }
+          const content = await callLLM(cfg, model, messages, 8192);
+          const pages = normalizePages(extractJSON(content), W, H).filter(
+            (p) => p.title !== null || p.blocks.length > 0 || p.summary !== null,
+          );
+          if (pages.length === 0) {
+            t2bLog({ ok: false, error: "模型未返回有效板书 JSON" });
+            return jsonError("模型未返回有效板书 JSON，请重试", 502);
+          }
 
         // 两段式补图：内容有图示语义但主生成没画 → 专门再调一次画图
         const hasSvg = pages.some((p) => p.blocks.some((b) => b.svg !== undefined));
@@ -992,6 +1139,79 @@ Bun.serve({
         } catch (err) {
           appendLog({ type: "tts", ok: false, durationMs: Date.now() - ttsStart, ip, model: cfg.ttsModel, material: summarizeMaterial(text), error: (err instanceof Error ? err.message : String(err)).slice(0, 200) });
           throw err;
+        }
+      }
+
+
+      // ---- 画板报：素材 → 粉笔简笔画提示词 → 文生图 → 黑底转透明 → base64 PNG ----
+      if (path === "/api/poster" && req.method === "POST") {
+        const body = await readJSONBody(req);
+        if (!body) return jsonError("请求体必须是 JSON 对象", 400);
+        const theme = isStr(body.theme) ? body.theme.trim().slice(0, 200) : "";
+        if (!theme) return jsonError("theme（板报主题素材）不能为空", 400);
+        const cfg = loadConfig();
+        if (!cfg.ttsApiKey) return jsonError("未配置 SiliconFlow API Key，请先在「设置」中填写", 400);
+        if (!allowRequest(ip, cfg.maxRPM)) return jsonError(`请求过于频繁，限流 ${cfg.maxRPM} 次/分钟`, 429);
+        const start = Date.now();
+        const posterLog = (extra: Partial<GenLog>) => appendLog({
+          type: "poster", ok: true, durationMs: Date.now() - start, ip, model: cfg.posterModel,
+          material: summarizeMaterial(theme), ...extra,
+        });
+        try {
+          // 提示词与讲课完全不同：粉笔简笔画风格约束（用户给的参考模板）
+          const en = body.lang === "en";
+          const styleZh = "纯黑背景（画面画在漆黑一片的背景上，背景之外大量留黑，禁止任何背景色块、禁止棕色灰色纸张底色），黑板报风格粉笔简笔画，白色手绘粉笔线条，线条轻微抖动不光滑，简笔，一定使用彩色粉笔，干净轮廓，可以适当做粉笔样填充，无阴影，无渐变，画面留白充足，高对比度，边缘干净，2D平面插画，不要背景";
+          const styleEn = "on a PURE BLACK background (drawing floats on solid pitch-black, generous empty black space, strictly no background color blocks, no brown/grey paper fill), blackboard bulletin chalk drawing, white hand-drawn chalk lines, slightly shaky imperfect lines, simple sketch style, must use colored chalks, clean outlines, light chalk fill only, no shadows, no gradients, high contrast, clean edges, flat 2D";
+          const prompt = en
+            ? `${theme} themed classroom blackboard bulletin, children happily going to school, simple stick-figure sketch. ${styleEn}`
+            : `${theme}为主题的黑板报，简笔画，有同学们上学的开心的画面。${styleZh}`;
+          const imgRes = await fetch(cfg.ttsBaseUrl.replace(/\/+$/, "") + "/images/generations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.ttsApiKey}` },
+            body: JSON.stringify({
+              model: cfg.posterModel,
+              prompt,
+              image_size: "1280x720",
+              batch_size: 1,
+            }),
+            signal: AbortSignal.timeout(120_000),
+          });
+          if (!imgRes.ok) {
+            const errText = (await imgRes.text()).slice(0, 300);
+            throw new Error(`文生图服务返回 ${imgRes.status}: ${errText}`);
+          }
+          const imgData: unknown = await imgRes.json();
+          const imgUrl = isRecord(imgData) && Array.isArray(imgData.images) && isRecord(imgData.images[0]) && isStr(imgData.images[0].url) ? imgData.images[0].url : "";
+          if (!imgUrl) throw new Error("文生图响应缺少图片 URL");
+          // 拉回图片字节（URL 是临时存储，必须立刻取回处理）
+          const pngRes = await fetch(imgUrl, { signal: AbortSignal.timeout(60_000) });
+          if (!pngRes.ok) throw new Error(`图片下载失败 ${pngRes.status}`);
+          const pngBytes = new Uint8Array(await pngRes.arrayBuffer());
+          // 黑底 → 透明（粉笔线条保留），失败则原图返回（黑色画到黑板上也不违和）
+          let outPng = pngBytes;
+          try {
+            outPng = blackToAlphaPng(pngBytes);
+          } catch (e) {
+            console.error("黑转透明失败（按原图返回）:", e instanceof Error ? e.message : e);
+          }
+          let bin = "";
+          for (let i = 0; i < outPng.length; i += 0x8000) {
+            bin += String.fromCharCode(...outPng.subarray(i, i + 0x8000));
+          }
+          const poster = {
+            version: 1,
+            kind: "poster",
+            theme,
+            lang: en ? "en" : "zh",
+            model: cfg.posterModel,
+            image: `data:image/png;base64,${btoa(bin)}`, // 前端直接 img/canvas 绘制
+            createdAt: new Date().toISOString(),
+          };
+          posterLog({});
+          return Response.json({ ok: true, poster });
+        } catch (err) {
+          posterLog({ ok: false, error: (err instanceof Error ? err.message : String(err)).slice(0, 200) });
+          return jsonError((err instanceof Error ? err.message : String(err)).slice(0, 400), 502);
         }
       }
 

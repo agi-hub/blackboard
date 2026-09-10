@@ -309,6 +309,7 @@ const UI_I18N = [
   ["#btn-image", "上传图像", "Upload Image", "text"],
   ["#btn-holdtalk", "🎤 按住说话", "🎤 Hold to Talk", "text"],
   ["#btn-generate", "开始学习", "Start", "text"],
+  ["#btn-poster", "画板报", "Poster", "text"],
   [".brand-name", "敲黑板", "ChalkTalk", "text"],
   ["#btn-undo", "撤销", "Undo", "text"],
   ["#btn-clear", "清屏", "Clear", "text"],
@@ -454,6 +455,11 @@ const TITLE_I18N = [
     "#btn-holdtalk",
     "按住说话，松开后语音识别为文字填入素材文本框",
     "Hold to talk; speech is recognized into the materials box on release",
+  ],
+  [
+    "#btn-poster",
+    "用素材主题画一幅黑板报（粉笔简笔画）",
+    "Draw a chalk-art blackboard poster from the materials",
   ],
 ];
 function applyLangUI() {
@@ -1369,7 +1375,7 @@ function layoutPage(page) {
   }
   for (const b of page.blocks) if (!b.region) order.push(b);
   if (page.summaryBlock) order.push(page.summaryBlock);
-  page._drawOrder = order.filter((b) => b._chars > 0 || b.svg); // 纯图块（无字）也参与绘制与动画
+  page._drawOrder = order.filter((b) => b._chars > 0 || b.svg || b.posterImage); // 纯图块/板报也参与绘制
 }
 
 // ---------- 重点标记（圈选 / 下划线） ----------
@@ -1405,7 +1411,7 @@ function drawBlock(ctx, b, allowed, partial) {
   }
   // 图示：按浮现进度画 SVG 图像（失败画 [图] 占位），说明文字排在图下方
   let yOff = 0;
-  if (b.svg) {
+  if (b.svg || b.posterImage) {
     const fig = b._figure;
     const figH = fig ? b.width * fig.aspect : b.width * 0.75;
     if (fig && fig.img && allowed >= 0) {
@@ -2808,6 +2814,26 @@ function sanitizeSvg(s) {
 
 function mkBlock(el, kind, defs) {
   if (!el) return null;
+  // 板报块：整幅图铺满黑板（课程 JSON 加载路径）
+  if (el.kind === "poster" && typeof el.posterImage === "string" && /^data:image\/png;base64,/.test(el.posterImage)) {
+    return {
+      uid: `u${++uidSeq}`,
+      kind: "poster",
+      text: el.text ? String(el.text).slice(0, 200) : "",
+      x: 0,
+      y: 0,
+      width: W,
+      fontSize: 36,
+      color: "#f2f0e6",
+      region: null,
+      emphasis: [],
+      say: null,
+      svg: null,
+      posterImage: el.posterImage,
+      _figure: { img: null, aspect: H / W, texts: [] },
+      _chars: 1, // 纯图块（layoutPage 过滤条件）
+    };
+  }
   const svg = sanitizeSvg(el.svg);
   // 纯图块允许无 text（图 + 可选 caption）
   if ((!el.text || !String(el.text).trim()) && !svg) return null;
@@ -2911,6 +2937,7 @@ async function loadFigure(b) {
       };
       const fail = () => {
         if (settled) return;
+
         settled = true;
         b._figure.img = null; // 失败 → 画「[图]」占位
         resolve();
@@ -2926,10 +2953,30 @@ async function loadFigure(b) {
   }
 }
 
+// 板报块的 PNG 加载（课程加载路径；黑已转透明，直接画）
+function loadPosterImage(b) {
+  if (!b.posterImage || (b._figure && b._figure.img)) return Promise.resolve();
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      if (b._figure) {
+        b._figure.img = img;
+        b._figure.aspect = img.naturalHeight / img.naturalWidth; // 按真实图比例铺满
+      }
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = b.posterImage;
+  });
+}
+
 function loadFigures(page) {
   // 遍历 page.blocks（而非 _drawOrder）：生成流程在 layoutPage 之前调用，
   // 此时 _drawOrder 尚未构建 —— 之前因此漏载图，排版按 0 图高导致图文重叠
-  return Promise.all((page.blocks || []).filter((b) => b.svg).map(loadFigure));
+  return Promise.all([
+    ...(page.blocks || []).filter((b) => b.svg).map(loadFigure),
+    ...(page.blocks || []).filter((b) => b.posterImage).map(loadPosterImage),
+  ]);
 }
 
 function normalizePage(pg) {
@@ -3211,6 +3258,8 @@ function courseBlockToJSON(b) {
   const o = { text: b.text };
   if (b.say) o.say = b.say;
   if (b.svg) o.svg = b.svg;
+  if (b.kind === "poster") o.kind = "poster";
+  if (b.posterImage) o.posterImage = b.posterImage; // dataURL（黑已转透明）
   if (b.fontSize) o.fontSize = b.fontSize;
   if (b.color) o.color = b.color;
   if (b.emphasis && b.emphasis.length) o.emphasis = b.emphasis;
@@ -3802,6 +3851,83 @@ $("#btn-img-remove").addEventListener("click", () => setImage(null));
 
 let generatingBoard = false; // 备课中：防重复点击；讲解翻页逻辑感知
 let awaitingNextPage = false; // 讲完当前页但下一页还在生成 → 自动连播等待
+
+// ---------- 画板报：素材主题 → 文生图 → 铺满黑板的粉笔画 ----------
+async function generatePoster() {
+  if (generatingBoard) return;
+  const theme = $("#text-input").value.trim();
+  if (!theme)
+    return toast(tt("先填写板报主题素材", "Describe the poster theme first"), "err");
+  generatingBoard = true;
+  const workingEl = $("#poster-working");
+  const workingText = $("#poster-working-text");
+  workingText.textContent = tt("小画家们正在工作…", "Little artists are at work…");
+  workingEl.classList.remove("hidden");
+  try {
+    const res = await fetch("api/poster", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme, ...(lang === "en" ? { lang: "en" } : {}) }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    await showPoster(data.poster);
+  } catch (err) {
+    toast(
+      tt("板报绘制失败", "Poster generation failed") + `: ${String(err.message || err).slice(0, 80)}`,
+      "err",
+    );
+  } finally {
+    workingEl.classList.add("hidden");
+    generatingBoard = false;
+  }
+}
+
+// 板报页：单块铺满黑板（0,0,W,H），黑已转透明 → 直接叠画在黑板底色上
+async function showPoster(poster) {
+  const page = newPage();
+  const b = {
+    uid: "poster" + Date.now(),
+    kind: "poster",
+    region: "",
+    text: poster.theme, // 指行提问/上下文的文本源
+    x: 0,
+    y: 0,
+    width: W,
+    fontSize: 36,
+    color: "#f2f0e6",
+    posterImage: poster.image, // dataURL PNG（透明底）
+    _figure: { img: null, aspect: H / W, texts: [] },
+    emphasis: [],
+    _chars: 1, // 防 layoutPage 的 order.filter(_chars>0 || svg) 滤掉 poster 块
+  };
+  page.blocks = [b];
+  page._drawOrder = [b];
+  page._laid = true; // 已手工排版：阻止 layoutPage 重排（重排会重建 _drawOrder）
+  page.titleBlock = null;
+  layouts.set(b.uid, { lines: [], lineH: 0 }); // 无文字行（提问上下文走 b.text）
+  await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => { b._figure.img = img; resolve(); };
+    img.onerror = () => resolve(); // 失败画占位 [图]
+    img.src = poster.image;
+  });
+  stopNarration();
+  stopAnim();
+  $("#answer-panel").classList.add("hidden");
+  lectureReset(false);
+  pages = [page];
+  strokesByPage = [[]]; // 涂鸦层清空，但功能保留（poster 也是一种"页"）
+  curPage = 0;
+  page.animated = true; // 不走讲解时间线（板报无讲稿）
+  syncPageNav();
+  redrawStrokes();
+  renderText(); // 直接整幅显示
+  $("#drawer").classList.add("hidden");
+  toast(tt("板报完成！可涂鸦、可指行提问", "Poster done! Doodle or ask away"), "ok");
+}
+
+$("#btn-poster").addEventListener("click", generatePoster);
 
 async function generateBoard() {
   if (generatingBoard) return;

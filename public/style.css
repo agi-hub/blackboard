@@ -580,6 +580,26 @@ button {
 }
 #buffering.hidden { display: none; }
 #buffering .chalk-spin { width: 16px; height: 16px; border-width: 3px; flex-shrink: 0; }
+#poster-working {
+  position: fixed;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 30px;
+  border-radius: 14px;
+  background: rgba(20, 17, 14, 0.95);
+  border: 1px solid #6a5c33;
+  color: var(--accent, #d9a93b);
+  font-size: 18px;
+  letter-spacing: 2px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 110;
+}
+#poster-working.hidden { display: none; }
+#poster-working .chalk-spin { width: 22px; height: 22px; border-width: 3px; flex-shrink: 0; }
 
 /* 新手引导（未配置 API）：黑板中央浮层 */
 #setup-hint {

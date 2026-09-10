@@ -12,3 +12,10 @@
 {"ts":"2026-09-10T11:19:00.205Z","type":"clog","ok":true,"durationMs":0,"ip":"38.76.220.234","material":"spawn #2 For a right triangle"}
 {"ts":"2026-09-10T11:19:28.971Z","type":"clog","ok":true,"durationMs":28656,"ip":"38.76.220.234","material":"ended #2 "}
 {"ts":"2026-09-10T11:19:31.964Z","type":"clog","ok":true,"durationMs":0,"ip":"38.76.220.234","material":"spawn #3 Example: 3, 4, 5 3² "}
+{"ts":"2026-09-10T11:30:56.221Z","type":"poster","ok":true,"durationMs":6357,"ip":"local","model":"Kwai-Kolors/Kolors","material":"开学了"}
+{"ts":"2026-09-10T11:34:55.581Z","type":"poster","ok":true,"durationMs":5155,"ip":"local","model":"Kwai-Kolors/Kolors","material":"开学了，同学们开心上学"}
+{"ts":"2026-09-10T11:36:56.502Z","type":"poster","ok":true,"durationMs":4984,"ip":"local","model":"Kwai-Kolors/Kolors","material":"开学了"}
+{"ts":"2026-09-10T11:39:03.727Z","type":"poster","ok":true,"durationMs":6486,"ip":"38.76.220.234","model":"Kwai-Kolors/Kolors","material":"开学了"}
+{"ts":"2026-09-10T11:39:32.005Z","type":"poster","ok":true,"durationMs":5195,"ip":"38.76.220.234","model":"Kwai-Kolors/Kolors","material":"开学了"}
+{"ts":"2026-09-10T11:40:30.035Z","type":"poster","ok":true,"durationMs":5330,"ip":"38.76.220.234","model":"Kwai-Kolors/Kolors","material":"开学了"}
+{"ts":"2026-09-10T11:42:05.673Z","type":"poster","ok":true,"durationMs":5038,"ip":"38.76.220.234","model":"Kwai-Kolors/Kolors","material":"开学了，同学们背着书包上学"}
