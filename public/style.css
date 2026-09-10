@@ -445,9 +445,17 @@ button {
   font-size: 12px;
 }
 
-.drawer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; flex-wrap: wrap; }
-#drawer .drawer-actions .tool-btn,
-#drawer .drawer-actions .ai-btn { padding: 5px 9px; min-width: 76px; } /* 紧凑：4 按钮在 326px 容器一行放下（76*4+5*3=319）；主按钮等宽 */
+.drawer-actions { display: flex; align-items: stretch; justify-content: flex-end; gap: 5px; flex-wrap: wrap; }
+#drawer .drawer-actions > button {
+  flex: 0 1 auto; /* 桌面：内容自适应但统一基准 */
+  padding: 5px 9px;
+  min-width: 76px;
+  height: 34px;
+  line-height: 1;
+  font-size: 14px;
+  white-space: nowrap;
+}
+#drawer .drawer-actions > button#btn-holdtalk { height: 34px; font-size: 14px; letter-spacing: normal; }
 .cfg-status { font-size: 12px; color: var(--muted); margin-right: auto; }
 
 /* ---------- 设置弹窗 ---------- */
@@ -849,10 +857,10 @@ button {
   .drawer-tip { font-size: 11.5px; margin: -2px 0 0; }
   #drawer, #answer-panel, #lecture-panel { gap: 6px; }
   #text-input { min-height: 96px; font-size: 15px; }
-  .drawer-actions { flex-wrap: wrap; justify-content: stretch; }
-  .drawer-actions .tool-btn, .drawer-actions .ai-btn { flex: 1 1 30%; height: 40px; }
-  /* 两个主按钮（开始讲课/画板报）一行平分、严格等宽 */
-  .drawer-actions .ai-btn { flex: 1 1 calc(50% - 6px); max-width: calc(50% - 6px); }
+  #drawer .drawer-actions { flex-wrap: nowrap; justify-content: stretch; }
+  /* 4 按钮一行平分、严格等宽同高（id 级特异性压过桌面 #drawer .drawer-actions > button） */
+  #drawer .drawer-actions > button { flex: 1 1 0; height: 40px; min-width: 0; padding: 0 4px; font-size: 13px; }
+  #drawer .drawer-actions > button#btn-holdtalk { height: 40px; }
   #answer-panel { max-height: 58vh; }
   #lecture-panel { max-height: 44vh; }
   #lecture-body p { font-size: 14px; line-height: 1.7; }
