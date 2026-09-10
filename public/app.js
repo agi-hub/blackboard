@@ -3867,7 +3867,7 @@ async function generatePoster() {
     const res = await fetch("api/poster", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ theme, ...(lang === "en" ? { lang: "en" } : {}) }),
+      body: JSON.stringify({ theme, orient: W < H ? "portrait" : "landscape", ...(lang === "en" ? { lang: "en" } : {}) }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);

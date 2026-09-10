@@ -93,7 +93,7 @@ const DEFAULT_CONFIG: AppConfig = {
   apiKey: "",
   textModel: "glm-5.3",
   visionModel: "glm-5.3-flash",
-  maxRPM: 10,
+  maxRPM: 30,
   disableThinking: true,
   ttsBaseUrl: "https://api.siliconflow.cn/v1",
   ttsApiKey: "",
@@ -1165,7 +1165,7 @@ Bun.serve({
             body: JSON.stringify({
               model: cfg.posterModel,
               prompt,
-              image_size: "768x432",
+              image_size: body.orient === "portrait" ? "432x768" : "768x432",
               batch_size: 1,
             }),
             signal: AbortSignal.timeout(120_000),
