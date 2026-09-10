@@ -307,7 +307,7 @@ const UI_I18N = [
     "ph",
   ],
   ["#btn-image", "上传图像", "Upload Image", "text"],
-  ["#btn-holdtalk", "🎤 按住说话", "🎤 Hold to Talk", "text"],
+  ["#btn-holdtalk", "按住说话", "Hold to Talk", "text"],
   ["#btn-generate", "开始学习", "Start", "text"],
   ["#btn-poster", "画板报", "Poster", "text"],
   [".brand-name", "敲黑板", "ChalkTalk", "text"],
@@ -1915,9 +1915,9 @@ function stopHoldTalk() {
 
 async function finishHoldTalk(mode = "materials") {
   holdTalkBtn.classList.remove("recording");
-  holdTalkBtn.textContent = tt("🎤 按住说话", "🎤 Hold to Talk");
+  holdTalkBtn.textContent = tt("按住说话", "Hold to Talk");
   const resetBtn = () => {
-    holdTalkBtn.textContent = tt("🎤 按住说话", "🎤 Hold to Talk");
+    holdTalkBtn.textContent = tt("按住说话", "Hold to Talk");
   };
   const blob = new Blob(holdTalk.chunks, {
     type: holdTalk.rec.mimeType || "audio/webm",
