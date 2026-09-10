@@ -268,6 +268,14 @@ button {
 }
 .ai-btn.primary:hover { filter: brightness(1.08); }
 .ai-btn:disabled { opacity: 0.5; cursor: wait; }
+/* 画板报按钮：青绿粉笔色（与黄色 primary 区分，黑板粉笔色系） */
+.ai-btn.poster {
+  background: linear-gradient(160deg, #7fd8c0, #3aa98a);
+  color: #0c2a20;
+  font-weight: 700;
+  text-shadow: none;
+}
+.ai-btn.poster:hover { filter: brightness(1.08); }
 
 /* ---------- 主舞台与黑板 ---------- */
 
@@ -437,7 +445,7 @@ button {
   font-size: 12px;
 }
 
-.drawer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.drawer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .cfg-status { font-size: 12px; color: var(--muted); margin-right: auto; }
 
 /* ---------- 设置弹窗 ---------- */

@@ -277,44 +277,37 @@ function blackToAlphaPng(bytes: Uint8Array): Uint8Array {
       px[y * stride + x] = v;
     }
   }
-  // 黑→透明：先从四边采样自动检测背景基准色（模型多数听令画纯黑，
-  // 但偶尔画深棕/深灰背景——固定阈值在这种图上失效），
-  // 再按「与背景色的距离」衰减 alpha：背景近端全透、粉笔线条（亮/彩色）保留。
-  const edgeLum: number[] = [];
-  const edgePx: [number, number, number][] = [];
-  for (let x = 0; x < width; x += 7) {
-    for (const y of [2, height - 3]) {
-      const i = y * stride + x * bpp;
-      edgePx.push([px[i], px[i + 1], px[i + 2]]);
-    }
+  // 黑→透明：背景基准 = 全图亮度直方图众数（背景占多数像素，众数即背景主色）；
+  // 边缘采样在"晕影图"（边缘比中心暗）上失真。众数必为暗色才可信（亮众数=内容铺满→守卫拦截）
+  const lumBins = new Map<number, number>(); // bin=8 灰度桶 → 计数
+  for (let i = 0; i < px.length; i += bpp) {
+    const lum = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000;
+    const bin = Math.round(lum / 8) * 8;
+    lumBins.set(bin, (lumBins.get(bin) ?? 0) + 1);
   }
-  for (let y = 0; y < height; y += 7) {
-    for (const x of [2, width - 3]) {
-      const i = y * stride + x * bpp;
-      edgePx.push([px[i], px[i + 1], px[i + 2]]);
-    }
+  let bgLum = 0, bgCount = 0;
+  for (const [bin, n] of lumBins) {
+    if (n > bgCount) { bgCount = n; bgLum = bin; }
   }
-  for (const [r, g, b] of edgePx) edgeLum.push((r * 299 + g * 587 + b * 114) / 1000);
-  edgeLum.sort((a, b) => a - b);
-  const bgLum = edgeLum[Math.floor(edgeLum.length * 0.1)] ?? 0; // P10：边缘最暗一批 = 真背景（内容常延伸到边缘，P25 会被内容污染）
+  // 背景饱和度：亮度在众数 ±20 内的像素平均饱和度
   const bgSat = (() => {
-    const dark = edgePx.filter(([r, g, b]) => Math.abs((r * 299 + g * 587 + b * 114) / 1000 - bgLum) < 20);
-    if (!dark.length) return 0;
-    return dark.reduce((n, [r, g, b]) => n + (Math.max(r, g, b) - Math.min(r, g, b)), 0) / dark.length;
+    let sum = 0, n = 0;
+    for (let i = 0; i < px.length; i += bpp) {
+      const r = px[i], g = px[i + 1], b = px[i + 2];
+      const lum = (r * 299 + g * 587 + b * 114) / 1000;
+      if (Math.abs(lum - bgLum) < 20) { sum += Math.max(r, g, b) - Math.min(r, g, b); n++; }
+    }
+    return n ? sum / n : 0;
   })();
-  // 内容保护线：背景通常又暗又灰；亮度或饱和度远超背景的必是粉笔画内容
-  const bgIsDark = bgLum < 80;
-  // 背景有效性守卫：边缘暗像素占比 <35% 说明模型没画暗背景（内容铺满边角），
-  // 强行抠背景会啃掉内容 → 不转换（返回原图，前端直接铺满也有板报效果）
-  const darkRatio = edgeLum.filter((l) => l < 80).length / edgeLum.length;
-  if (darkRatio < 0.35) throw new Error("背景不是暗色，跳过转透明");
+  // 守卫：众数太亮（背景不是暗色 → 内容铺满）不转换，原图返回
+  if (bgLum > 90 || bgCount / (width * height) < 0.12) throw new Error("背景不是暗色，跳过转透明");
   const isBg = (r: number, g: number, b: number) => {
     const lum = (r * 299 + g * 587 + b * 114) / 1000;
     const sat = Math.max(r, g, b) - Math.min(r, g, b);
-    if (lum > bgLum + 60) return false; // 明显比背景亮 → 粉笔内容
+    if (lum > bgLum + 55) return false; // 明显比背景亮 → 粉笔内容
     if (sat > bgSat + 50) return false; // 明显比背景鲜艳 → 彩色粉笔
     const dist = Math.abs(lum - bgLum) + Math.max(0, sat - bgSat);
-    return dist < (bgIsDark ? 50 : 40); // 暗背景容差稍宽（噪声大）
+    return dist < 42;
   };
   const rgba = new Uint8Array(width * height * 4);
   for (let y = 0; y < height; y++) {
@@ -326,9 +319,10 @@ function blackToAlphaPng(bytes: Uint8Array): Uint8Array {
       let alpha = 255;
       if (isBg(r, g, b)) {
         const dist = Math.abs(lum - bgLum) + Math.max(0, sat - bgSat);
-        alpha = Math.min(255, Math.round((dist / 50) * 255));
-      } else if (lum < bgLum + 60 && lum < 60 && sat < 40) {
-        alpha = Math.round(lum * 2); // 比背景更暗的纯黑残留也吃掉
+        // dist<16 视为纯背景全透；16~42 平方衰减（陡峭，避免灰蒙蒙）
+        alpha = dist < 16 ? 0 : Math.min(255, Math.round(((dist - 16) / 26) ** 1.6 * 255));
+      } else if (lum < bgLum + 55 && lum < 60 && sat < 40) {
+        alpha = Math.round(lum * 1.5); // 比背景更暗的纯黑残留也吃掉
       }
       rgba[di] = r; rgba[di + 1] = g; rgba[di + 2] = b;
       rgba[di + 3] = (alpha * (bpp === 4 ? px[si + 3] : 255)) / 255;
@@ -1158,10 +1152,10 @@ Bun.serve({
           material: summarizeMaterial(theme), ...extra,
         });
         try {
-          // 提示词与讲课完全不同：粉笔简笔画风格约束（用户给的参考模板）
+          // 提示词与讲课完全不同：纯线条粉笔简笔画（无填充），清新留白
           const en = body.lang === "en";
-          const styleZh = "纯黑背景（画面画在漆黑一片的背景上，背景之外大量留黑，禁止任何背景色块、禁止棕色灰色纸张底色），黑板报风格粉笔简笔画，白色手绘粉笔线条，线条轻微抖动不光滑，简笔，一定使用彩色粉笔，干净轮廓，可以适当做粉笔样填充，无阴影，无渐变，画面留白充足，高对比度，边缘干净，2D平面插画，不要背景";
-          const styleEn = "on a PURE BLACK background (drawing floats on solid pitch-black, generous empty black space, strictly no background color blocks, no brown/grey paper fill), blackboard bulletin chalk drawing, white hand-drawn chalk lines, slightly shaky imperfect lines, simple sketch style, must use colored chalks, clean outlines, light chalk fill only, no shadows, no gradients, high contrast, clean edges, flat 2D";
+          const styleZh = "纯黑背景（画面画在漆黑一片的背景上，大量留黑，禁止任何背景色块、禁止棕色灰色纸张底色），极简粉笔线描画，只用细线条勾勒轮廓，白色粉笔线条为主、少量彩色粉笔点缀，线条轻微抖动不光滑，手绘感，禁止任何填充色块（所有形状只描边不填充），无阴影，无渐变，构图疏朗，大量留白，清新简洁，高对比度，边缘干净，2D平面插画";
+          const styleEn = "on a PURE BLACK background (solid pitch-black, generous empty black space, no background blocks, no brown/grey paper), minimal chalk LINE drawing, thin outlines only, mostly white chalk lines with a few colored chalk accents, slightly shaky hand-drawn lines, STRICTLY NO FILLS (every shape outlined, never colored in), no shadows, no gradients, airy composition, lots of empty space, fresh and elegant, high contrast, clean edges, flat 2D";
           const prompt = en
             ? `${theme} themed classroom blackboard bulletin, children happily going to school, simple stick-figure sketch. ${styleEn}`
             : `${theme}为主题的黑板报，简笔画，有同学们上学的开心的画面。${styleZh}`;
