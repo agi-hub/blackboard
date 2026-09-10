@@ -1165,7 +1165,7 @@ Bun.serve({
             body: JSON.stringify({
               model: cfg.posterModel,
               prompt,
-              image_size: "1280x720",
+              image_size: "768x432",
               batch_size: 1,
             }),
             signal: AbortSignal.timeout(120_000),
