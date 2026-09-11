@@ -256,12 +256,4 @@
   <!-- 板报绘制中提示 -->
   <div id="poster-working" class="hidden"><span class="chalk-spin"></span><span id="poster-working-text">小画家们正在工作…</span></div>
 
-  <script>
-    // 缓存自检：app.js 版本不符（旧缓存）→ 强制整页刷新一次绕过缓存
-    window.addEventListener("load", function () {
-      if (window.__APP_VER !== 3) {
-        window.location.replace("/?cachebust=" + Date.now());
-      }
-    });
-  </script>
-  <script src="app.js?v=71"></script>
+  <script src="app.js?v=72"></script>

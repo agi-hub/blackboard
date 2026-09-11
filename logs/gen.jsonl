@@ -44,3 +44,41 @@
 {"ts":"2026-09-10T14:02:41.531Z","type":"poster","ok":true,"durationMs":3067,"ip":"38.76.220.234","model":"Tongyi-MAI/Z-Image-Turbo","material":"开学了"}
 {"ts":"2026-09-10T14:18:47.209Z","type":"poster","ok":true,"durationMs":4890,"ip":"39.157.54.2","model":"Tongyi-MAI/Z-Image-Turbo","material":"乔迁新居"}
 {"ts":"2026-09-10T14:20:36.748Z","type":"poster","ok":true,"durationMs":4790,"ip":"local","model":"Tongyi-MAI/Z-Image-Turbo","material":"开学了"}
+{"ts":"2026-09-10T14:24:22.992Z","type":"text2board","ok":true,"durationMs":15149,"ip":"104.28.163.143","model":"glm-5.3","lang":"zh","stream":true,"material":"Pi Agent Harness This is the home of the Pi agent harness pr","images":0,"pages":1,"blocks":2}
+{"ts":"2026-09-10T14:24:25.595Z","type":"tts","ok":true,"durationMs":1343,"ip":"104.28.163.143","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么今天我们来看一个挺有意思的项目，叫 Pi Agent Harness，这个呢，是一个可以自我扩展的编程智能体框架。"}
+{"ts":"2026-09-10T14:24:25.739Z","type":"tts","ok":true,"durationMs":1486,"ip":"104.28.163.143","model":"FunAudioLLM/CosyVoice2-0.5B","material":"好，这一页记住一句话就够了：Pi 是一个能自我扩展的编码智能体框架，这是它最大的卖点呢。"}
+{"ts":"2026-09-10T14:24:26.126Z","type":"tts","ok":true,"durationMs":1873,"ip":"104.28.163.143","model":"FunAudioLLM/CosyVoice2-0.5B","material":"然后呢看右边这个流程图，任务 进来以后，智能体先做推理，推理到中间呢，它发现能力不够，就自己动手 扩展能力，最后完成编码"}
+{"ts":"2026-09-10T14:24:27.055Z","type":"tts","ok":true,"durationMs":2803,"ip":"104.28.163.143","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么大家先看左边，这个 Agent Harness 呢，就是智能体的一个运行框架，负责把智能体跑起来。它的核心亮点在哪呢"}
+{"ts":"2026-09-10T14:24:35.015Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.163.143","material":"spawn #0 Pi Agent Harness"}
+{"ts":"2026-09-10T14:24:47.853Z","type":"clog","ok":true,"durationMs":11256,"ip":"104.28.163.143","material":"ended #0 "}
+{"ts":"2026-09-10T14:24:52.297Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.163.143","material":"spawn #2 ① Agent Harness = 智能"}
+{"ts":"2026-09-10T14:25:23.238Z","type":"clog","ok":true,"durationMs":30336,"ip":"104.28.163.143","material":"ended #2 "}
+{"ts":"2026-09-10T14:25:28.391Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.163.143","material":"spawn #4 流程：任务 → 智能体推理 → 扩展能力"}
+{"ts":"2026-09-10T14:25:46.168Z","type":"clog","ok":true,"durationMs":17784,"ip":"104.28.163.143","material":"ended #4 "}
+{"ts":"2026-09-10T14:25:49.572Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.163.143","material":"spawn #5 核心一句话：可自我扩展的编码智能体框架"}
+{"ts":"2026-09-10T14:25:59.184Z","type":"clog","ok":true,"durationMs":9216,"ip":"104.28.163.143","material":"ended #5 "}
+{"ts":"2026-09-10T14:40:54.566Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.163.109","material":"spawn #0 Pi Agent Harness"}
+{"ts":"2026-09-10T23:24:03.555Z","type":"asr","ok":true,"durationMs":538,"ip":"39.157.54.2","model":"Qwen/Qwen3-ASR-1.7B","material":"哥德巴赫猜想。"}
+{"ts":"2026-09-10T23:24:17.377Z","type":"tts","ok":true,"durationMs":922,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"所以这一页就记一句话：大于 2 的偶数，等于素数加素数。就这么朴素的一条。"}
+{"ts":"2026-09-10T23:24:17.770Z","type":"tts","ok":true,"durationMs":1316,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"同学们，今天咱们来聊一个数论里最有名的问题——哥德巴赫猜想。这个问题啊，看起来简单得不得了，但两百多年了没人能证明。"}
+{"ts":"2026-09-10T23:24:18.195Z","type":"tts","ok":true,"durationMs":1739,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"这个猜想是 1742 年，哥德巴赫写信给大数学家欧拉提出来的。欧拉研究了半天，说这个猜想肯定对，但是他证不出来。你看，连"}
+{"ts":"2026-09-10T23:24:18.219Z","type":"tts","ok":true,"durationMs":1764,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么猜想本身一句话就说完：任何一个大于 2 的偶数，都可以写成两个素数相加。就这么简单。大家想想，为什么它难呢？因为偶数"}
+{"ts":"2026-09-10T23:24:18.303Z","type":"tts","ok":true,"durationMs":1848,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"咱们来动手验证一下。8 等于 3 加 5，对吧？10 呢，可以是 3 加 7，也可以 5 加 5。100 也行，3 加 "}
+{"ts":"2026-09-10T23:24:20.556Z","type":"clog","ok":true,"durationMs":0,"ip":"39.157.54.2","material":"spawn #0 哥德巴赫猜想"}
+{"ts":"2026-09-10T23:24:52.751Z","type":"asr","ok":true,"durationMs":365,"ip":"39.157.54.2","model":"Qwen/Qwen3-ASR-1.7B","material":"哥德巴赫猜想。"}
+{"ts":"2026-09-10T23:25:13.792Z","type":"tts","ok":true,"durationMs":1219,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"右边这个图就展示了这个过程：左边是偶数，箭头过去，右边是它拆出来的素数对。为什么这么简单的题这么难证呢？咱们接着往下看。"}
+{"ts":"2026-09-10T23:25:13.919Z","type":"tts","ok":true,"durationMs":1346,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"今天咱们来聊一个特别有名的数学难题，叫哥德巴赫猜想。这个题看起来简单得不得了，但到现在都没人能证明，你们信不信？"}
+{"ts":"2026-09-10T23:25:14.092Z","type":"tts","ok":true,"durationMs":1519,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么猜想说什么呢？你看，任何一个大于 2 的 偶数，都能写成 两个素数 加起来。比如说 8 等于 3 加 5，10 等于"}
+{"ts":"2026-09-10T23:25:14.116Z","type":"tts","ok":true,"durationMs":1543,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"大家可以在心里随便想一个偶数试试，然后动手拆一拆，看看是不是都能拆成两个素数相加。到目前为止，验证过的数都成立，一个反例"}
+{"ts":"2026-09-10T23:25:16.221Z","type":"clog","ok":true,"durationMs":0,"ip":"39.157.54.2","material":"spawn #0 哥德巴赫猜想"}
+{"ts":"2026-09-10T23:27:50.194Z","type":"asr","ok":true,"durationMs":1346,"ip":"39.157.54.2","model":"Qwen/Qwen3-ASR-1.7B","material":"检查的。哎，咋咋死了两条？死了两条鱼。啊！老公。嗯。死了两条大鱼。哎，你把氧气罐放那吧。氧气不行了。嗯。嗯嗯嗯嗯。你那水"}
+{"ts":"2026-09-10T23:28:39.816Z","type":"tts","ok":true,"durationMs":1138,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"好，咱们今天来看一个家里发生的小事故哈。鱼缸里突然死了两条大鱼，那到底哪儿出了问题呢？咱们一步步来复盘。"}
+{"ts":"2026-09-10T23:28:39.949Z","type":"tts","ok":true,"durationMs":1270,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"右边这个图我画了两根鱼缸，你们对比一下。左边是 平时 的水位，右边是 现在 的，你看矮了一大截对吧？水少了，溶氧自然就跟"}
+{"ts":"2026-09-10T23:28:40.490Z","type":"tts","ok":true,"durationMs":1811,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么大家看现场啊，第一个事实就是 2条大鱼 死掉了。然后呢，第一个反应是氧气不够，所以把 氧气罐 放进去了。但真正的问题"}
+{"ts":"2026-09-10T23:28:43.208Z","type":"text2board","ok":true,"durationMs":14988,"ip":"39.157.54.2","model":"glm-5.3","lang":"zh","stream":true,"material":"检查的。哎，咋咋死了两条？死了两条鱼。啊！老公。嗯。死了两条大鱼。哎，你把氧气罐放那吧。氧气不行了。嗯。嗯嗯嗯嗯。你那水","images":0,"pages":2,"blocks":4}
+{"ts":"2026-09-10T23:28:43.255Z","type":"clog","ok":true,"durationMs":0,"ip":"39.157.54.2","material":"spawn #0 鱼缸事故复盘：为什么死了两条鱼"}
+{"ts":"2026-09-10T23:29:50.693Z","type":"asr","ok":true,"durationMs":427,"ip":"39.157.54.2","model":"Qwen/Qwen3-ASR-1.7B","material":"哥德巴赫猜想。"}
+{"ts":"2026-09-10T23:29:54.883Z","type":"poster","ok":true,"durationMs":3526,"ip":"39.157.54.2","model":"Tongyi-MAI/Z-Image-Turbo","material":"哥德巴赫猜想。"}
+{"ts":"2026-09-10T23:31:52.181Z","type":"poster","ok":true,"durationMs":3659,"ip":"39.157.54.2","model":"Tongyi-MAI/Z-Image-Turbo","material":"哥德尔"}
+{"ts":"2026-09-10T23:32:27.190Z","type":"poster","ok":true,"durationMs":3587,"ip":"39.157.54.2","model":"Tongyi-MAI/Z-Image-Turbo","material":"spring"}
+{"ts":"2026-09-10T23:36:06.006Z","type":"poster","ok":true,"durationMs":3701,"ip":"39.157.54.2","model":"Tongyi-MAI/Z-Image-Turbo","material":"狗狗"}
