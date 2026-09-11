@@ -96,3 +96,56 @@
 {"ts":"2026-09-11T00:12:11.693Z","type":"tts","ok":true,"durationMs":1859,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"来，咱们看这张图。狗身上最厉害的就是鼻子，湿湿的鼻子能帮它分辨气味；然后你看那个尾巴，摇得快说明它开心，夹起来就是害怕，"}
 {"ts":"2026-09-11T00:12:11.992Z","type":"tts","ok":true,"durationMs":2158,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"大家猜猜，狗狗跟人做朋友多久了？其实啊，狗是人类最早驯化的动物，一万多年前就跟着我们啦。然后呢，它的嗅觉特别厉害，能达到"}
 {"ts":"2026-09-11T00:12:14.085Z","type":"clog","ok":true,"durationMs":0,"ip":"39.157.54.2","material":"spawn #0 狗狗小百科"}
+{"ts":"2026-09-11T12:37:13.299Z","type":"tts","ok":true,"durationMs":1222,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"今天咱们来聊一个三百年来都没人能完全证明的数学大难题，叫哥德巴赫猜想。"}
+{"ts":"2026-09-11T12:37:13.469Z","type":"tts","ok":true,"durationMs":1243,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"记住这一页核心：大于2的偶数等于两个素数之和，简单，却至今没人能证明。"}
+{"ts":"2026-09-11T12:37:13.696Z","type":"tts","ok":true,"durationMs":1469,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那到今天证明出来了吗？没有。所以它被称为数学皇冠上的明珠。为什么这么简单的一句话就这么难证呢？咱们接着往下看。"}
+{"ts":"2026-09-11T12:37:14.048Z","type":"tts","ok":true,"durationMs":1971,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"欧拉收到信之后怎么回应的呢？他说他自己也没法证明，但他相信这个结论是对的。你看，连欧拉都束手无策，这一下就吸引了好几代数"}
+{"ts":"2026-09-11T12:37:14.081Z","type":"tts","ok":true,"durationMs":2004,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么这个猜想是什么呢？1742年，哥德巴赫给大数学家欧拉写了封信，他说：任何一个大于2的偶数，都能写成两个素数相加。就这"}
+{"ts":"2026-09-11T12:37:14.179Z","type":"tts","ok":true,"durationMs":2102,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"我们来动手试一试哈。8 等于 3 加 5，16 呢，可以等于 3 加 13，也可以等于 5 加 11。大家再想想 100"}
+{"ts":"2026-09-11T12:37:25.720Z","type":"tts","ok":true,"durationMs":1078,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"直接证不动，数学家就想了个聪明的办法——先弱化条件，一步一步往回逼近。我们看这张路线图。"}
+{"ts":"2026-09-11T12:37:26.400Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #0 哥德巴赫猜想"}
+{"ts":"2026-09-11T12:37:29.159Z","type":"tts","ok":true,"durationMs":1905,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"思路是这样的：先把问题改成「任一充分大的偶数，等于一个素数加一个殆素数」。什么是殆素数呢？就是只有很少几个素因子的数。然"}
+{"ts":"2026-09-11T12:37:31.631Z","type":"text2board","ok":true,"durationMs":30766,"ip":"104.28.153.5","model":"glm-5.3","lang":"zh","stream":true,"material":"哥德堡","images":0,"pages":3,"blocks":11}
+{"ts":"2026-09-11T12:37:33.192Z","type":"tts","ok":true,"durationMs":1658,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"这里要重点提一位中国人——陈景润。1966年他证明了「1+2」，就是偶数等于一个素数加一个最多两个素因子的数。这是到目前"}
+{"ts":"2026-09-11T12:37:36.321Z","type":"clog","ok":true,"durationMs":8688,"ip":"104.28.153.5","material":"ended #0 "}
+{"ts":"2026-09-11T12:37:40.658Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #0 哥德巴赫猜想"}
+{"ts":"2026-09-11T12:37:44.667Z","type":"tts","ok":true,"durationMs":1210,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"大家猜猜，从 1+2 到 1+1 是不是就差一小步了？其实啊，这最后一步可能比前面所有加起来还难，到今天都没人跨过去。"}
+{"ts":"2026-09-11T12:37:48.950Z","type":"tts","ok":true,"durationMs":964,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"小结一下：陈景润的1加2是最强成果，但真正的1加1，还没人证出来。"}
+{"ts":"2026-09-11T12:37:49.966Z","type":"clog","ok":true,"durationMs":8688,"ip":"104.28.153.5","material":"ended #0 "}
+{"ts":"2026-09-11T12:37:52.724Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #2 1742年 哥德巴赫致信欧拉 任何 >2"}
+{"ts":"2026-09-11T12:37:52.880Z","type":"tts","ok":true,"durationMs":926,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那就有个问题了：这么简单的一句话，为什么三百年都证不出来呢？我们看最后这一页。"}
+{"ts":"2026-09-11T12:37:56.838Z","type":"tts","ok":true,"durationMs":1910,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"根源在哪儿呢？素数是乘法世界的基本粒子，可猜想问的却是加法关系。那么问题来了——乘法和加法这两套规则，在数论里要想互相打"}
+{"ts":"2026-09-11T12:38:00.495Z","type":"tts","ok":true,"durationMs":1261,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"现有的筛法、解析数论这些工具，能证明到很接近的程度，比如弱形式的猜想已经有证明啦，但最后这一步，全都差着一口气。"}
+{"ts":"2026-09-11T12:38:03.710Z","type":"tts","ok":true,"durationMs":1441,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"不过这个难题可不是白费的。为了啃它，筛法和解析数论被大大推动了。另外注意啊，它是千禧年七大难题之一，谁能证出来，直接一百"}
+{"ts":"2026-09-11T12:38:06.889Z","type":"tts","ok":true,"durationMs":1207,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"这个猜想到今天已经悬置两百八十多年了。你们觉得，将来第一个证明它的人，会是谁呢？说不定就坐在这间教室里哦。"}
+{"ts":"2026-09-11T12:38:09.994Z","type":"tts","ok":true,"durationMs":1260,"ip":"104.28.153.5","model":"FunAudioLLM/CosyVoice2-0.5B","material":"总结一下：它难在加法和乘法互通的桥梁还没搭起来，而攻它的过程本身，就推动了整个数论往前走。"}
+{"ts":"2026-09-11T12:38:12.453Z","type":"clog","ok":true,"durationMs":18984,"ip":"104.28.153.5","material":"ended #2 "}
+{"ts":"2026-09-11T12:38:14.561Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #3 例：8 = 3+5 16 = 3+13 "}
+{"ts":"2026-09-11T12:38:34.757Z","type":"clog","ok":true,"durationMs":19416,"ip":"104.28.153.5","material":"ended #3 "}
+{"ts":"2026-09-11T12:38:36.065Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #5 欧拉：无法证明 但相信它成立"}
+{"ts":"2026-09-11T12:38:53.554Z","type":"clog","ok":true,"durationMs":16728,"ip":"104.28.153.5","material":"ended #5 "}
+{"ts":"2026-09-11T12:38:54.845Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #6 至今未证 → 数学皇冠上的明珠"}
+{"ts":"2026-09-11T12:39:09.457Z","type":"clog","ok":true,"durationMs":13464,"ip":"104.28.153.5","material":"ended #6 "}
+{"ts":"2026-09-11T12:39:10.843Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #7 >2 的偶数 = 两素数之和，简单却未证"}
+{"ts":"2026-09-11T12:39:20.398Z","type":"clog","ok":true,"durationMs":8976,"ip":"104.28.153.5","material":"ended #7 "}
+{"ts":"2026-09-11T12:39:23.610Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #0 攻坚之路：弱化再逼近"}
+{"ts":"2026-09-11T12:39:34.857Z","type":"clog","ok":true,"durationMs":10488,"ip":"104.28.153.5","material":"ended #0 "}
+{"ts":"2026-09-11T12:39:36.349Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #2 \"任一充分大偶数 = 素数+殆素数\" 筛"}
+{"ts":"2026-09-11T12:39:57.479Z","type":"clog","ok":true,"durationMs":20376,"ip":"104.28.153.5","material":"ended #2 "}
+{"ts":"2026-09-11T12:39:59.302Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #4 1966 陈景润 证明 1+2 迄今最强"}
+{"ts":"2026-09-11T12:40:18.806Z","type":"clog","ok":true,"durationMs":18576,"ip":"104.28.153.5","material":"ended #4 "}
+{"ts":"2026-09-11T12:40:20.335Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #5 目标 1+1：仍未攻下"}
+{"ts":"2026-09-11T12:40:33.611Z","type":"clog","ok":true,"durationMs":12696,"ip":"104.28.153.5","material":"ended #5 "}
+{"ts":"2026-09-11T12:40:35.568Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #6 陈景润 1+2 最强，1+1 仍是终极目"}
+{"ts":"2026-09-11T12:40:44.589Z","type":"clog","ok":true,"durationMs":8448,"ip":"104.28.153.5","material":"ended #6 "}
+{"ts":"2026-09-11T12:40:47.832Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #0 为什么这么难？"}
+{"ts":"2026-09-11T12:40:56.359Z","type":"clog","ok":true,"durationMs":8208,"ip":"104.28.153.5","material":"ended #0 "}
+{"ts":"2026-09-11T12:40:59.527Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #2 素数：乘法世界的原子 加法与乘法难以互通"}
+{"ts":"2026-09-11T12:41:18.409Z","type":"clog","ok":true,"durationMs":18288,"ip":"104.28.153.5","material":"ended #2 "}
+{"ts":"2026-09-11T12:41:22.066Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #3 现有工具：筛法、解析数论 均差最后一步"}
+{"ts":"2026-09-11T12:41:35.791Z","type":"clog","ok":true,"durationMs":13128,"ip":"104.28.153.5","material":"ended #3 "}
+{"ts":"2026-09-11T12:41:38.285Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #4 推动筛法与解析数论发展 悬赏 $1,00"}
+{"ts":"2026-09-11T12:41:53.931Z","type":"clog","ok":true,"durationMs":15048,"ip":"104.28.153.5","material":"ended #4 "}
+{"ts":"2026-09-11T12:41:56.722Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #6 猜想悬置 280+ 年 下一个会是你吗？"}
+{"ts":"2026-09-11T12:42:10.326Z","type":"clog","ok":true,"durationMs":13008,"ip":"104.28.153.5","material":"ended #6 "}
+{"ts":"2026-09-11T12:42:11.858Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #7 难在加乘互通，价值在推动整个数论"}

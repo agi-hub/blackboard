@@ -2415,6 +2415,17 @@ function drawSayMark(ctx, mk, frac) {
 // play() 才允许出声（Chrome 无此限制）。手势入口统一在此解锁。
 let audioUnlocked = false;
 function unlockAudio() {
+  // AudioContext 必须在用户手势内创建/恢复：懒创建（spawnVoiceEl 里）会以 suspended
+  // 态出生——元素经 createMediaElementSource 接入后声音只走该上下文，挂起 = 首播无声
+  // （重播是新手势才能 resume，曾致「第一次没声、重播才有声」）。
+  try {
+    if (!voiceAudioCtx)
+      voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    /* Web Audio 不可用 → 原音量直放兜底 */
+  }
+  if (voiceAudioCtx && voiceAudioCtx.state === "suspended")
+    voiceAudioCtx.resume().catch(() => {});
   if (audioUnlocked) return;
   audioUnlocked = true;
   try {
@@ -2426,9 +2437,6 @@ function unlockAudio() {
   } catch {
     /* 解锁尽力而为 */
   }
-  // Web Audio 上下文也须在手势内 resume（增益放大依赖它出声）
-  if (voiceAudioCtx && voiceAudioCtx.state === "suspended")
-    voiceAudioCtx.resume().catch(() => {});
 }
 
 // 清空板书层（pending 结束→时间线首帧之间的空窗，避免 renderText 全量倾泻）
