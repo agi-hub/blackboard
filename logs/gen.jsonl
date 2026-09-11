@@ -82,3 +82,17 @@
 {"ts":"2026-09-10T23:31:52.181Z","type":"poster","ok":true,"durationMs":3659,"ip":"39.157.54.2","model":"Tongyi-MAI/Z-Image-Turbo","material":"哥德尔"}
 {"ts":"2026-09-10T23:32:27.190Z","type":"poster","ok":true,"durationMs":3587,"ip":"39.157.54.2","model":"Tongyi-MAI/Z-Image-Turbo","material":"spring"}
 {"ts":"2026-09-10T23:36:06.006Z","type":"poster","ok":true,"durationMs":3701,"ip":"39.157.54.2","model":"Tongyi-MAI/Z-Image-Turbo","material":"狗狗"}
+{"ts":"2026-09-11T00:10:20.398Z","type":"text2board","ok":true,"durationMs":9205,"ip":"39.157.54.2","model":"glm-5.3","lang":"zh","stream":true,"material":"狗狗","images":0,"pages":1,"blocks":3}
+{"ts":"2026-09-11T00:10:21.170Z","type":"tts","ok":true,"durationMs":409,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"占位"}
+{"ts":"2026-09-11T00:10:21.729Z","type":"tts","ok":true,"durationMs":968,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"所以呢，狗是从狼来的，读懂它的肢体语言，才能既安全又和它亲近啦。"}
+{"ts":"2026-09-11T00:10:21.926Z","type":"tts","ok":true,"durationMs":1167,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"今天咱们来聊聊狗狗，大家的毛孩子，那狗身上有哪些好玩的知识呢？咱们一起来看看。"}
+{"ts":"2026-09-11T00:10:22.671Z","type":"tts","ok":true,"durationMs":1911,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么先看左边哈，狗狗啊，它其实是从 灰狼 驯化来的，大概一万五千年前，人类就开始养它了，是不是挺意外的？然后你们猜猜，狗"}
+{"ts":"2026-09-11T00:10:22.749Z","type":"tts","ok":true,"durationMs":1989,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"再看右边这个，很多人以为摇尾巴就是友好，其实不一定哦。那么怎么分辨呢？你看，尾巴高竖 快速摇，那是兴奋；耳朵后贴还舔你，"}
+{"ts":"2026-09-11T00:10:24.912Z","type":"clog","ok":true,"durationMs":0,"ip":"39.157.54.2","material":"spawn #0 狗狗"}
+{"ts":"2026-09-11T00:10:56.800Z","type":"text2board","ok":true,"durationMs":11571,"ip":"39.157.54.2","model":"glm-5.3","lang":"zh","stream":true,"material":"狗狗","images":0,"pages":0,"blocks":0}
+{"ts":"2026-09-11T00:12:09.536Z","type":"text2board","ok":true,"durationMs":13876,"ip":"39.157.54.2","model":"glm-5.3","lang":"zh","stream":true,"material":"狗狗","images":0,"pages":1,"blocks":3}
+{"ts":"2026-09-11T00:12:10.785Z","type":"tts","ok":true,"durationMs":951,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那今天咱们不讲难题，来聊一个大家都喜欢的话题——狗狗。你可别小看它，这里面的门道还挺多的呢。"}
+{"ts":"2026-09-11T00:12:11.188Z","type":"tts","ok":true,"durationMs":1354,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那狗狗为什么这么忠诚、这么懂人呢？你看，它其实是狼的后代，天生就是群居动物，所以它把主人当成同伴，特别好社交，这一点猫就"}
+{"ts":"2026-09-11T00:12:11.693Z","type":"tts","ok":true,"durationMs":1859,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"来，咱们看这张图。狗身上最厉害的就是鼻子，湿湿的鼻子能帮它分辨气味；然后你看那个尾巴，摇得快说明它开心，夹起来就是害怕，"}
+{"ts":"2026-09-11T00:12:11.992Z","type":"tts","ok":true,"durationMs":2158,"ip":"39.157.54.2","model":"FunAudioLLM/CosyVoice2-0.5B","material":"大家猜猜，狗狗跟人做朋友多久了？其实啊，狗是人类最早驯化的动物，一万多年前就跟着我们啦。然后呢，它的嗅觉特别厉害，能达到"}
+{"ts":"2026-09-11T00:12:14.085Z","type":"clog","ok":true,"durationMs":0,"ip":"39.157.54.2","material":"spawn #0 狗狗小百科"}

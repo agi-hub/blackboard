@@ -3054,6 +3054,7 @@ function goToPage(i) {
     renderText();
   }
   warmPageVoices(pages[Math.min(i + 1, pages.length - 1)]); // 手动翻页也预热下一页：向后翻时衔接零等待
+  autosaveCourse("page");
 }
 $("#btn-prev-page").addEventListener("click", () => goToPage(curPage - 1));
 $("#btn-next-page").addEventListener("click", () => goToPage(curPage + 1));
@@ -3153,6 +3154,7 @@ boardEl.addEventListener("pointermove", (e) => {
 
 function endStroke() {
   current = null;
+  autosaveCourse("doodle"); // 涂鸦落笔：手写不丢（存档不含涂鸦，但保课程；涂鸦层重绘为空可接受）
 }
 boardEl.addEventListener("pointerup", endStroke);
 boardEl.addEventListener("pointercancel", endStroke);
@@ -3304,6 +3306,63 @@ function saveCourse() {
   );
   a.click();
   toast(`课程已保存（${pages.length} 页，纯文本）`, "ok");
+}
+
+// ---------- 崩溃自愈：课程自动存档（localStorage），页面被杀/重载后恢复 ----------
+// 安卓浏览器内存回收/PWA 新实例会整页重载——板书全在内存，重载即失。
+// 关键节点自动写档（生成完成/翻页/涂鸦落笔/板报完成），启动时静默恢复。
+const AUTOSAVE_KEY = "bb_autosave_v1";
+function autosaveCourse(trigger) {
+  try {
+    if (!pages.length || !pages.some((p) => p._drawOrder.length)) return;
+    const data = {
+      app: "敲黑板",
+      version: 1,
+      autosave: true,
+      trigger,
+      savedAt: new Date().toISOString(),
+      curPage,
+      pages: pages.map((p) => ({
+        title: p.titleBlock ? courseBlockToJSON(p.titleBlock) : null,
+        summary: p.summaryBlock ? courseBlockToJSON(p.summaryBlock) : null,
+        regions: p.regions.map((r) => {
+          const o = { id: r.id, x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
+          if (r.header) o.header = r.header;
+          return o;
+        }),
+        blocks: p.blocks.map(courseBlockToJSON),
+      })),
+    };
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+  } catch {
+    /* localStorage 满/隐私模式：静默放弃 */
+  }
+}
+
+async function restoreAutosave() {
+  let data;
+  try {
+    data = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || "null");
+  } catch { return false; }
+  if (!data || !Array.isArray(data.pages) || !data.pages.length) return false;
+  try {
+    const newPages = data.pages
+      .map(normalizePage)
+      .filter((p) => p.titleBlock || p.blocks.length || p.summaryBlock);
+    if (!newPages.length) return false;
+    await Promise.all(newPages.map(loadFigures));
+    for (const p of newPages) layoutPage(p);
+    pages = newPages;
+    strokesByPage = pages.map(() => []);
+    curPage = Math.min(data.curPage || 0, pages.length - 1);
+    syncPageNav();
+    redrawStrokes();
+    renderText(); // 静默恢复板书（不自动开讲，教师点击「讲解」继续）
+    toast(tt("已恢复上次课程", "Restored last lesson"), "ok");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function loadCourseFile(file) {
@@ -3924,6 +3983,7 @@ async function showPoster(poster) {
   renderText(); // 直接整幅显示
   $("#drawer").classList.add("hidden");
   toast(tt("板报完成！可涂鸦、可指行提问", "Poster done! Doodle or ask away"), "ok");
+  autosaveCourse("poster");
 }
 
 $("#btn-poster").addEventListener("click", generatePoster);
@@ -4104,11 +4164,13 @@ async function acceptStreamPage(pg, receivedPages, getStarted, setStarted) {
     thinking(false); // 首页开讲即撤遮罩:后续页在后台继续生成,不再挡住讲解画面
     toast(tt("第一页好了，先开讲", "First page ready — starting"), "ok");
     playNarration(page); // 首页到达即开讲
+    autosaveCourse("stream");
   } else {
     pages.push(page);
     strokesByPage.push([]);
     syncPageNav();
     if (awaitingNextPage) tryAdvancePending();
+    autosaveCourse("stream");
   }
 }
 
@@ -4673,5 +4735,7 @@ fetch("api/config")
     }
     if (cfg.ttsVoice && VOICE_LIST.some((v) => v.id === cfg.ttsVoice))
       voiceId = cfg.ttsVoice;
+    // 崩溃/重载自愈：恢复上次课程（板书静默还原，点「讲解」续播）
+    restoreAutosave();
   })
   .catch(() => {});
