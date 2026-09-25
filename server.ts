@@ -59,6 +59,7 @@ interface AppConfig {
   ttsModel: string;
   ttsVoice: string;
   ttsSpeed: number;
+  syncWrite: boolean; // 讲解节奏：false=写完再讲（默认），true=边写边讲（语音不等写字）
   font: string; // 板书字体预设 id（前端可选）
   uiFont: string; // 界面字体预设 id（按钮/标题；前端可选）
   posterModel: string; // 板报文生图模型（SiliconFlow /images/generations）
@@ -100,6 +101,7 @@ const DEFAULT_CONFIG: AppConfig = {
   ttsModel: "FunAudioLLM/CosyVoice2-0.5B",
   ttsVoice: "FunAudioLLM/CosyVoice2-0.5B:alex",
   ttsSpeed: 1.0,
+  syncWrite: false,
   font: "kaiti",
   uiFont: "default",
   posterModel: "Tongyi-MAI/Z-Image-Turbo",
@@ -129,6 +131,7 @@ function loadConfig(): AppConfig {
     if (typeof parsed.ttsSpeed === "number" && Number.isFinite(parsed.ttsSpeed) && parsed.ttsSpeed >= 0.5 && parsed.ttsSpeed <= 2) {
       cfg.ttsSpeed = parsed.ttsSpeed;
     }
+    if (typeof parsed.syncWrite === "boolean") cfg.syncWrite = parsed.syncWrite;
     if (isStr(parsed.font) && parsed.font.trim()) cfg.font = parsed.font.trim().slice(0, 32);
     if (isStr(parsed.uiFont) && parsed.uiFont.trim()) cfg.uiFont = parsed.uiFont.trim().slice(0, 32);
     if (isStr(parsed.posterModel) && parsed.posterModel.trim()) cfg.posterModel = parsed.posterModel.trim().slice(0, 64);
@@ -795,6 +798,7 @@ Bun.serve({
           ttsModel: cfg.ttsModel,
           ttsVoice: cfg.ttsVoice,
           ttsSpeed: cfg.ttsSpeed,
+          syncWrite: cfg.syncWrite,
           font: cfg.font,
           uiFont: cfg.uiFont,
           posterModel: cfg.posterModel,
@@ -830,6 +834,7 @@ Bun.serve({
         if (typeof body.ttsSpeed === "number" && Number.isFinite(body.ttsSpeed) && body.ttsSpeed >= 0.5 && body.ttsSpeed <= 2) {
           cfg.ttsSpeed = body.ttsSpeed;
         }
+        if (typeof body.syncWrite === "boolean") cfg.syncWrite = body.syncWrite;
         if (isStr(body.font) && body.font.trim()) cfg.font = body.font.trim().slice(0, 32);
         if (isStr(body.uiFont) && body.uiFont.trim()) cfg.uiFont = body.uiFont.trim().slice(0, 32);
         if (isStr(body.posterModel) && body.posterModel.trim()) cfg.posterModel = body.posterModel.trim().slice(0, 64);

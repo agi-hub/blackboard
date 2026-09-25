@@ -44,6 +44,7 @@ const textCtx = textC.getContext("2d");
 const eraserCursorEl = $("#eraser-cursor");
 
 let chalkGrain = 1.3; // 字体磨砂强度倍率（0 关闭 / 0.7 轻 / 1.3 标准 / 2.2 重）
+let syncWrite = false; // 讲解节奏：false=写完再讲（默认），true=边写边讲（语音不等写字）
 
 // 板书字体预设：跨平台字体栈（mac / iOS / Windows / 安卓逐个命中）。
 // 各端预装差异很大；部分环境（如这台 Mac 的 Safari 26）系统楷体名在网页里全部失效，
@@ -393,6 +394,12 @@ const UI_I18N = [
     "#tab-tts label:nth-of-type(4)",
     "讲解音色（男/女声预置）",
     "Narration voice (male/female presets)",
+    "first",
+  ],
+  [
+    "#tab-tts label:nth-of-type(5)",
+    "边写边讲（语音不等写字；默认写完一块再讲）",
+    "Speak while writing (voice doesn't wait for writing; default: write first, then speak)",
     "first",
   ],
   ["#tab-look label:nth-of-type(1)", "板书主题", "Board theme", "first"],
@@ -2612,7 +2619,9 @@ async function playNarration(page, blockList) {
             gi++;
           }
         }
-        const speakAt = start + writeDur + 200;
+        // 边写边讲模式：语音与写字同点开跑（仍是上一块 ended 后才开下一块——一句一句不变）；
+        // 默认模式保持教师节奏：写完这块再开口
+        const speakAt = syncWrite ? start + 150 : start + writeDur + 200;
         // 真串行播报链：上一块真实 ended 之后才允许下一块开播（链式 await，非各块独立定时）。
         // dur 只是时间线预算——Safari 对 VBR mp3 常低报时长，预算提前走完自动翻页时
         // 旧页语音还在播 → 前后两页声音重叠（第 4 页开播撞上第 3 页尾巴）。
@@ -2734,7 +2743,7 @@ async function playNarration(page, blockList) {
         });
         speakChain = speakChain.then(() => speakDone).catch(() => {});
         narration.speakDone.push(speakDone);
-        pushSayMarks(page, b, start + writeDur + 200, v.dur * 1000, "speak");
+        pushSayMarks(page, b, speakAt, v.dur * 1000, "speak");
         pushLectureSay(b, speakAt, v.dur * 1000); // 念到哪句，讲义多哪句
         t = speakAt + Math.max(v.dur, estDur) * 1000 + 450; // 预算按保守时长（宁多勿重叠）
       } else {
@@ -4629,6 +4638,7 @@ async function openSettings() {
     $("#cfg-ttsBaseUrl").value = cfg.ttsBaseUrl || "";
     $("#cfg-ttsApiKey").value = cfg.ttsApiKeyMasked || "";
     $("#cfg-ttsModel").value = cfg.ttsModel || "";
+    $("#cfg-syncWrite").checked = cfg.syncWrite === true;
     buildSettingSelects();
     $("#cfg-voice").value = VOICE_LIST.some((v) => v.id === voiceId)
       ? voiceId
@@ -4659,6 +4669,7 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     ttsApiKey: $("#cfg-ttsApiKey").value.trim(),
     ttsModel: $("#cfg-ttsModel").value.trim(),
     ttsVoice: $("#cfg-voice").value, // 音色由下拉选择（持久化）
+    syncWrite: $("#cfg-syncWrite").checked,
     font: $("#cfg-font").value,
     uiFont: $("#cfg-uifont").value,
     grain: Number($("#cfg-grain").value),
@@ -4673,6 +4684,7 @@ $("#btn-cfg-save").addEventListener("click", async () => {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     voiceId = $("#cfg-voice").value; // 立即生效（语音按音色缓存，重讲即用新音色）
+    syncWrite = $("#cfg-syncWrite").checked; // 立即生效：下次开讲按新节奏
     applyFont($("#cfg-font").value);
     applyUiFont($("#cfg-uifont").value);
     const t = $("#cfg-theme").value;
@@ -4778,6 +4790,7 @@ fetch("api/config")
     }
     if (cfg.ttsVoice && VOICE_LIST.some((v) => v.id === cfg.ttsVoice))
       voiceId = cfg.ttsVoice;
+    if (typeof cfg.syncWrite === "boolean") syncWrite = cfg.syncWrite;
     // 崩溃/重载自愈：恢复上次课程（板书静默还原，点「讲解」续播）
     restoreAutosave();
   })
