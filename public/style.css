@@ -380,7 +380,7 @@ button {
 /* ---------- 右侧抽屉 ---------- */
 
 #drawer {
-  width: 360px;
+  width: 400px; /* 加宽：英文模式 4 按钮一行（Start Lesson/Upload Image 文字长） */
   flex-shrink: 0;
   background: var(--panel);
   border: 1px solid var(--panel-edge);
