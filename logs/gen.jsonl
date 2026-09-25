@@ -299,3 +299,74 @@
 {"ts":"2026-09-25T13:05:36.597Z","type":"clog","ok":true,"durationMs":20496,"ip":"117.129.33.42","material":"ended #4 "}
 {"ts":"2026-09-25T13:05:37.377Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 Question → Think → A"}
 {"ts":"2026-09-25T13:05:52.858Z","type":"clog","ok":true,"durationMs":15456,"ip":"117.129.33.42","material":"ended #5 "}
+{"ts":"2026-09-25T13:06:42.221Z","type":"text2board","ok":true,"durationMs":22508,"ip":"117.129.33.42","model":"glm-5.3","lang":"zh","stream":true,"material":"大鲸鱼的一些有趣特点","images":0,"pages":3,"blocks":11}
+{"ts":"2026-09-25T13:06:43.961Z","type":"tts","ok":true,"durationMs":1214,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"同学们，今天咱们聊聊海里最大的家伙——大鲸鱼。它身上好玩的特点可多啦，我们一起来看看。"}
+{"ts":"2026-09-25T13:06:44.495Z","type":"tts","ok":true,"durationMs":1216,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"成年蓝鲸体长能到 30米，体重相当于三十头大象加起来。你想想，一个这么大的家伙在海里游，那画面得多震撼呢。"}
+{"ts":"2026-09-25T13:06:44.634Z","type":"tts","ok":true,"durationMs":1356,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么这么大的块头，它吃多少呢？蓝鲸一天能吃 4吨 磷虾——算下来差不多 四百万只小龙虾那么大的虾，一天哦，妥妥的大胃王。"}
+{"ts":"2026-09-25T13:06:44.904Z","type":"tts","ok":true,"durationMs":1627,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"大家先猜猜，地球上出现过的最大动物是谁？恐龙吗？不对哦，是 蓝鲸！它的 心脏 像一辆小汽车那么大，然后那个 舌头 上居然"}
+{"ts":"2026-09-25T13:06:44.923Z","type":"tts","ok":true,"durationMs":1517,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"别看它块头大，人家还能 深潜 到五百米去觅食。注意啊，下水之前它会先浮上来大口 换气，把肺里的旧空气全换成新鲜的，然后再"}
+{"ts":"2026-09-25T13:06:45.123Z","type":"tts","ok":true,"durationMs":907,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"好，这一页记住两点：蓝鲸是地球史上最大的动物，还是个超级大胃王。"}
+{"ts":"2026-09-25T13:06:46.537Z","type":"tts","ok":true,"durationMs":922,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"接下来是鲸鱼的两个超能力——喷水和唱歌，都是它们身上特别神奇的地方。"}
+{"ts":"2026-09-25T13:06:46.821Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 大鲸鱼 · 有趣特点"}
+{"ts":"2026-09-25T13:06:48.279Z","type":"tts","ok":true,"durationMs":1280,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"很多人以为鲸鱼喷的是海水，其实不是哦！那是它 呼气 喷出来的热气，碰到冷冷空气就 凝结 成水柱啦，跟冬天我们哈气是一个道"}
+{"ts":"2026-09-25T13:06:50.551Z","type":"tts","ok":true,"durationMs":1451,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"更厉害的是，座头鲸还会 唱歌 呢！它的歌声在水里能传几十公里远。大家猜猜它唱歌干嘛？求偶、交流，还能定位，算是一种深海社"}
+{"ts":"2026-09-25T13:06:51.932Z","type":"tts","ok":true,"durationMs":1044,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"看右边这张图，热气从气孔喷出来，一路往上遇冷变成水柱，大家对照着理解一下这个过程。"}
+{"ts":"2026-09-25T13:06:52.876Z","type":"tts","ok":true,"durationMs":675,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"最后一页，我们讲鲸鱼的聪明才智，还有为什么要保护它们。"}
+{"ts":"2026-09-25T13:06:54.426Z","type":"tts","ok":true,"durationMs":1325,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"大家猜猜，地球上脑子最大的动物是谁？是 抹香鲸！它的脑子有八公斤重，我们的才一点四公斤。不过脑子大不等于更聪明哈，但确实"}
+{"ts":"2026-09-25T13:06:55.598Z","type":"clog","ok":true,"durationMs":8736,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T13:06:56.944Z","type":"tts","ok":true,"durationMs":1596,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"然后 弓头鲸 能活两百岁，是哺乳动物里的长寿冠军。这里注意啊，鲸鱼虽然叫「鱼」，但它是 哺乳动物，用肺呼吸、给宝宝喂奶，"}
+{"ts":"2026-09-25T13:06:57.924Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 蓝鲸 = 地球史上最大动物 心脏像一辆小"}
+{"ts":"2026-09-25T13:06:58.557Z","type":"tts","ok":true,"durationMs":1286,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"鲸鱼死后会沉入海底，形成 鲸落，一具遗体能养活深海的无数生物好多年，所以有句话叫「一鲸落，万物生」，特别浪漫对吧？"}
+{"ts":"2026-09-25T13:07:00.234Z","type":"tts","ok":true,"durationMs":1212,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"但是现在，气候变暖 和海洋 污染 正在威胁它们。我们能做到的，就是少用塑料、保护海洋，让这些大家伙一直陪着我们。"}
+{"ts":"2026-09-25T13:07:02.451Z","type":"tts","ok":true,"durationMs":1780,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"鲸鱼聪明、长寿、温柔，还滋养着深海。这么好的动物，值得我们好好守护。"}
+{"ts":"2026-09-25T13:07:14.040Z","type":"clog","ok":true,"durationMs":16128,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T13:07:15.790Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 体长可达 30 米 体重 ≈ 30 头大"}
+{"ts":"2026-09-25T13:07:28.077Z","type":"clog","ok":true,"durationMs":12288,"ip":"117.129.33.42","material":"ended #3 "}
+{"ts":"2026-09-25T13:07:29.191Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 一天吃 4 吨磷虾 ≈ 400万只/天"}
+{"ts":"2026-09-25T13:07:42.674Z","type":"clog","ok":true,"durationMs":13464,"ip":"117.129.33.42","material":"ended #5 "}
+{"ts":"2026-09-25T13:07:43.486Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #6 能潜到 500 米深 潜水前先大呼吸"}
+{"ts":"2026-09-25T13:07:57.351Z","type":"clog","ok":true,"durationMs":13848,"ip":"117.129.33.42","material":"ended #6 "}
+{"ts":"2026-09-25T13:07:59.390Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #7 蓝鲸：史上最大 + 超级大胃王"}
+{"ts":"2026-09-25T13:08:07.759Z","type":"clog","ok":true,"durationMs":8376,"ip":"117.129.33.42","material":"ended #7 "}
+{"ts":"2026-09-25T13:08:10.586Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 鲸鱼的超能力"}
+{"ts":"2026-09-25T13:08:18.724Z","type":"clog","ok":true,"durationMs":8136,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T13:08:19.755Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 「喷水」= 呼气喷出热气 遇冷空气 → "}
+{"ts":"2026-09-25T13:08:33.040Z","type":"clog","ok":true,"durationMs":13344,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T13:08:35.555Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 座头鲸会「唱歌」 歌声能传几十公里"}
+{"ts":"2026-09-25T13:08:52.039Z","type":"clog","ok":true,"durationMs":16488,"ip":"117.129.33.42","material":"ended #3 "}
+{"ts":"2026-09-25T13:08:53.056Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 喷水示意（呼气凝结）"}
+{"ts":"2026-09-25T13:09:03.175Z","type":"clog","ok":true,"durationMs":10104,"ip":"117.129.33.42","material":"ended #5 "}
+{"ts":"2026-09-25T13:09:06.211Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 聪明 · 长寿 · 爱护它"}
+{"ts":"2026-09-25T13:09:11.758Z","type":"clog","ok":true,"durationMs":5664,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T13:09:13.579Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 抹香鲸：脑最大 8 kg 人脑才 1.4"}
+{"ts":"2026-09-25T13:09:27.686Z","type":"clog","ok":true,"durationMs":14088,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T13:09:29.489Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 弓头鲸可活 200 岁 是哺乳动物，不是"}
+{"ts":"2026-09-25T13:09:45.495Z","type":"clog","ok":true,"durationMs":15936,"ip":"117.129.33.42","material":"ended #3 "}
+{"ts":"2026-09-25T13:09:46.430Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 鲸落：死后养育万物 「一鲸落，万物生」"}
+{"ts":"2026-09-25T13:10:00.045Z","type":"clog","ok":true,"durationMs":13608,"ip":"117.129.33.42","material":"ended #5 "}
+{"ts":"2026-09-25T13:10:00.917Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #6 气候变暖 + 污染是威胁 → 少塑料、护"}
+{"ts":"2026-09-25T13:10:13.459Z","type":"clog","ok":true,"durationMs":12528,"ip":"117.129.33.42","material":"ended #6 "}
+{"ts":"2026-09-25T13:10:14.620Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #7 鲸鱼：聪明又长寿，值得守护"}
+{"ts":"2026-09-25T13:10:23.572Z","type":"clog","ok":true,"durationMs":8928,"ip":"117.129.33.42","material":"ended #7 "}
+{"ts":"2026-09-25T13:11:37.780Z","type":"text2board","ok":true,"durationMs":16835,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"光的折射：光从空气进入水中时传播方向发生偏折。折射角小于入射角。筷子放入水中看起来变弯就是这个原因。海市蜃楼也是折射现象","images":0,"pages":2,"blocks":4}
+{"ts":"2026-09-25T13:12:43.834Z","type":"text2board","ok":true,"durationMs":22467,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"植物光合作用：叶子中的叶绿体利用光能，把二氧化碳和水转化为有机物并释放氧气。","images":0,"pages":3,"blocks":12}
+{"ts":"2026-09-25T13:13:17.741Z","type":"text2board","ok":true,"durationMs":14064,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"摩擦力：两个相互接触的物体发生相对运动时产生阻碍运动的力。","images":0,"pages":1,"blocks":5}
+{"ts":"2026-09-25T13:17:16.496Z","type":"text2board","ok":true,"durationMs":8707,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"中国四大发明：造纸术、印刷术、火药和指南针。造纸术由蔡伦改进。印刷术是毕昇发明活字印刷。火药源于炼丹。指南针用于航海。","images":0,"pages":1,"blocks":4}
+{"ts":"2026-09-25T13:21:21.653Z","type":"text2board","ok":true,"durationMs":39998,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"第二章 几何光学基础。第一节 光的直线传播：光在同种均匀介质中沿直线传播，影子的形成、日食月食都是例证。第二节 光的反射","images":0,"pages":4,"blocks":14}
+{"ts":"2026-09-25T13:22:46.020Z","type":"text2board","ok":true,"durationMs":36567,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"宇宙探索简史：第一宇宙速度7.9km/s实现绕地飞行。第二宇宙速度11.2km/s摆脱地球引力。第三宇宙速度16.7km","images":0,"pages":3,"blocks":15}
+{"ts":"2026-09-25T13:23:19.743Z","type":"text2board","ok":true,"durationMs":22437,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"化学元素周期表概述：元素周期表由门捷列夫于1869年发明。周期表共有七个周期十八个族。氢是最轻的元素。稀有气体性质稳定位","images":0,"pages":3,"blocks":6}
+{"ts":"2026-09-25T13:24:54.382Z","type":"text2board","ok":true,"durationMs":21175,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"物理学能量守恒定律：能量既不会凭空产生也不会凭空消失，只会从一种形式转化为另一种形式。动能与势能相互转化。机械能守恒。热","images":0,"pages":2,"blocks":7}
+{"ts":"2026-09-25T13:28:18.286Z","type":"tts","ok":true,"durationMs":1532,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"好，今天咱们来讲细胞。大家想一想，一个细胞里面，各个部分到底各干什么活呢？咱们一块来看。"}
+{"ts":"2026-09-25T13:28:18.296Z","type":"tts","ok":true,"durationMs":1542,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"来，看这张图，外圈是细胞膜，中间这些是细胞质，最里面这个就是细胞核，位置关系一目了然，对吧？"}
+{"ts":"2026-09-25T13:28:19.253Z","type":"tts","ok":true,"durationMs":2499,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"先看这三个。细胞膜就像门卫，进出都得它点头，对吧？然后细胞质里有线粒体，它就是细胞的发电站，能量全靠它。最后细胞核最关键"}
+{"ts":"2026-09-25T13:28:20.477Z","type":"clog","ok":true,"durationMs":0,"ip":"38.76.220.234","material":"spawn #0 细胞的结构与功能"}
+{"ts":"2026-09-25T13:28:22.008Z","type":"tts","ok":true,"durationMs":759,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那植物细胞跟动物细胞比，多了什么呢？咱们来对比一下，植物可不止多一点点。"}
+{"ts":"2026-09-25T13:28:24.181Z","type":"tts","ok":true,"durationMs":2151,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"植物细胞比动物多了三样：最外层硬硬的细胞壁，起保护支持作用；然后是叶绿体，注意啊，只有它能进行光合作用；还有个大液泡，里"}
+{"ts":"2026-09-25T13:28:26.070Z","type":"tts","ok":true,"durationMs":1858,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"这两个作用特别容易考。光合作用在叶绿体里进行，把光能变成有机物；呼吸作用呢，在线粒体里，分解有机物放能量。你们猜，动物能"}
+{"ts":"2026-09-25T13:28:27.001Z","type":"tts","ok":true,"durationMs":903,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"所以植物细胞就是多了细胞壁、叶绿体和液泡这三样，考试常考，记牢。"}
+{"ts":"2026-09-25T13:28:29.862Z","type":"text2board","ok":true,"durationMs":23099,"ip":"38.76.220.234","model":"glm-5.3","lang":"zh","stream":true,"material":"生物学细胞结构：细胞膜控制物质进出。细胞质中有线粒体提供能量。细胞核含有遗传物质。植物细胞有细胞壁叶绿体液泡。光合作用在","images":0,"pages":3,"blocks":6}
+{"ts":"2026-09-25T13:28:30.762Z","type":"tts","ok":true,"durationMs":862,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"细胞有了结构，那它怎么从一个变多、再变成不同的组织呢？最后咱们看这两步。"}
+{"ts":"2026-09-25T13:28:31.376Z","type":"clog","ok":true,"durationMs":10896,"ip":"38.76.220.234","material":"ended #0 "}
+{"ts":"2026-09-25T13:28:32.379Z","type":"clog","ok":true,"durationMs":0,"ip":"38.76.220.234","material":"spawn #2 细胞膜 → 控制物质进出 细胞质 → 线"}
+{"ts":"2026-09-25T13:28:32.844Z","type":"tts","ok":true,"durationMs":2053,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"细胞分裂呢，就是一个变两个，两个变四个，数目增多，但注意啊，细胞的种类没变。然后分就不一样了，细胞分化之后，细胞形态功能"}
+{"ts":"2026-09-25T13:28:33.906Z","type":"tts","ok":true,"durationMs":989,"ip":"38.76.220.234","model":"FunAudioLLM/CosyVoice2-0.5B","material":"看右边这个流程：先分裂让数目变多，再分化各干各的活，最后组成组织，这条路子要记住。"}

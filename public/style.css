@@ -521,6 +521,20 @@ button {
   z-index: 90;
 }
 #thinking.hidden { display: none; }
+#thinking.mini {
+  inset: auto 18px 18px auto; /* 右下角小指示模式：首页开讲后仍显示进度但不遮挡 */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(20, 17, 14, 0.95);
+  border: 1px solid #6a5c33;
+  backdrop-filter: none;
+  z-index: 94;
+}
+#thinking.mini .chalk-spin { width: 16px; height: 16px; border-width: 3px; }
+#thinking.mini #thinking-text { font-size: 13px; letter-spacing: 1px; }
 #thinking-text { color: var(--accent); letter-spacing: 3px; font-size: 16px; }
 
 .chalk-spin {

@@ -3796,16 +3796,32 @@ async function handleAskClick(e) {
 
 // ---------- AI 交互 ----------
 
-function thinking(on, text) {
+function thinking(on, text, mode) {
   const el = $("#thinking");
-  el.classList.toggle("hidden", !on);
-  if (on)
-    $("#thinking-text").textContent =
-      text || tt("AI 正在思考…", "AI is thinking…");
-  for (const id of ["btn-generate"]) {
-    const b = document.getElementById(id);
-    if (b) b.disabled = !!on;
+  const setDisabled = (d) => {
+    for (const id of ["btn-generate"]) {
+      const b = document.getElementById(id);
+      if (b) b.disabled = d;
+    }
+  };
+  if (!on) {
+    // keep-mini：仍在生成中 → 退为右下角小指示条（不遮挡讲解画面）
+    if (mode === "keep-mini" && generatingBoard) {
+      el.classList.add("mini");
+      el.classList.remove("hidden");
+      $("#thinking-text").textContent = tt("老师正在备课… 后续页生成中", "Preparing next pages…");
+      return;
+    }
+    el.classList.add("hidden");
+    el.classList.remove("mini");
+    setDisabled(false);
+    return;
   }
+  el.classList.remove("hidden");
+  el.classList.remove("mini");
+  $("#thinking-text").textContent =
+    text || tt("AI 正在思考…", "AI is thinking…");
+  setDisabled(!!on);
 }
 
 function toast(msg, type = "") {
@@ -4149,7 +4165,26 @@ async function generateBoard() {
       "err",
     );
   generatingBoard = true;
-  thinking(true, tt("老师正在备课…", "Teacher is preparing the lesson…"));
+  // 分阶段进度：①阅读素材 ②构思板书 ③逐页生成（n/m）④完成
+  // 全屏遮罩阶段直接更新；退为 mini 小指示条后只刷文本（不恢复遮挡）
+  const stageText = (n, total, label) =>
+    tt(
+      n && total ? `老师正在备课… ${n}/${total} ${label}` : `老师正在备课… ${label}`,
+      n && total ? `Preparing lesson… ${n}/${total} ${label}` : `Preparing lesson… ${label}`,
+    );
+  const stage = (n, total, label) => {
+    const el = $("#thinking");
+    if (el.classList.contains("mini")) {
+      $("#thinking-text").textContent = stageText(n, total, label);
+      el.classList.remove("hidden");
+    } else {
+      thinking(true, stageText(n, total, label));
+    }
+  };
+  let totalPages = 0; // done 事件回传（page 事件先到时用到达数展示）
+  // 等待首页期间的时间驱动推进：8s 后从"阅读素材"升级"构思板书"（模型在规划分区/板书结构）
+  const stageTimer = setTimeout(() => stage(0, 0, tt("构思板书", "designing the board")), 8000);
+  stage(0, 0, tt("阅读素材", "reading materials"));
   const receivedPages = [];
   let started = false;
   try {
@@ -4221,11 +4256,20 @@ async function generateBoard() {
                 () => started,
                 (v) => (started = v),
               );
+              // 首页后：mini 小指示条显示 n/m 进度（全屏遮罩已退）
+              const n = receivedPages.length;
+              const total = totalPages || 0;
+              stage(n, total, tt("页就绪", "page ready"));
+              const el = $("#thinking");
+              if (el.classList.contains("mini")) el.classList.remove("hidden"); // stage(false) 会隐藏，mini 模式保持可见
             } catch (e) {
               console.warn("页追加失败", e);
             }
           } else if (evt === "done") {
             streamDone = true;
+            clearTimeout(stageTimer);
+            if (typeof payload.pages === "number" && payload.pages > 0) totalPages = payload.pages;
+            stage(totalPages || receivedPages.length, totalPages || receivedPages.length, tt("页就绪，完成", "pages ready, done"));
           } else if (evt === "error") {
             throw new Error(payload.error || "生成失败");
           }
@@ -4270,6 +4314,7 @@ async function generateBoard() {
       // 完全失败：恢复原状态
     }
   } finally {
+    clearTimeout(stageTimer);
     generatingBoard = false;
     // 收尾续播：done 已到但页面停在等待态（讲解结束、有下一页未翻）→ 直接连播
     if (awaitingNextPage && !narration.playing && curPage < pages.length - 1) {
@@ -4313,7 +4358,7 @@ async function acceptStreamPage(pg, receivedPages, getStarted, setStarted) {
     redrawStrokes();
     page.animated = true;
     $("#drawer").classList.add("hidden");
-    thinking(false); // 首页开讲即撤遮罩:后续页在后台继续生成,不再挡住讲解画面
+    thinking(false, null, "keep-mini"); // 首页开讲：全屏遮罩退为右下角小指示（后续页继续显示进度）
     toast(tt("第一页好了，先开讲", "First page ready — starting"), "ok");
     playNarration(page); // 首页到达即开讲
     autosaveCourse("stream");
