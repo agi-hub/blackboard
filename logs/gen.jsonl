@@ -287,3 +287,15 @@
 {"ts":"2026-09-25T12:43:37.843Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 Q: \"What do you thin"}
 {"ts":"2026-09-25T12:43:52.106Z","type":"clog","ok":true,"durationMs":14256,"ip":"117.129.33.42","material":"ended #2 "}
 {"ts":"2026-09-25T12:43:58.198Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 Agree: \"That makes s"}
+{"ts":"2026-09-25T13:04:43.851Z","type":"tts","ok":true,"durationMs":1394,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Now let's see how a real classroom exchange flows — from the"}
+{"ts":"2026-09-25T13:04:44.185Z","type":"tts","ok":true,"durationMs":1560,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"When the teacher asks What do you think?, don't freeze! Star"}
+{"ts":"2026-09-25T13:04:44.342Z","type":"tts","ok":true,"durationMs":1716,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Follow the diagram: teacher asks, you think — yes, thinking "}
+{"ts":"2026-09-25T13:04:47.267Z","type":"tts","ok":true,"durationMs":4641,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Agreeing is easy — That makes sense and you're done. But dis"}
+{"ts":"2026-09-25T13:04:49.264Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 Classroom Talk Flow"}
+{"ts":"2026-09-25T13:04:58.426Z","type":"clog","ok":true,"durationMs":9168,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T13:05:00.528Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 Q: \"What do you thin"}
+{"ts":"2026-09-25T13:05:14.895Z","type":"clog","ok":true,"durationMs":14376,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T13:05:16.077Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #4 Agree: \"That makes s"}
+{"ts":"2026-09-25T13:05:36.597Z","type":"clog","ok":true,"durationMs":20496,"ip":"117.129.33.42","material":"ended #4 "}
+{"ts":"2026-09-25T13:05:37.377Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 Question → Think → A"}
+{"ts":"2026-09-25T13:05:52.858Z","type":"clog","ok":true,"durationMs":15456,"ip":"117.129.33.42","material":"ended #5 "}

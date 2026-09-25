@@ -498,8 +498,8 @@ const UI_I18N = [
   ],
   [
     "#tab-tts label:nth-of-type(5)",
-    "边写边讲（语音不等写字；默认写完一块再讲）",
-    "Speak while writing (voice doesn't wait for writing; default: write first, then speak)",
+    "边写边讲（语音与写字同时；取消则写完一块再讲）",
+    "Speak while writing (voice starts with writing; uncheck to write first, then speak)",
     "first",
   ],
   ["#tab-look label:nth-of-type(1)", "板书主题", "Board theme", "first"],

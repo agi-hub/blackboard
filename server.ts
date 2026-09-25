@@ -101,7 +101,7 @@ const DEFAULT_CONFIG: AppConfig = {
   ttsModel: "FunAudioLLM/CosyVoice2-0.5B",
   ttsVoice: "FunAudioLLM/CosyVoice2-0.5B:alex",
   ttsSpeed: 1.0,
-  syncWrite: false,
+  syncWrite: true,
   font: "kaiti",
   uiFont: "default",
   posterModel: "Tongyi-MAI/Z-Image-Turbo",
