@@ -149,3 +149,141 @@
 {"ts":"2026-09-11T12:41:56.722Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #6 猜想悬置 280+ 年 下一个会是你吗？"}
 {"ts":"2026-09-11T12:42:10.326Z","type":"clog","ok":true,"durationMs":13008,"ip":"104.28.153.5","material":"ended #6 "}
 {"ts":"2026-09-11T12:42:11.858Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.153.5","material":"spawn #7 难在加乘互通，价值在推动整个数论"}
+{"ts":"2026-09-11T12:42:24.856Z","type":"clog","ok":true,"durationMs":12408,"ip":"104.28.153.5","material":"ended #7 "}
+{"ts":"2026-09-11T12:54:38.179Z","type":"tts","ok":true,"durationMs":893,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"所以记住一句话：表述越简单的问题，可能越难证明，这就是数学迷人又折磨人的地方。"}
+{"ts":"2026-09-11T12:54:38.328Z","type":"tts","ok":true,"durationMs":1193,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"同学们，今天咱们聊一个三百年来都没人能证明的数学大难题——哥德巴赫猜想。听着吓人，其实表述特别简单。"}
+{"ts":"2026-09-11T12:54:38.835Z","type":"tts","ok":true,"durationMs":1549,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"来动手试试呗。10可以写成3加7，也可以5加5；100呢，可以是3加97，也可以29加71。你们可以随便挑个偶数玩玩，往"}
+{"ts":"2026-09-11T12:54:39.040Z","type":"tts","ok":true,"durationMs":1905,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"猜想说的是：任何一个大于2的偶数，都能写成两个素数的和。你看，偶数嘛满大街都是，素数呢我们也都熟，就这么个简单得不能再简"}
+{"ts":"2026-09-11T12:54:39.096Z","type":"tts","ok":true,"durationMs":1961,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么这个猜想怎么来的呢？1742年，哥德巴赫写信给大数学家欧拉。欧拉研究了半天，回信说：这看起来显然是对的，但我证不出来"}
+{"ts":"2026-09-11T12:54:40.662Z","type":"tts","ok":true,"durationMs":3376,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那到底对不对呢？计算机已经验证到了4乘10的18次方这么大的偶数，一个反例都没有。对吧，看起来铁定是对的，可数学要的是证"}
+{"ts":"2026-09-11T12:54:44.262Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.160.74","material":"spawn #0 哥德巴赫猜想"}
+{"ts":"2026-09-11T12:54:45.192Z","type":"text2board","ok":true,"durationMs":20701,"ip":"104.28.160.74","model":"glm-5.3","lang":"zh","stream":true,"material":"哥德巴赫","images":0,"pages":2,"blocks":7}
+{"ts":"2026-09-11T12:54:46.637Z","type":"tts","ok":true,"durationMs":950,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"证明不动它，数学家就想了个聪明的办法：一步一步逼近。这页咱们看看什么叫 1+1。"}
+{"ts":"2026-09-11T12:54:49.770Z","type":"tts","ok":true,"durationMs":1735,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"思路是这样的：先把偶数拆成一个素数，加另一个因子不太多的数。然后呢，一年一年地把另一个数的因子个数往下降，降到只剩一个素"}
+{"ts":"2026-09-11T12:54:52.825Z","type":"tts","ok":true,"durationMs":1746,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"到1966年，咱们中国的陈景润证明了著名的1+2：每个大偶数，都能写成一个素数，加上顶多是两个素数乘积的数。这是目前全世"}
+{"ts":"2026-09-11T12:54:55.492Z","type":"clog","ok":true,"durationMs":10488,"ip":"104.28.160.74","material":"ended #0 "}
+{"ts":"2026-09-11T12:54:55.673Z","type":"tts","ok":true,"durationMs":1281,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"所以你看，猜想到今天仍然是未解之谜，被称为数学皇冠上的明珠。说不定将来在座的某位同学，就是把它踢进球门的那个人呢。"}
+{"ts":"2026-09-11T12:54:59.435Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.160.74","material":"spawn #2 任一 >2 的偶数 = 两个素数之和 如"}
+{"ts":"2026-09-11T12:55:07.109Z","type":"tts","ok":true,"durationMs":877,"ip":"104.28.160.74","model":"FunAudioLLM/CosyVoice2-0.5B","material":"一句话收尾：陈景润的1+2是目前世界纪录，最后一步还等着有人去走完。"}
+{"ts":"2026-09-11T12:55:12.890Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.160.74","material":"spawn #0 哥德巴赫猜想"}
+{"ts":"2026-09-11T12:55:23.968Z","type":"clog","ok":true,"durationMs":10488,"ip":"104.28.160.74","material":"ended #0 "}
+{"ts":"2026-09-11T12:55:28.055Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.160.74","material":"spawn #2 任一 >2 的偶数 = 两个素数之和 如"}
+{"ts":"2026-09-11T12:55:47.899Z","type":"clog","ok":true,"durationMs":19104,"ip":"104.28.160.74","material":"ended #2 "}
+{"ts":"2026-09-11T12:55:50.785Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.160.74","material":"spawn #3 1742年 哥德巴赫 写信问欧拉 → 欧"}
+{"ts":"2026-09-11T12:56:11.666Z","type":"clog","ok":true,"durationMs":20136,"ip":"104.28.160.74","material":"ended #3 "}
+{"ts":"2026-09-11T12:56:12.935Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.160.74","material":"spawn #5 验证到 4×10¹⁸ 无一反例"}
+{"ts":"2026-09-11T12:56:28.631Z","type":"clog","ok":true,"durationMs":14784,"ip":"104.28.160.74","material":"ended #5 "}
+{"ts":"2026-09-11T12:56:32.899Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.160.74","material":"spawn #6 例： 10 = 3+7 = 5+5 10"}
+{"ts":"2026-09-11T12:56:50.719Z","type":"clog","ok":true,"durationMs":17064,"ip":"104.28.160.74","material":"ended #6 "}
+{"ts":"2026-09-11T12:56:52.354Z","type":"clog","ok":true,"durationMs":0,"ip":"104.28.160.74","material":"spawn #7 偶数 = 素数 + 素数：简单却证不出"}
+{"ts":"2026-09-11T12:57:01.346Z","type":"clog","ok":true,"durationMs":8256,"ip":"104.28.160.74","material":"ended #7 "}
+{"ts":"2026-09-18T03:49:21.726Z","type":"text2board","ok":true,"durationMs":56840,"ip":"114.247.232.110","model":"glm-5.3","lang":"zh","stream":true,"material":"互联网广告投流策略","images":0,"pages":0,"blocks":0}
+{"ts":"2026-09-18T03:50:40.097Z","type":"tts","ok":true,"durationMs":1052,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"一句话，投流不是砸钱，是一个从目标到复盘的闭环，记住这个闭环思维。"}
+{"ts":"2026-09-18T03:50:40.451Z","type":"tts","ok":true,"durationMs":1411,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"好，同学们，今天我们来讲互联网广告投流策略。这个呢，是做增长、做运营绕不开的一门硬功夫，来，我们开始。"}
+{"ts":"2026-09-18T03:50:41.304Z","type":"tts","ok":true,"durationMs":2261,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么先搞清楚，投流本质上就是 付费买流量，花钱把人引进来，然后呢，完成 转化，最终赚到收益。你看国内主要就是三家：抖音的"}
+{"ts":"2026-09-18T03:50:41.323Z","type":"tts","ok":true,"durationMs":2279,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"投流是有套路的，大家记住这五步：先 定目标，是拉新还是促成交？然后 选人群，接着定 出价，再上线投放，最后一定要 复盘。"}
+{"ts":"2026-09-18T03:50:52.990Z","type":"tts","ok":true,"durationMs":1481,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"上一页我们讲了流程，那么在动手投之前，必须先看懂几个核心指标，不然你就是睁眼瞎投。"}
+{"ts":"2026-09-18T03:51:04.130Z","type":"tts","ok":true,"durationMs":2215,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"来，看黑板这四个词。CPM 是一千次曝光花多少钱，适合打品牌；CPC 是一次点击多少钱；CPA 呢，是拿到一个转化成本多"}
+{"ts":"2026-09-18T03:51:11.949Z","type":"tts","ok":true,"durationMs":1850,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"那么什么时候该加钱、什么时候该停？记住这条 盈亏线：ROI > 1 才不亏本。再看长线：一个用户一辈子给你贡献的价值，也"}
+{"ts":"2026-09-18T03:51:13.306Z","type":"tts","ok":true,"durationMs":993,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"总结一下，投流前先算账，ROI 和 LTV 就是你的生死线，过不了线，投再多也是亏。"}
+{"ts":"2026-09-18T03:51:14.935Z","type":"tts","ok":true,"durationMs":1158,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"指标会看了，那钱往哪儿投呢？接下来看平台怎么选、人群怎么圈，这是决定效果的关键一步。"}
+{"ts":"2026-09-18T03:51:15.562Z","type":"clog","ok":true,"durationMs":0,"ip":"114.247.232.110","material":"spawn #0 核心指标：先看懂账本"}
+{"ts":"2026-09-18T03:51:17.422Z","type":"tts","ok":true,"durationMs":2275,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"三大平台性格完全不同。抖音 是泛流量，适合冲量打爆品；腾讯 靠私域和社交裂变，做复购很香；阿里 呢是搜索场，用户带着购买"}
+{"ts":"2026-09-18T03:51:19.980Z","type":"tts","ok":true,"durationMs":2240,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"大家看右边这个漏斗图。定向是从 宽泛曝光 开始，往中间收窄到兴趣行为人群，最底下是 再营销，也就是召回那些看过没买的人。"}
+{"ts":"2026-09-18T03:51:21.250Z","type":"tts","ok":true,"durationMs":929,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"记住八个字：平台看基因，定向先宽后窄。选错平台，后面全白搭。"}
+{"ts":"2026-09-18T03:51:25.157Z","type":"clog","ok":true,"durationMs":9576,"ip":"114.247.232.110","material":"ended #0 "}
+{"ts":"2026-09-18T03:51:25.917Z","type":"tts","ok":true,"durationMs":1020,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"选好平台圈好人，接下来最烧脑的一步来了——出价和预算怎么定？这一步直接决定你的钱烧得值不值。"}
+{"ts":"2026-09-18T03:51:27.945Z","type":"tts","ok":true,"durationMs":1822,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"出价主要两种：CPC 竞价是你自己控点击出价，适合起步测试；oCPM 是系统自动优化，放量阶段的主力。出多少合适呢？记住"}
+{"ts":"2026-09-18T03:51:29.497Z","type":"clog","ok":true,"durationMs":0,"ip":"114.247.232.110","material":"spawn #2 CPM 千次曝光成本 CPC 单次点击成"}
+{"ts":"2026-09-18T03:51:30.351Z","type":"tts","ok":true,"durationMs":2106,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"预算节奏也讲究：先 小步测试，跑通了再放量。那么加预算能一次翻十倍吗？千万别！每次 加预算不超过百分之三十，让系统平稳学"}
+{"ts":"2026-09-18T03:51:31.502Z","type":"tts","ok":true,"durationMs":797,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"记住，出价贴着成本走，加预算要温柔，激进操作是投流的大忌呢。"}
+{"ts":"2026-09-18T03:51:45.864Z","type":"text2board","ok":true,"durationMs":82359,"ip":"114.247.232.110","model":"glm-5.3","lang":"zh","stream":true,"material":"互联网广告投流策略","images":0,"pages":5,"blocks":10}
+{"ts":"2026-09-18T03:51:47.074Z","type":"tts","ok":true,"durationMs":1052,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"最后一页，讲两件事：素材是弹药，复盘是方向盘。这两样做好了，前面的投入才不会打水漂。"}
+{"ts":"2026-09-18T03:51:49.184Z","type":"tts","ok":true,"durationMs":1908,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"素材是投流的命。流程看左边这个循环图：先 批量上新，测出爆款之后 复制放大，同时持续迭代新的。注意啊，短视频 前三秒定生"}
+{"ts":"2026-09-18T03:51:51.626Z","type":"tts","ok":true,"durationMs":2130,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"每天复盘就看三样：先看 消耗，钱花不出去说明素材或出价有问题；再看 成本，CPA 一超标，立刻停掉那条计划；最后看 后端"}
+{"ts":"2026-09-18T03:51:53.175Z","type":"tts","ok":true,"durationMs":1228,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"好，今天的课收个尾：素材靠循环测出爆款，复盘每天盯住后端数据，这样你的投流才能越投越准。下课！"}
+{"ts":"2026-09-18T03:51:55.436Z","type":"clog","ok":true,"durationMs":25944,"ip":"114.247.232.110","material":"ended #2 "}
+{"ts":"2026-09-18T03:51:58.607Z","type":"clog","ok":true,"durationMs":0,"ip":"114.247.232.110","material":"spawn #3 盈亏线：ROI > 1 才不亏 LTV "}
+{"ts":"2026-09-18T03:52:00.656Z","type":"clog","ok":true,"durationMs":0,"ip":"114.247.232.110","material":"spawn #0 平台选型与人群定向"}
+{"ts":"2026-09-18T03:52:11.676Z","type":"clog","ok":true,"durationMs":11016,"ip":"114.247.232.110","material":"ended #0 "}
+{"ts":"2026-09-18T03:52:15.838Z","type":"clog","ok":true,"durationMs":0,"ip":"114.247.232.110","material":"spawn #2 抖音：泛流量 · 冲量打爆品 腾讯：私域"}
+{"ts":"2026-09-18T03:52:39.210Z","type":"ask","ok":true,"durationMs":3485,"ip":"114.247.232.110","model":"glm-5.3","material":"腾讯：私域 · 社交裂变","lang":"zh"}
+{"ts":"2026-09-18T03:52:40.766Z","type":"tts","ok":true,"durationMs":1427,"ip":"114.247.232.110","model":"FunAudioLLM/CosyVoice2-0.5B","material":"你看，腾讯生态像微信、社群，是把用户沉淀到自己手里反复触达，就是私域；再靠分享、拼团让老用户带新用户，就是社交裂变，对吧"}
+{"ts":"2026-09-25T12:32:34.078Z","type":"text2board","ok":true,"durationMs":7481,"ip":"117.129.33.42","model":"glm-5.3","lang":"zh","stream":true,"material":"小学一年级英语，简单对话，全英文授课","images":0,"pages":1,"blocks":4}
+{"ts":"2026-09-25T12:32:35.406Z","type":"tts","ok":true,"durationMs":1055,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"OK class, today we learn how to say hello! Look at the board"}
+{"ts":"2026-09-25T12:32:35.542Z","type":"tts","ok":true,"durationMs":1064,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"So remember the magic words: hello, what's your name, I'm..."}
+{"ts":"2026-09-25T12:32:36.002Z","type":"tts","ok":true,"durationMs":1531,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Big question time! What's your name? Point to yourself and a"}
+{"ts":"2026-09-25T12:32:36.021Z","type":"tts","ok":true,"durationMs":1543,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Now let's put it all together, like a little play. Amy asks,"}
+{"ts":"2026-09-25T12:32:36.137Z","type":"tts","ok":true,"durationMs":1784,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Now watch me. I say: Hello, I'm Miss Li. Then you answer: Hi"}
+{"ts":"2026-09-25T12:32:36.168Z","type":"tts","ok":true,"durationMs":1816,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Look here, everyone. We say Hello or Hi when we meet a frien"}
+{"ts":"2026-09-25T12:32:39.345Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 Hello! Greetings"}
+{"ts":"2026-09-25T12:32:45.819Z","type":"clog","ok":true,"durationMs":6456,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T12:32:49.486Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 Hello! Hi! Good morn"}
+{"ts":"2026-09-25T12:33:04.725Z","type":"clog","ok":true,"durationMs":15216,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T12:33:08.027Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 Hello, I'm Miss Li. "}
+{"ts":"2026-09-25T12:33:21.033Z","type":"clog","ok":true,"durationMs":12984,"ip":"117.129.33.42","material":"ended #3 "}
+{"ts":"2026-09-25T12:33:24.045Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 What's your name? I'"}
+{"ts":"2026-09-25T12:33:36.025Z","type":"clog","ok":true,"durationMs":11976,"ip":"117.129.33.42","material":"ended #5 "}
+{"ts":"2026-09-25T12:33:40.323Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #6 A: What's your name?"}
+{"ts":"2026-09-25T12:33:52.720Z","type":"clog","ok":true,"durationMs":12384,"ip":"117.129.33.42","material":"ended #6 "}
+{"ts":"2026-09-25T12:33:56.754Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #7 Hello / Hi → What's "}
+{"ts":"2026-09-25T12:34:05.335Z","type":"clog","ok":true,"durationMs":8568,"ip":"117.129.33.42","material":"ended #7 "}
+{"ts":"2026-09-25T12:34:55.429Z","type":"text2board","ok":true,"durationMs":17736,"ip":"117.129.33.42","model":"glm-5.3","lang":"en","stream":true,"material":"小学一年级英语，简单对话，全英文授课","images":0,"pages":0,"blocks":0}
+{"ts":"2026-09-25T12:34:56.527Z","type":"tts","ok":true,"durationMs":971,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Hi everyone! Today we learn how to say hello and tell our na"}
+{"ts":"2026-09-25T12:34:56.658Z","type":"tts","ok":true,"durationMs":951,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"So remember, say hello, then I'm plus your name. Easy, right"}
+{"ts":"2026-09-25T12:34:56.984Z","type":"tts","ok":true,"durationMs":1284,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Now watch me. I say I'm Miss Li. That means my name is Miss "}
+{"ts":"2026-09-25T12:34:57.138Z","type":"tts","ok":true,"durationMs":1443,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Okay, look here. We say Hello or Hi when we meet someone. In"}
+{"ts":"2026-09-25T12:34:57.256Z","type":"tts","ok":true,"durationMs":1557,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Let's read this little talk together. Amy says Hello, I'm Am"}
+{"ts":"2026-09-25T12:34:58.520Z","type":"tts","ok":true,"durationMs":838,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Now page two! We learn to ask how someone feels, and how to "}
+{"ts":"2026-09-25T12:35:00.021Z","type":"tts","ok":true,"durationMs":1370,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Here is our question: How are you? And the answer is I'm fin"}
+{"ts":"2026-09-25T12:35:00.459Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 Hello! Let's Say Hi"}
+{"ts":"2026-09-25T12:35:01.674Z","type":"tts","ok":true,"durationMs":1427,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Look at these two words. Happy means you feel good, like at "}
+{"ts":"2026-09-25T12:35:02.842Z","type":"tts","ok":true,"durationMs":926,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"One question, one answer. How are you? I'm fine, thank you! "}
+{"ts":"2026-09-25T12:35:07.783Z","type":"clog","ok":true,"durationMs":7296,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T12:35:12.334Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 Hello! / Hi! Good mo"}
+{"ts":"2026-09-25T12:35:25.607Z","type":"clog","ok":true,"durationMs":13248,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T12:35:29.128Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 I'm Miss Li. Who are"}
+{"ts":"2026-09-25T12:35:40.206Z","type":"clog","ok":true,"durationMs":11064,"ip":"117.129.33.42","material":"ended #3 "}
+{"ts":"2026-09-25T12:35:46.839Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 A: Hello! I'm Amy. B"}
+{"ts":"2026-09-25T12:36:00.796Z","type":"clog","ok":true,"durationMs":13944,"ip":"117.129.33.42","material":"ended #5 "}
+{"ts":"2026-09-25T12:36:03.467Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #6 Hello / Hi + I'm + n"}
+{"ts":"2026-09-25T12:36:07.928Z","type":"text2board","ok":true,"durationMs":19870,"ip":"117.129.33.42","model":"glm-5.3","lang":"en","stream":true,"material":"美国地道英语，课堂常见对话，全英文授课","images":0,"pages":2,"blocks":7}
+{"ts":"2026-09-25T12:36:09.207Z","type":"tts","ok":true,"durationMs":1161,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Okay everyone, today we're learning real American classroom "}
+{"ts":"2026-09-25T12:36:09.470Z","type":"tts","ok":true,"durationMs":1280,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"So the loop is simple — ask them to repeat, ask your questio"}
+{"ts":"2026-09-25T12:36:09.708Z","type":"tts","ok":true,"durationMs":1652,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Now, when the teacher asks Any questions, nobody sits in sil"}
+{"ts":"2026-09-25T12:36:09.946Z","type":"tts","ok":true,"durationMs":1888,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"On your side, these two are lifesavers. You didn't hear? Say"}
+{"ts":"2026-09-25T12:36:10.255Z","type":"tts","ok":true,"durationMs":2202,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"So the teacher walks in and says, Take out your homework — s"}
+{"ts":"2026-09-25T12:36:10.302Z","type":"tts","ok":true,"durationMs":2243,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"And these three — I have a question to raise your hand, I do"}
+{"ts":"2026-09-25T12:36:11.928Z","type":"tts","ok":true,"durationMs":1163,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Now let's see how a real classroom exchange flows — from the"}
+{"ts":"2026-09-25T12:36:13.743Z","type":"tts","ok":true,"durationMs":1544,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"When the teacher asks What do you think?, don't freeze! Star"}
+{"ts":"2026-09-25T12:36:13.782Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 Real Classroom Engli"}
+{"ts":"2026-09-25T12:36:15.966Z","type":"tts","ok":true,"durationMs":1927,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Agreeing is easy — That makes sense and you're done. But dis"}
+{"ts":"2026-09-25T12:36:17.918Z","type":"tts","ok":true,"durationMs":1653,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Follow the diagram: teacher asks, you think — yes, thinking "}
+{"ts":"2026-09-25T12:36:19.334Z","type":"tts","ok":true,"durationMs":1160,"ip":"117.129.33.42","model":"FunAudioLLM/CosyVoice2-0.5B","material":"Remember this loop and you'll never be lost in an American c"}
+{"ts":"2026-09-25T12:36:23.296Z","type":"clog","ok":true,"durationMs":9504,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T12:36:30.883Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 \"Take out your homew"}
+{"ts":"2026-09-25T12:36:52.434Z","type":"clog","ok":true,"durationMs":21528,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T12:37:00.234Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 \"Any questions? Don'"}
+{"ts":"2026-09-25T12:37:14.495Z","type":"clog","ok":true,"durationMs":14256,"ip":"117.129.33.42","material":"ended #3 "}
+{"ts":"2026-09-25T12:37:23.405Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 \"Sorry, could you re"}
+{"ts":"2026-09-25T12:37:40.408Z","type":"clog","ok":true,"durationMs":16968,"ip":"117.129.33.42","material":"ended #5 "}
+{"ts":"2026-09-25T12:37:45.609Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #6 \"I have a question.\""}
+{"ts":"2026-09-25T12:38:05.357Z","type":"clog","ok":true,"durationMs":19704,"ip":"117.129.33.42","material":"ended #6 "}
+{"ts":"2026-09-25T12:38:09.601Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #7 Speak up: repeat → q"}
+{"ts":"2026-09-25T12:38:20.793Z","type":"clog","ok":true,"durationMs":11184,"ip":"117.129.33.42","material":"ended #7 "}
+{"ts":"2026-09-25T12:38:25.388Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 Classroom Talk Flow"}
+{"ts":"2026-09-25T12:38:35.454Z","type":"clog","ok":true,"durationMs":10056,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T12:38:41.442Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 Q: \"What do you thin"}
+{"ts":"2026-09-25T12:38:55.706Z","type":"clog","ok":true,"durationMs":14256,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T12:39:01.798Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 Agree: \"That makes s"}
+{"ts":"2026-09-25T12:39:21.275Z","type":"clog","ok":true,"durationMs":19464,"ip":"117.129.33.42","material":"ended #3 "}
+{"ts":"2026-09-25T12:39:23.506Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #5 Question → Think → A"}
+{"ts":"2026-09-25T12:39:39.987Z","type":"clog","ok":true,"durationMs":16464,"ip":"117.129.33.42","material":"ended #5 "}
+{"ts":"2026-09-25T12:39:45.771Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #6 Every class = Q → Th"}
+{"ts":"2026-09-25T12:39:56.533Z","type":"clog","ok":true,"durationMs":10728,"ip":"117.129.33.42","material":"ended #6 "}
+{"ts":"2026-09-25T12:43:11.169Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 Classroom Talk Flow"}
+{"ts":"2026-09-25T12:43:21.791Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #0 Classroom Talk Flow"}
+{"ts":"2026-09-25T12:43:31.844Z","type":"clog","ok":true,"durationMs":10056,"ip":"117.129.33.42","material":"ended #0 "}
+{"ts":"2026-09-25T12:43:37.843Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #2 Q: \"What do you thin"}
+{"ts":"2026-09-25T12:43:52.106Z","type":"clog","ok":true,"durationMs":14256,"ip":"117.129.33.42","material":"ended #2 "}
+{"ts":"2026-09-25T12:43:58.198Z","type":"clog","ok":true,"durationMs":0,"ip":"117.129.33.42","material":"spawn #3 Agree: \"That makes s"}

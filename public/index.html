@@ -12,7 +12,7 @@
   <title>敲黑板</title>
   <!-- CDN 开源楷体兜底（霞鹜文楷）：本地楷体名全部失效的环境（如 Safari 26 某些配置）自动启用，按需切片下载 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
-  <link rel="stylesheet" href="style.css?v=51" />
+  <link rel="stylesheet" href="style.css?v=52" />
   <!-- 英文界面手写风字体（Caveat）：html[lang=en] 时替换标题与按钮 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/caveat@5.3.0/index.css" />
   <!-- 界面字体候选（Fontsource CDN）：中文手写/美术 5 款 + 英文手写 5 款 -->
@@ -26,6 +26,21 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/dancing-script@5.3.0/index.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/shadows-into-light@5.3.0/index.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/permanent-marker@5.3.0/index.css" />
+  <!-- 界面字体候选（英文扩展）：手写/衬线/展示/等宽 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/rock-salt@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/gloria-hallelujah@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/amatic-sc@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/sacramento@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/playfair-display@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/lora@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/merriweather@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/oswald@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/bebas-neue@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/raleway@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/josefin-sans@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/space-mono@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/courier-prime@5.3.0/index.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/press-start-2p@5.3.0/index.css" />
 </head>
 <body>
   <!-- 顶部工具栏：左侧品牌，右侧功能 -->
@@ -54,6 +69,7 @@
       <button id="btn-load-course" class="tool-btn" title="加载课程文件，恢复板书与讲解">加载</button>
       <button id="btn-settings" class="tool-btn" title="设置（模型/配音/外观）">设置</button>
       <button id="btn-rail" class="tool-btn" title="显示/隐藏粉笔槽（投影时腾出更大黑板）">粉笔</button>
+      <button id="btn-lecture" class="tool-btn" title="显示/隐藏讲义区（老师口述实时记录）">讲义</button>
       <button id="btn-voice-ask" class="tool-btn" title="按一下开始说话，再按一下结束并识别提问">🎤</button>
       <button id="btn-lang" class="tool-btn" title="切换中文 / Switch to English">EN</button>
     </div>
@@ -256,4 +272,4 @@
   <!-- 板报绘制中提示 -->
   <div id="poster-working" class="hidden"><span class="chalk-spin"></span><span id="poster-working-text">小画家们正在工作…</span></div>
 
-  <script src="app.js?v=74"></script>
+  <script src="app.js?v=75"></script>

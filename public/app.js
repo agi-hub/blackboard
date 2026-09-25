@@ -152,6 +152,21 @@ const UI_FONT_PRESETS = [
   { id: "dancing-script", label: "Dancing Script（英文花体）", labelEn: "Dancing Script (cursive)", stack: `"Dancing Script",cursive` },
   { id: "shadows-into-light", label: "Shadows Into Light（英文手写）", labelEn: "Shadows Into Light (handwriting)", stack: `"Shadows Into Light",cursive` },
   { id: "permanent-marker", label: "Permanent Marker（英文记号笔）", labelEn: "Permanent Marker (marker)", stack: `"Permanent Marker",cursive` },
+  { id: "rock-salt", label: "Rock Salt（英文手写粗犷）", labelEn: "Rock Salt (rugged handwriting)", stack: `"Rock Salt",cursive` },
+  { id: "gloria-hallelujah", label: "Gloria Hallelujah（英文手写圆润）", labelEn: "Gloria Hallelujah (round handwriting)", stack: `"Gloria Hallelujah",cursive` },
+  { id: "amatic-sc", label: "Amatic SC（英文细长手写）", labelEn: "Amatic SC (thin handwriting)", stack: `"Amatic SC",cursive` },
+  { id: "sacramento", label: "Sacramento（英文连笔花体）", labelEn: "Sacramento (script)", stack: `"Sacramento",cursive` },
+  // 英文：CDN 印刷/展示
+  { id: "playfair-display", label: "Playfair Display（英文衬线优雅）", labelEn: "Playfair Display (elegant serif)", stack: `"Playfair Display",serif` },
+  { id: "lora", label: "Lora（英文衬线温和）", labelEn: "Lora (soft serif)", stack: `"Lora",serif` },
+  { id: "merriweather", label: "Merriweather（英文衬线阅读）", labelEn: "Merriweather (reading serif)", stack: `"Merriweather",serif` },
+  { id: "oswald", label: "Oswald（英文窄体标题）", labelEn: "Oswald (condensed)", stack: `"Oswald",sans-serif` },
+  { id: "bebas-neue", label: "Bebas Neue（英文全大写展示）", labelEn: "Bebas Neue (all-caps display)", stack: `"Bebas Neue",sans-serif` },
+  { id: "raleway", label: "Raleway（英文现代无衬线）", labelEn: "Raleway (modern sans)", stack: `"Raleway",sans-serif` },
+  { id: "josefin-sans", label: "Josefin Sans（英文几何复古）", labelEn: "Josefin Sans (geometric vintage)", stack: `"Josefin Sans",sans-serif` },
+  { id: "space-mono", label: "Space Mono（英文等宽科技）", labelEn: "Space Mono (monospace)", stack: `"Space Mono",monospace` },
+  { id: "courier-prime", label: "Courier Prime（英文打字机）", labelEn: "Courier Prime (typewriter)", stack: `"Courier Prime",monospace` },
+  { id: "press-start-2p", label: "Press Start 2P（英文像素游戏）", labelEn: "Press Start 2P (pixel retro)", stack: `"Press Start 2P",monospace` },
 ];
 let uiFontChoice = "default";
 
@@ -312,6 +327,7 @@ const UI_I18N = [
   [".brand-name", "敲黑板", "ChalkTalk", "text"],
   ["#btn-undo", "撤销", "Undo", "text"],
   ["#btn-clear", "清屏", "Clear", "text"],
+  ["#btn-lecture", "讲义", "Notes", "text"],
   ["#answer-panel h2", "AI 解答", "AI Answer", "text"],
   [
     "#answer-panel .drawer-tip",
@@ -439,6 +455,11 @@ const TITLE_I18N = [
     "#btn-rail",
     "隐藏/显示左侧粉笔槽（投影时腾出更大黑板）",
     "Hide/show the chalk rail for a bigger board",
+  ],
+  [
+    "#btn-lecture",
+    "显示/隐藏讲义区（老师口述实时记录）",
+    "Show/hide the notes panel (live transcription)",
   ],
   ["#btn-lang", "切换中文 / Switch to English", "切换中文 / Switch to English"],
   ["#chalk-rail", "粉笔槽", "Chalk rail"],
@@ -2002,6 +2023,20 @@ function pushLectureSay(b, windowStart, windowDur) {
 $("#btn-lecture-close").addEventListener("click", () => {
   lecturePanelHidden = true;
   $("#lecture-panel").classList.add("hidden");
+});
+
+// 讲义区显隐按钮：与面板 ✕ 等效，但可再次唤回（讲解中实时刷新内容）
+$("#btn-lecture").addEventListener("click", () => {
+  const panel = $("#lecture-panel");
+  const showing = !panel.classList.contains("hidden");
+  if (showing) {
+    lecturePanelHidden = true;
+    panel.classList.add("hidden");
+  } else {
+    lecturePanelHidden = false;
+    panel.classList.remove("hidden");
+    if (!narration.playing && !narration.pending) lectureTick(Infinity); // 未在讲：静态全量显示已记录内容
+  }
 });
 
 const NARRATE_WRITE_MS = 80; // 讲解模式：快写节奏（教师写字不出声，写完再讲）
