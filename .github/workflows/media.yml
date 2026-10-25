@@ -12,10 +12,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: assets
-      - name: 上传演示视频到 Release（幂等）
-        run: |
-          gh release create media demo_zh.mp4 demo_en.mp4 \
-            --title "演示素材" --notes "README 演示视频；源文件在 assets 分支" \
-          || gh release upload media demo_zh.mp4 demo_en.mp4 --clobber
+      - name: 发布演示视频到 Release（正确 MIME，幂等）
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release view media >/dev/null 2>&1 \
+            || gh release create media --title "演示素材" --notes "README 演示视频；源文件在 assets 分支"
+          RID=$(gh api "repos/$REPO/releases/tags/media" --jq .id)
+          for f in demo_zh.mp4 demo_en.mp4; do
+            gh release delete-asset media "$f" -y || true
+            curl -sf -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: video/mp4" \
+              --data-binary @"$f" \
+              "https://uploads.github.com/repos/$REPO/releases/$RID/assets?name=$f" >/dev/null
+          done
