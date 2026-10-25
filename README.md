@@ -2,6 +2,35 @@
 
 AI 备课授课一体化的黑板教学原型：粘贴文本或拍照上传图片素材，AI 备成多页粉笔板书（图示 + 彩色重点 + 口语化讲稿），教师配音逐块讲解、板书同步书写、讲到哪句讲义记哪句；支持指行提问、手写涂鸦、课程存档。
 
+## 效果展示
+
+### 演示视频
+
+中文演示：
+
+<video src="https://chat2md.site/bb/media/demo_zh.mp4" controls muted playsinline></video>
+
+英文演示：
+
+<video src="https://chat2md.site/bb/media/demo_en.mp4" controls muted playsinline></video>
+
+> 视频由 <https://chat2md.site/bb> 在线提供（源文件存独立 [`assets` 分支](https://github.com/agi-hub/blackboard/tree/assets)，不进 main、不占仓库体积；本地运行时把 `demo_*.mp4` 放入 `public/media/` 即可复现）。
+
+### 截图
+
+| | |
+| --- | --- |
+| ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot1.png) | ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot2.png) |
+| ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot3.png) | ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot4.png) |
+| ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot5.png) | ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot6.png) |
+| ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot7.png) | ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot8.png) |
+
+手机竖屏：
+
+| | |
+| --- | --- |
+| <img src="https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot9.jpg" width="230" alt="手机竖屏截图 1"> | <img src="https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot10.jpg" width="230" alt="手机竖屏截图 2"> |
+
 ## 运行环境
 
 - **Bun ≥ 1.0**（唯一的运行时依赖，无任何 npm 包依赖）
@@ -30,7 +59,7 @@ bun server.ts        # 或 bun run start；默认 http://127.0.0.1:8918
 ## 功能总览
 
 ### 备课（✎ 输入素材 → 🚀 开始讲课）
-- 粘贴文章/笔记/Markdown，或 📷 **上传图像**（拍照/相册）→ AI 去水提纯。图片走视觉模型（`visionModel`），题目图片自动附解题步骤与答案；文本+图片可混用，内容融合成一套板书。**贪心流式排版**：块按阅读顺序跨区域流动、图宽按剩余高度换算并保证图内文字 ≥20px、7 档渐进收缩、总结条可牺牲——任何内容量零重叠
+- 粘贴文章/笔记/Markdown，或 📷 **上传图像**（拍照/相册）→ AI 去水提纯。图片走视觉模型（`visionModel`），题目图片自动附解题步骤与答案；文本+图片可混用，内容融合成一套板书。**贪心流式排版**：块按阅读顺序跨区域流动，放不下优先换行/换区，仍放不下才全板**字号统一**地渐进收缩（7 档，绝无单块私自缩号）；图宽按剩余高度换算并保证图内文字 ≥20px、总结条可牺牲——任何内容量零重叠
 - 多页分页，◀▶ / ←→ 翻页，**播完一页 3 秒后自动连播下一页**
 - 8 色粉笔色板（黄=重点/橙=警示/粉=易错/蓝=数据/绿=收益/紫=注释），重点词行内彩色加粗
 - **SVG 图示**：模型直接输出粉笔线框风 SVG，两段式生成（无图自动补画），渲染前安全过滤 + 黑底适配（无黑底填充）+ 图内文字与板书同字体
@@ -63,6 +92,7 @@ public/            前端（纯原生 JS，零框架零构建）
   index.html         页面骨架：顶栏/粉笔槽/黑板/抽屉/解答面板/讲义区/设置
   style.css          黑板、木框、磁吸粉笔槽样式
   app.js             粉笔引擎 + 排版器 + 讲解时间线（逻辑坐标 1600×1000，三层 canvas）
+  media/             演示视频（gitignore，README 引用；本地运行可选放入）
 server.ts          Bun 代理：静态托管 + LLM/TTS 转发（密钥不出本机）+ 令牌桶限流 + 配置管理
 config.json        运行时配置（gitignore）
 ```
