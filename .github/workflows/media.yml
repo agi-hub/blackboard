@@ -1,0 +1,21 @@
+name: media-release
+on:
+  push:
+    paths: ['.github/workflows/media.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: assets
+      - name: 上传演示视频到 Release（幂等）
+        run: |
+          gh release create media demo_zh.mp4 demo_en.mp4 \
+            --title "演示素材" --notes "README 演示视频；源文件在 assets 分支" \
+          || gh release upload media demo_zh.mp4 demo_en.mp4 --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

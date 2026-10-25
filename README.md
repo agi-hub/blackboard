@@ -8,13 +8,13 @@ AI 备课授课一体化的黑板教学原型：粘贴文本或拍照上传图�
 
 中文演示：
 
-<video src="https://chat2md.site/bb/media/demo_zh.mp4" controls muted playsinline></video>
+<video src="https://github.com/agi-hub/blackboard/releases/download/media/demo_zh.mp4" controls muted playsinline></video>
 
 英文演示：
 
-<video src="https://chat2md.site/bb/media/demo_en.mp4" controls muted playsinline></video>
+<video src="https://github.com/agi-hub/blackboard/releases/download/media/demo_en.mp4" controls muted playsinline></video>
 
-> 视频由 <https://chat2md.site/bb> 在线提供（源文件存独立 [`assets` 分支](https://github.com/agi-hub/blackboard/tree/assets)，不进 main、不占仓库体积；本地运行时把 `demo_*.mp4` 放入 `public/media/` 即可复现）。
+> 视频存 [Release 附件](https://github.com/agi-hub/blackboard/releases/tag/media)（源文件在独立 [`assets` 分支](https://github.com/agi-hub/blackboard/tree/assets)）——均不进 main、不占仓库体积。站点 <https://chat2md.site/bb> 亦在线提供（`public/media/`，gitignore）。
 
 ### 截图
 
