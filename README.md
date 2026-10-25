@@ -8,9 +8,9 @@ AI 备课授课一体化的黑板教学原型：粘贴文本或拍照上传图�
 
 | 中文演示（备课 → 授课全流程） | English Demo |
 | :---: | :---: |
-| 🎬 [▶ 在线播放](https://github.com/agi-hub/blackboard/releases/download/media/demo_zh.mp4) · [⬇ 下载](https://raw.githubusercontent.com/agi-hub/blackboard/assets/demo_zh.mp4) | 🎬 [▶ Play](https://github.com/agi-hub/blackboard/releases/download/media/demo_en.mp4) · [⬇ Download](https://raw.githubusercontent.com/agi-hub/blackboard/assets/demo_en.mp4) |
+| 🎬 [▶ 在线播放](https://chat2md.site/bb/media/demo_zh.mp4) · [⬇ 下载](https://github.com/agi-hub/blackboard/releases/download/media/demo_zh.mp4) | 🎬 [▶ Play](https://chat2md.site/bb/media/demo_en.mp4) · [⬇ Download](https://github.com/agi-hub/blackboard/releases/download/media/demo_en.mp4) |
 
-> 视频存 [Release 附件](https://github.com/agi-hub/blackboard/releases/tag/media)（源文件在独立 [`assets` 分支](https://github.com/agi-hub/blackboard/tree/assets)）——均不进 main、不占仓库体积。站点 <https://chat2md.site/bb> 亦在线提供（`public/media/`，gitignore）。
+> 在线播放由站点 <https://chat2md.site/bb> 提供（`public/media/`，gitignore 不入库）；源文件另存独立 [`assets` 分支](https://github.com/agi-hub/blackboard/tree/assets) 与 [Release 附件](https://github.com/agi-hub/blackboard/releases/tag/media)——均不进 main、不占仓库体积。
 
 ### 截图
 
