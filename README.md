@@ -10,22 +10,22 @@ AI 备课授课一体化的黑板教学原型：粘贴文本或拍照上传图�
 | :---: | :---: |
 | 🎬 [▶ 在线播放](https://chat2md.site/bb/media/demo_zh.mp4) · [⬇ 下载](https://github.com/agi-hub/blackboard/releases/download/media/demo_zh.mp4) | 🎬 [▶ Play](https://chat2md.site/bb/media/demo_en.mp4) · [⬇ Download](https://github.com/agi-hub/blackboard/releases/download/media/demo_en.mp4) |
 
-> 在线播放由站点 <https://chat2md.site/bb> 提供（`public/media/`，gitignore 不入库）；源文件另存独立 [`assets` 分支](https://github.com/agi-hub/blackboard/tree/assets) 与 [Release 附件](https://github.com/agi-hub/blackboard/releases/tag/media)——均不进 main、不占仓库体积。
+> 图片与视频均由站点 <https://chat2md.site/bb> 在线提供（`public/media/`，gitignore 不入库；README 若直链 raw.githubusercontent 会因部分网络无法访问而不显示）；源文件另存独立 [`assets` 分支](https://github.com/agi-hub/blackboard/tree/assets) 与 [Release 附件](https://github.com/agi-hub/blackboard/releases/tag/media)——均不进 main、不占仓库体积。
 
 ### 截图
 
 | | |
 | --- | --- |
-| ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot1.png) | ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot2.png) |
-| ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot3.png) | ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot4.png) |
-| ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot5.png) | ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot6.png) |
-| ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot7.png) | ![](https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot8.png) |
+| ![](https://chat2md.site/bb/media/screenshot1.png) | ![](https://chat2md.site/bb/media/screenshot2.png) |
+| ![](https://chat2md.site/bb/media/screenshot3.png) | ![](https://chat2md.site/bb/media/screenshot4.png) |
+| ![](https://chat2md.site/bb/media/screenshot5.png) | ![](https://chat2md.site/bb/media/screenshot6.png) |
+| ![](https://chat2md.site/bb/media/screenshot7.png) | ![](https://chat2md.site/bb/media/screenshot8.png) |
 
 手机竖屏：
 
 | | |
 | --- | --- |
-| <img src="https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot9.jpg" width="230" alt="手机竖屏截图 1"> | <img src="https://raw.githubusercontent.com/agi-hub/blackboard/assets/screenshot10.jpg" width="230" alt="手机竖屏截图 2"> |
+| <img src="https://chat2md.site/bb/media/screenshot9.jpg" width="230" alt="手机竖屏截图 1"> | <img src="https://chat2md.site/bb/media/screenshot10.jpg" width="230" alt="手机竖屏截图 2"> |
 
 ## 运行环境
 
